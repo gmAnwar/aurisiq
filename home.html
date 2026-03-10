@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AurisIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #f5f0e8;
+  --bg2:       #ffffff;
+  --bg3:       #ede8df;
+  --surface:   #e8e0d0;
+  --border:    #d5cbbf;
+  --gold:      #a0752a;
+  --gold-dim:  #c49840;
+  --gold-glow: rgba(160,117,42,0.10);
+  --amber:     #c05e0a;
+  --text:      #1a1208;
+  --text-dim:  #6b5c42;
+  --text-faint:#9e8e78;
+  --green:     #1e7a4a;
+  --yellow:    #8a6a00;
+  --red:       #c03030;
+  --mono:      'Space Mono', monospace;
+  --display:   'Bebas Neue', cursive;
+  --body:      'Outfit', sans-serif;
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* GRID BG */
+body::before {
+  content: '';
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    linear-gradient(rgba(160,117,42,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(160,117,42,0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* GLOW */
+body::after {
+  content: '';
+  position: fixed;
+  top: -20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 800px;
+  height: 400px;
+  background: radial-gradient(ellipse, rgba(160,117,42,0.06) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── HEADER ─────────────────────────────────────── */
+header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(245,240,232,0.96);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 40px;
+  height: 60px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.logo-icon { width: 30px; height: 30px; }
+.logo-text {
+  font-family: var(--display);
+  font-size: 22px; letter-spacing: 2px; color: var(--gold);
+}
+.logo-sub {
+  font-family: var(--mono);
+  font-size: 9px; color: var(--text-faint);
+  letter-spacing: 1px; text-transform: uppercase;
+  display: block; margin-top: 1px;
+}
+
+.header-right { display: flex; align-items: center; gap: 16px; }
+
+.workspace-pill {
+  font-family: var(--mono);
+  font-size: 10px; letter-spacing: 1px;
+  color: var(--gold); text-transform: uppercase;
+  background: var(--gold-glow);
+  border: 1px solid var(--gold-dim);
+  padding: 4px 12px; border-radius: 20px;
+}
+
+.usage-pill {
+  font-family: var(--mono);
+  font-size: 10px; color: var(--text-dim);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  padding: 4px 12px; border-radius: 20px;
+}
+.usage-pill span { color: var(--gold); font-weight: 700; }
+
+/* ── MAIN ────────────────────────────────────────── */
+main {
+  position: relative; z-index: 1;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 56px 24px 100px;
+}
+
+/* ── GREETING ────────────────────────────────────── */
+.greeting {
+  margin-bottom: 48px;
+  opacity: 0;
+  transform: translateY(12px);
+  animation: fadeUp .5s ease .1s forwards;
+}
+
+.greeting-label {
+  font-family: var(--mono);
+  font-size: 10px; letter-spacing: 2px;
+  color: var(--text-faint); text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.greeting-title {
+  font-family: var(--display);
+  font-size: 42px; letter-spacing: 3px;
+  color: var(--text); line-height: 1;
+}
+
+.greeting-title span { color: var(--gold); }
+
+.greeting-sub {
+  font-size: 14px; color: var(--text-dim);
+  margin-top: 8px; line-height: 1.6;
+}
+
+/* ── STAT BAR ────────────────────────────────────── */
+.stat-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 40px;
+  opacity: 0;
+  transform: translateY(12px);
+  animation: fadeUp .5s ease .2s forwards;
+}
+
+.stat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .2s;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
+  opacity: 0;
+  transition: opacity .3s;
+}
+
+.stat-card:hover { border-color: var(--gold-dim); }
+.stat-card:hover::before { opacity: 1; }
+
+.stat-label {
+  font-family: var(--mono);
+  font-size: 9px; letter-spacing: 1.5px;
+  color: var(--text-faint); text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-family: var(--display);
+  font-size: 32px; letter-spacing: 2px;
+  line-height: 1;
+}
+
+.stat-sub {
+  font-size: 11px; color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.stat-up   { color: var(--green); }
+.stat-warn { color: var(--yellow); }
+.stat-red  { color: var(--red); }
+.stat-gold { color: var(--gold); }
+
+/* ── ACTION CARDS ────────────────────────────────── */
+.section-label {
+  font-family: var(--mono);
+  font-size: 9px; letter-spacing: 2px;
+  color: var(--text-faint); text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 40px;
+  opacity: 0;
+  transform: translateY(12px);
+  animation: fadeUp .5s ease .3s forwards;
+}
+
+.action-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 28px;
+  cursor: pointer;
+  text-decoration: none;
+  display: block;
+  position: relative;
+  overflow: hidden;
+  transition: all .25s;
+}
+
+.action-card::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(210,170,80,0.04) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity .3s;
+}
+
+.action-card:hover {
+  border-color: var(--gold-dim);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,0,0,.4), 0 0 0 1px rgba(210,170,80,0.08);
+}
+
+.action-card:hover::after { opacity: 1; }
+
+/* Primary action — bigger */
+.action-card.primary {
+  grid-column: span 2;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 24px;
+  background: var(--bg2);
+  border-color: var(--gold-dim);
+  padding: 32px 36px;
+}
+
+.action-card.primary:hover {
+  border-color: var(--gold);
+  box-shadow: 0 12px 48px rgba(0,0,0,.5), 0 0 0 1px rgba(210,170,80,0.15);
+}
+
+.ac-icon {
+  width: 44px; height: 44px;
+  background: var(--gold-glow);
+  border: 1px solid var(--gold-dim);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.action-card.primary .ac-icon {
+  width: 52px; height: 52px;
+  font-size: 24px;
+  margin-bottom: 0;
+}
+
+.ac-title {
+  font-family: var(--display);
+  font-size: 22px; letter-spacing: 2px;
+  color: var(--text); margin-bottom: 6px;
+}
+
+.action-card.primary .ac-title {
+  font-size: 28px; color: var(--gold);
+}
+
+.ac-desc {
+  font-size: 13px; color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.ac-arrow {
+  font-family: var(--mono);
+  font-size: 22px; color: var(--gold-dim);
+  transition: all .2s;
+  flex-shrink: 0;
+}
+
+.action-card:hover .ac-arrow {
+  color: var(--gold);
+  transform: translateX(4px);
+}
+
+.ac-badge {
+  font-family: var(--mono);
+  font-size: 9px; letter-spacing: 1px;
+  color: var(--text-faint);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  padding: 2px 8px; border-radius: 3px;
+  margin-top: 10px;
+  display: inline-block;
+}
+
+.ac-badge.soon {
+  color: var(--amber);
+  border-color: rgba(224,123,32,.3);
+  background: rgba(224,123,32,.06);
+}
+
+/* disabled */
+.action-card.disabled {
+  opacity: .5; cursor: default;
+  pointer-events: none;
+}
+
+/* ── HISTORIAL RECIENTE ───────────────────────────── */
+.recent-section {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: fadeUp .5s ease .4s forwards;
+}
+
+.recent-list {
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+.recent-item {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 20px;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: all .2s;
+  text-decoration: none;
+}
+
+.recent-item:hover {
+  border-color: var(--gold-dim);
+  background: var(--bg3);
+}
+
+.ri-score {
+  font-family: var(--display);
+  font-size: 24px; letter-spacing: 1px;
+  width: 48px; text-align: center;
+}
+
+.ri-info { min-width: 0; }
+.ri-name {
+  font-size: 14px; font-weight: 600;
+  color: var(--text); margin-bottom: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ri-meta {
+  font-family: var(--mono);
+  font-size: 10px; color: var(--text-faint);
+}
+
+.ri-clasif {
+  font-family: var(--mono);
+  font-size: 9px; letter-spacing: .5px;
+  padding: 3px 8px; border-radius: 3px;
+  border: 1px solid; white-space: nowrap;
+}
+
+.ri-arrow {
+  color: var(--text-faint); font-size: 14px;
+  transition: all .2s;
+}
+
+.recent-item:hover .ri-arrow { color: var(--gold); transform: translateX(3px); }
+
+.empty-recent {
+  background: var(--bg2);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.empty-recent p {
+  font-family: var(--mono);
+  font-size: 11px; color: var(--text-faint);
+  letter-spacing: 1px; text-transform: uppercase;
+}
+
+.empty-cta {
+  display: inline-block;
+  margin-top: 16px;
+  font-family: var(--mono);
+  font-size: 11px; letter-spacing: 1px;
+  color: var(--gold);
+  background: var(--gold-glow);
+  border: 1px solid var(--gold-dim);
+  padding: 8px 20px; border-radius: 4px;
+  cursor: pointer;
+  transition: all .2s;
+  text-transform: uppercase;
+}
+
+.empty-cta:hover { background: rgba(210,170,80,.2); }
+
+/* Score colors */
+.score-alto     { color: #1e7a4a; border-color: rgba(30,122,74,.35);  background: rgba(30,122,74,.08); }
+.score-funcional{ color: #8a6a00; border-color: rgba(138,106,0,.35);  background: rgba(138,106,0,.08); }
+.score-problemas{ color: #c05e0a; border-color: rgba(192,94,10,.35);  background: rgba(192,94,10,.08); }
+.score-critico  { color: #c03030; border-color: rgba(192,48,48,.35);  background: rgba(192,48,48,.08); }
+
+/* ── TOAST ───────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--bg2);
+  border: 1px solid var(--gold-dim);
+  color: var(--gold);
+  font-family: var(--mono); font-size: 12px;
+  padding: 10px 16px; border-radius: 6px;
+  z-index: 1000;
+  transform: translateY(20px); opacity: 0;
+  transition: all .3s; pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0,0,0,.1);
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+
+/* ── IMPACT WIDGET ───────────────────────────────── */
+.impact-section {
+  margin-bottom: 40px;
+  opacity: 0;
+  transform: translateY(12px);
+  animation: fadeUp .5s ease .25s forwards;
+}
+
+.impact-card {
+  background: var(--bg2);
+  border: 1px solid var(--gold-dim);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(160,117,42,0.08);
+}
+
+.impact-header {
+  background: linear-gradient(135deg, var(--gold-glow), transparent);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.impact-title {
+  font-family: var(--mono);
+  font-size: 10px; letter-spacing: 2px;
+  color: var(--gold); text-transform: uppercase;
+  display: flex; align-items: center; gap: 8px;
+}
+
+.impact-title::before {
+  content: '◆';
+  font-size: 8px;
+}
+
+.impact-subtitle {
+  font-family: var(--mono);
+  font-size: 9px; color: var(--text-faint);
+  letter-spacing: 1px;
+}
+
+.impact-body {
+  padding: 24px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 24px;
+}
+
+.impact-side { }
+
+.impact-label {
+  font-family: var(--mono);
+  font-size: 9px; letter-spacing: 1.5px;
+  color: var(--text-faint); text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.impact-number {
+  font-family: var(--display);
+  font-size: 36px; letter-spacing: 2px;
+  line-height: 1;
+}
+
+.impact-number.current { color: var(--red); }
+.impact-number.potential { color: var(--green); }
+
+.impact-detail {
+  font-size: 12px; color: var(--text-dim);
+  margin-top: 4px; line-height: 1.4;
+}
+
+/* Slider middle */
+.impact-slider-col {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  min-width: 200px;
+}
+
+.slider-label {
+  font-family: var(--mono);
+  font-size: 9px; letter-spacing: 1px;
+  color: var(--text-faint); text-transform: uppercase;
+  text-align: center;
+}
+
+.slider-value {
+  font-family: var(--display);
+  font-size: 28px; letter-spacing: 2px;
+  color: var(--gold); text-align: center;
+}
+
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%; height: 4px;
+  background: var(--surface);
+  border-radius: 2px; outline: none;
+  border: 1px solid var(--border);
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--gold);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(160,117,42,0.3);
+  transition: transform .15s;
+}
+
+input[type=range]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.slider-range {
+  display: flex; justify-content: space-between; width: 100%;
+}
+
+.slider-range span {
+  font-family: var(--mono);
+  font-size: 9px; color: var(--text-faint);
+}
+
+/* Impact result bar */
+.impact-result {
+  background: var(--bg3);
+  border-top: 1px solid var(--border);
+  padding: 16px 24px;
+  display: flex; align-items: center; justify-content: space-between; gap: 24px;
+}
+
+.ir-label {
+  font-family: var(--mono);
+  font-size: 10px; letter-spacing: 1px;
+  color: var(--text-dim); text-transform: uppercase;
+}
+
+.ir-number {
+  font-family: var(--display);
+  font-size: 28px; letter-spacing: 2px;
+  color: var(--green);
+}
+
+.ir-detail {
+  font-size: 12px; color: var(--text-dim);
+}
+
+.ir-note {
+  font-family: var(--mono);
+  font-size: 9px; color: var(--text-faint);
+  letter-spacing: .5px; text-align: right; max-width: 280px;
+}
+
+/* ── ANIMATIONS ──────────────────────────────────── */
+@keyframes fadeUp {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── RESPONSIVE ──────────────────────────────────── */
+@media (max-width: 700px) {
+  header { padding: 0 20px; }
+  main { padding: 36px 16px 80px; }
+
+  .stat-bar { grid-template-columns: 1fr 1fr; }
+
+  .action-grid { grid-template-columns: 1fr; }
+  .action-card.primary {
+    grid-column: span 1;
+    grid-template-columns: 1fr;
+  }
+  .action-card.primary .ac-arrow { display: none; }
+
+  .greeting-title { font-size: 32px; }
+
+  .recent-item {
+    grid-template-columns: auto 1fr auto;
+  }
+  .ri-clasif { display: none; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="#">
+    <svg class="logo-icon" viewBox="0 0 32 32" fill="none">
+      <path d="M16 2 L28 9 L28 23 L16 30 L4 23 L4 9 Z" fill="#2e2010" stroke="#d2aa50" stroke-width="1.5"/>
+      <path d="M10 16 Q16 10 22 16 Q16 22 10 16" fill="#d2aa50" opacity="0.9"/>
+      <circle cx="16" cy="16" r="2.5" fill="#d2aa50"/>
+    </svg>
+    <div>
+      <div class="logo-text">AURISIQ</div>
+      <div class="logo-sub">Análisis de conversaciones</div>
+    </div>
+  </a>
+  <div class="header-right">
+    <div class="workspace-pill" id="header-workspace">EnPagos</div>
+    <div class="usage-pill">Este mes: <span id="uso-count">0</span> análisis</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- GREETING -->
+  <div class="greeting">
+    <div class="greeting-label">// Dashboard</div>
+    <h1 class="greeting-title">BUEN DÍA,<br><span id="greeting-name">EQUIPO</span></h1>
+    <p class="greeting-sub" id="greeting-sub">Carga una transcripción y AurisIQ evalúa el 100% de la conversación en menos de 30 segundos.</p>
+  </div>
+
+  <!-- STATS -->
+  <div class="stat-bar" id="stat-bar">
+    <div class="stat-card">
+      <div class="stat-label">Análisis este mes</div>
+      <div class="stat-value stat-gold" id="stat-mes">0</div>
+      <div class="stat-sub">transcripciones analizadas</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Score promedio</div>
+      <div class="stat-value" id="stat-avg">—</div>
+      <div class="stat-sub" id="stat-avg-label">sin datos aún</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Mejor análisis</div>
+      <div class="stat-value" id="stat-best">—</div>
+      <div class="stat-sub" id="stat-best-label">sin datos aún</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Brecha más frecuente</div>
+      <div class="stat-value" style="font-size:16px; padding-top:4px;" id="stat-brecha">—</div>
+      <div class="stat-sub" id="stat-brecha-label">sin datos aún</div>
+    </div>
+  </div>
+
+  <!-- IMPACTO FINANCIERO -->
+  <div class="impact-section">
+    <div class="impact-card">
+      <div class="impact-header">
+        <div class="impact-title">Potencial de mejora — EnPagos</div>
+        <div class="impact-subtitle">Basado en datos reales de tu equipo</div>
+      </div>
+      <div class="impact-body">
+        <!-- Actual -->
+        <div class="impact-side">
+          <div class="impact-label">Tasa actual preaut→cierre</div>
+          <div class="impact-number current" id="imp-actual">11%</div>
+          <div class="impact-detail">~<span id="imp-cierres-actual">10</span> cierres/mes<br>con 92 preautorizados</div>
+        </div>
+
+        <!-- Slider -->
+        <div class="impact-slider-col">
+          <div class="slider-label">Tu objetivo de mejora</div>
+          <div class="slider-value" id="slider-display">16%</div>
+          <input type="range" id="tasa-slider" min="11" max="25" value="16" step="1">
+          <div class="slider-range">
+            <span>Hoy: 11%</span>
+            <span>Mejor 2024: 22.5%</span>
+          </div>
+        </div>
+
+        <!-- Potencial -->
+        <div class="impact-side" style="text-align:right">
+          <div class="impact-label">Con tasa objetivo</div>
+          <div class="impact-number potential" id="imp-potencial">16%</div>
+          <div class="impact-detail">~<span id="imp-cierres-nuevo">15</span> cierres/mes<br>+<span id="imp-cierres-delta">5</span> cierres adicionales</div>
+        </div>
+      </div>
+
+      <!-- Resultado -->
+      <div class="impact-result">
+        <div>
+          <div class="ir-label">Ventas adicionales estimadas / mes</div>
+          <div class="ir-number" id="imp-ventas">$325,000 MXN</div>
+          <div class="ir-detail">× $65,000 ticket promedio · <span id="imp-cierres-delta2">5</span> cierres más</div>
+        </div>
+        <div class="ir-note">
+          Cada punto % de mejora en conversación<br>= ~1 cierre más/mes = $65K adicionales.<br>
+          <strong>Esto pasa cuando tus vendedores aplican<br>el siguiente paso de cada análisis.</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACCIONES -->
+  <div class="section-label">// Acciones</div>
+  <div class="action-grid">
+
+    <!-- PRIMARY: Nuevo análisis -->
+    <a class="action-card primary" href="aurisiq.html">
+      <div>
+        <div class="ac-title">NUEVO ANÁLISIS</div>
+        <div class="ac-desc">Pega la transcripción de una llamada o conversación. AurisIQ evalúa el 100% con el Scorecard V1 Financiero.</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:20px; flex-shrink:0;">
+        <div class="ac-icon">⚡</div>
+        <div class="ac-arrow">→</div>
+      </div>
+    </a>
+
+    <!-- Historial -->
+    <a class="action-card" href="historial.html" id="btn-historial">
+      <div class="ac-icon">◈</div>
+      <div class="ac-title">MIS ANÁLISIS</div>
+      <div class="ac-desc">Revisa todos tus análisis anteriores. Score, diagnóstico y siguiente paso de cada conversación.</div>
+      <div class="ac-badge" id="historial-count">0 análisis guardados</div>
+    </a>
+
+    <!-- Equipo -->
+    <a class="action-card disabled" href="#">
+      <div class="ac-icon">▦</div>
+      <div class="ac-title">MI EQUIPO</div>
+      <div class="ac-desc">Ranking del equipo, score promedio por vendedor y patrones de error colectivos.</div>
+      <div class="ac-badge soon">Próximamente</div>
+    </a>
+
+  </div>
+
+  <!-- HISTORIAL RECIENTE -->
+  <div class="recent-section">
+    <div class="section-label">// Últimos análisis</div>
+    <div class="recent-list" id="recent-list">
+      <div class="empty-recent">
+        <p>Sin análisis todavía</p>
+        <div class="empty-cta" onclick="window.location.href='aurisiq.html'">Hacer el primer análisis →</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div id="toast"></div>
+
+<script type="module">
+import { getHistorial, getUsoMes, getVendedoresFromHistorial } from './modules/analisis.js';
+import { WORKSPACE } from './modules/config.js';
+
+// ── Helpers ──────────────────────────────────────────────────
+function getScoreClass(s) {
+  if (s >= 85) return 'score-alto';
+  if (s >= 65) return 'score-funcional';
+  if (s >= 45) return 'score-problemas';
+  return 'score-critico';
+}
+
+function getScoreColor(s) {
+  if (s >= 85) return '#4caf7d';
+  if (s >= 65) return '#f0c040';
+  if (s >= 45) return '#e07b20';
+  return '#e05050';
+}
+
+// ── Cargar datos ─────────────────────────────────────────────
+const historial = getHistorial();
+const usoMes    = getUsoMes();
+
+// Header
+document.getElementById('header-workspace').textContent = WORKSPACE.nombre;
+document.getElementById('uso-count').textContent = usoMes;
+
+// Greeting
+const hora = new Date().getHours();
+const saludo = hora < 12 ? 'BUEN DÍA' : hora < 19 ? 'BUENAS TARDES' : 'BUENAS NOCHES';
+document.querySelector('.greeting-title').innerHTML =
+  `${saludo},<br><span>${WORKSPACE.nombre.toUpperCase()}</span>`;
+
+// ── Stats ────────────────────────────────────────────────────
+document.getElementById('stat-mes').textContent = usoMes;
+
+if (historial.length > 0) {
+  const scores = historial.map(h => h.score_general);
+  const avg    = Math.round(scores.reduce((a,b) => a+b,0) / scores.length);
+  const best   = Math.max(...scores);
+  const bestItem = historial.find(h => h.score_general === best);
+
+  const avgEl = document.getElementById('stat-avg');
+  avgEl.textContent = avg;
+  avgEl.className = 'stat-value ' + getScoreClass(avg);
+  document.getElementById('stat-avg-label').textContent = `de ${historial.length} análisis`;
+
+  document.getElementById('stat-best').textContent = best;
+  document.getElementById('stat-best').className = 'stat-value ' + getScoreClass(best);
+  document.getElementById('stat-best-label').textContent = bestItem?._meta?.vendedor || '—';
+
+  // Brecha más frecuente = fase con menor % promedio
+  const faseNames = historial[0].fases.map(f => f.nombre);
+  const fasePcts  = faseNames.map((_, fi) => {
+    const avg = historial.reduce((sum, h) => {
+      const f = h.fases[fi];
+      return sum + (f ? f.puntaje / f.maximo : 0);
+    }, 0) / historial.length;
+    return { nombre: faseNames[fi], pct: avg };
+  });
+
+  const weakest = fasePcts.sort((a,b) => a.pct - b.pct)[0];
+  const brechaEl = document.getElementById('stat-brecha');
+  brechaEl.textContent = weakest.nombre.split(' ')[0]; // primera palabra
+  brechaEl.style.color = 'var(--red)';
+  document.getElementById('stat-brecha-label').textContent =
+    `${Math.round(weakest.pct * 100)}% promedio del equipo`;
+}
+
+// ── Historial badge ──────────────────────────────────────────
+document.getElementById('historial-count').textContent =
+  `${historial.length} análisis guardados`;
+
+// ── Impact slider ────────────────────────────────────────────
+  const PREAUT_MES   = 92;
+  const TICKET       = 65000;
+  const TASA_ACTUAL  = 0.11;
+
+  const slider          = document.getElementById('tasa-slider');
+  const sliderDisplay   = document.getElementById('slider-display');
+  const impPotencial    = document.getElementById('imp-potencial');
+  const impCierresNuevo = document.getElementById('imp-cierres-nuevo');
+  const impCierresDelta = document.getElementById('imp-cierres-delta');
+  const impCierresDelta2= document.getElementById('imp-cierres-delta2');
+  const impVentas       = document.getElementById('imp-ventas');
+  const impCierresActual= document.getElementById('imp-cierres-actual');
+
+  const cierresActual = Math.round(PREAUT_MES * TASA_ACTUAL);
+  impCierresActual.textContent = cierresActual;
+
+  function updateImpact() {
+    const tasa    = parseInt(slider.value) / 100;
+    const cierres = Math.round(PREAUT_MES * tasa);
+    const delta   = cierres - cierresActual;
+    const ventas  = delta * TICKET;
+
+    sliderDisplay.textContent     = slider.value + '%';
+    impPotencial.textContent      = slider.value + '%';
+    impCierresNuevo.textContent   = cierres;
+    impCierresDelta.textContent   = '+' + delta;
+    impCierresDelta2.textContent  = delta;
+    impVentas.textContent = '$' + ventas.toLocaleString('es-MX') + ' MXN';
+
+    // Color dinámico verde según mejora
+    const pct = Math.min(1, (parseInt(slider.value) - 11) / 14);
+    const r = Math.round(192 * (1 - pct));
+    const g = Math.round(48 + 74 * pct);
+    const b = Math.round(48 * (1 - pct) + 74 * pct);
+    if (delta > 0) impVentas.style.color = `rgb(${r},${g},${b})`;
+    else impVentas.style.color = 'var(--text-dim)';
+  }
+
+  slider.addEventListener('input', updateImpact);
+  updateImpact();
+
+// ── Recientes ────────────────────────────────────────────────
+const recentList = document.getElementById('recent-list');
+
+if (historial.length > 0) {
+  recentList.innerHTML = historial.slice(0, 5).map((h, i) => {
+    const fecha = new Date(h._meta.fecha).toLocaleDateString('es-MX', {
+      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+    });
+    const sc    = getScoreClass(h.score_general);
+    const color = getScoreColor(h.score_general);
+    return `
+      <div class="recent-item" data-idx="${i}">
+        <div class="ri-score" style="color:${color}">${h.score_general}</div>
+        <div class="ri-info">
+          <div class="ri-name">${h._meta.vendedor}</div>
+          <div class="ri-meta">${h._meta.empresa} · ${h._meta.producto} · ${fecha}</div>
+        </div>
+        <div class="ri-clasif ${sc}">${h.clasificacion}</div>
+        <div class="ri-arrow">→</div>
+      </div>`;
+  }).join('');
+
+  // Click → ir a aurisiq.html con el análisis (via localStorage flag)
+  recentList.querySelectorAll('.recent-item').forEach(el => {
+    el.addEventListener('click', () => {
+      localStorage.setItem('aurisiq_ver_idx', el.dataset.idx);
+      window.location.href = 'aurisiq.html';
+    });
+  });
+}
+</script>
+</body>
+</html>
