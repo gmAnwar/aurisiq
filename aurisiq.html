@@ -267,6 +267,65 @@
     font-size: 13px;
   }
 
+  /* ── DRAG & DROP ── */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+    margin-bottom: 8px;
+    background: var(--bg2);
+    position: relative;
+  }
+
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--gold-dim);
+    background: var(--gold-glow);
+  }
+
+  .drop-zone.loaded {
+    border-color: var(--green);
+    border-style: solid;
+    background: rgba(76,175,125,0.05);
+  }
+
+  .drop-icon {
+    font-size: 24px;
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  .drop-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  .drop-label span {
+    color: var(--gold);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+
+  .drop-label.success {
+    color: var(--green);
+  }
+
+  .drop-input {
+    display: none;
+  }
+
+  .drop-formats {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-faint);
+    margin-top: 4px;
+  }
+
   .char-count {
     font-family: var(--mono);
     font-size: 10px;
@@ -1038,7 +1097,13 @@
             </div>
             <div class="form-group">
               <label>Transcripción</label>
-              <textarea id="transcripcion" placeholder="Pega aquí la transcripción completa de la llamada o conversación...
+              <div class="drop-zone" id="drop-zone" onclick="document.getElementById('drop-input').click()">
+                <input type="file" id="drop-input" class="drop-input" accept=".txt,.doc,.docx,.pdf,.md">
+                <span class="drop-icon" id="drop-icon">📄</span>
+                <div class="drop-label" id="drop-label">Arrastra un archivo aquí o <span>selecciónalo</span></div>
+                <div class="drop-formats">.txt · .doc · .docx · .pdf · .md</div>
+              </div>
+              <textarea id="transcripcion" placeholder="...o pega aquí la transcripción completa de la llamada o conversación...
 
 Vendedor: Buenos días, le llamo de EnPagos...
 Prospecto: Sí, dígame..." oninput="updateCharCount()"></textarea>
@@ -1282,6 +1347,70 @@ function verHistorial(idx) {
   renderResultado(analisisActual);
   document.getElementById('resultado-section').scrollIntoView({ behavior: 'smooth' });
 }
+
+// ── DRAG & DROP ──────────────────────────────────────────────
+const dropZone  = document.getElementById('drop-zone');
+const dropInput = document.getElementById('drop-input');
+const dropIcon  = document.getElementById('drop-icon');
+const dropLabel = document.getElementById('drop-label');
+const textarea  = document.getElementById('transcripcion');
+
+function loadFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+
+  // Para .docx usamos mammoth si está disponible, sino texto plano
+  if (ext === 'docx') {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const mammoth = await import('https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js');
+        const result = await mammoth.extractRawText({ arrayBuffer: e.target.result });
+        setTranscripcion(result.value, file.name);
+      } catch {
+        showToast('No se pudo leer el .docx — intenta copiar y pegar el texto');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    return;
+  }
+
+  // .txt, .md, .pdf (texto plano), y otros
+  const reader = new FileReader();
+  reader.onload = (e) => setTranscripcion(e.target.result, file.name);
+  reader.readAsText(file, 'UTF-8');
+}
+
+function setTranscripcion(texto, nombre) {
+  textarea.value = texto;
+  updateCharCount();
+  dropIcon.textContent = '✅';
+  dropLabel.innerHTML  = `<span style="color:var(--green)">${nombre} cargado</span> — <span onclick="clearDrop()" style="cursor:pointer;color:var(--gold)">cambiar archivo</span>`;
+  dropZone.classList.add('loaded');
+}
+
+window.clearDrop = function() {
+  textarea.value = '';
+  updateCharCount();
+  dropIcon.textContent = '📄';
+  dropLabel.innerHTML  = 'Arrastra un archivo aquí o <span>selecciónalo</span>';
+  dropZone.classList.remove('loaded');
+  dropInput.value = '';
+};
+
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) loadFile(file);
+});
+
+dropInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) loadFile(file);
+});
+
 </script>
 </body>
 </html>
