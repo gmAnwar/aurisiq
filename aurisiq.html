@@ -77,17 +77,15 @@
   .back-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
     font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 1px;
+    font-size: 16px;
     color: var(--text-dim);
     text-decoration: none;
-    padding: 6px 10px;
+    padding: 4px 8px;
     border-radius: 4px;
     border: 1px solid transparent;
     transition: all .2s;
-    margin-right: 8px;
+    line-height: 1;
   }
 
   .back-btn:hover {
@@ -95,8 +93,6 @@
     border-color: var(--border);
     background: var(--bg3);
   }
-
-  .back-arrow { font-size: 14px; }
 
   .logo-icon {
     width: 32px;
@@ -806,6 +802,23 @@
   /* PAGE TITLE */
   .page-title {
     margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .page-title-text h1 {
+    font-family: var(--display);
+    font-size: 32px;
+    letter-spacing: 3px;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .page-title-text p {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 6px;
   }
 
   .page-title h1 {
@@ -955,22 +968,17 @@
 
 <!-- HEADER -->
 <header>
-  <div style="display:flex; align-items:center; gap:4px;">
-    <a class="back-btn" href="index.html">
-      <span class="back-arrow">←</span> Home
-    </a>
-    <a class="logo" href="index.html">
-      <svg class="logo-icon" viewBox="0 0 32 32" fill="none">
-        <path d="M16 2 L28 9 L28 23 L16 30 L4 23 L4 9 Z" fill="#2e2010" stroke="#d2aa50" stroke-width="1.5"/>
-        <path d="M10 16 Q16 10 22 16 Q16 22 10 16" fill="#d2aa50" opacity="0.9"/>
-        <circle cx="16" cy="16" r="2.5" fill="#d2aa50"/>
-      </svg>
-      <div>
-        <div class="logo-text">AURISIQ</div>
-        <div class="logo-sub">ANÁLISIS DE CONVERSACIONES</div>
-      </div>
-    </a>
-  </div>
+  <a class="logo" href="index.html">
+    <svg class="logo-icon" viewBox="0 0 32 32" fill="none">
+      <path d="M16 2 L28 9 L28 23 L16 30 L4 23 L4 9 Z" fill="#2e2010" stroke="#d2aa50" stroke-width="1.5"/>
+      <path d="M10 16 Q16 10 22 16 Q16 22 10 16" fill="#d2aa50" opacity="0.9"/>
+      <circle cx="16" cy="16" r="2.5" fill="#d2aa50"/>
+    </svg>
+    <div>
+      <div class="logo-text">AURISIQ</div>
+      <div class="logo-sub">ANÁLISIS DE CONVERSACIONES</div>
+    </div>
+  </a>
   <div class="header-right">
     <div class="usage-badge" id="usage-display">Análisis este mes: <span id="uso-count">0</span>/5</div>
     <div class="nav-tabs">
@@ -986,8 +994,11 @@
   <!-- ===== PANTALLA 1: ANÁLISIS ===== -->
   <div id="screen-analisis" class="screen active">
     <div class="page-title">
-      <h1>NUEVO ANÁLISIS</h1>
-      <p>Pega la transcripción · AurisIQ evalúa el 100% de la conversación</p>
+      <a class="back-btn" href="index.html">←</a>
+      <div class="page-title-text">
+        <h1>NUEVO ANÁLISIS</h1>
+        <p>Pega la transcripción · AurisIQ evalúa el 100% de la conversación</p>
+      </div>
     </div>
 
     <div class="analysis-grid">
