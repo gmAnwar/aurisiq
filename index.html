@@ -1,11 +1,293 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta http-equiv="refresh" content="0; url=aurisiq.html">
-<title>AurisIQ</title>
-</head>
-<body>
-<script>window.location.href = 'home.html';</script>
-</body>
-</html>
+&lt;!DOCTYPE html&gt;
+&lt;html lang="es"&gt;
+&lt;head&gt;
+&lt;meta charset="UTF-8"&gt;
+&lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+&lt;title&gt;AurisIQ&lt;/title&gt;
+&lt;link rel="preconnect" href="https://fonts.googleapis.com"&gt;
+&lt;link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&amp;family=Space+Mono:wght@400;700&amp;family=Outfit:wght@300;400;500;600&amp;display=swap" rel="stylesheet"&gt;
+&lt;style&gt;
+:root {
+  --bg:        #f5f0e8;
+  --bg2:       #ffffff;
+  --bg3:       #ede8df;
+  --surface:   #e8e0d0;
+  --border:    #d5cbbf;
+  --gold:      #a0752a;
+  --gold-dim:  #c49840;
+  --gold-glow: rgba(160,117,42,0.10);
+  --amber:     #c05e0a;
+  --text:      #1a1208;
+  --text-dim:  #6b5c42;
+  --text-faint:#9e8e78;
+  --green:     #1e7a4a;
+  --yellow:    #8a6a00;
+  --red:       #c03030;
+  --mono:      'Space Mono', monospace;
+  --display:   'Bebas Neue', cursive;
+  --body:      'Outfit', sans-serif;
+}
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text); font-family: var(--body); min-height: 100vh; overflow-x: hidden; }
+body::before { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; background-image: linear-gradient(rgba(160,117,42,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(160,117,42,0.06) 1px, transparent 1px); background-size: 48px 48px; }
+body::after { content: ''; position: fixed; top: -20%; left: 50%; transform: translateX(-50%); width: 800px; height: 400px; background: radial-gradient(ellipse, rgba(160,117,42,0.06) 0%, transparent 70%); pointer-events: none; z-index: 0; }
+header { position: sticky; top: 0; z-index: 100; background: rgba(245,240,232,0.96); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); padding: 0 40px; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.logo-icon { width: 30px; height: 30px; }
+.logo-text { font-family: var(--display); font-size: 22px; letter-spacing: 2px; color: var(--gold); }
+.logo-sub { font-family: var(--mono); font-size: 9px; color: var(--text-faint); letter-spacing: 1px; text-transform: uppercase; display: block; margin-top: 1px; }
+.header-right { display: flex; align-items: center; gap: 16px; }
+.workspace-pill { font-family: var(--mono); font-size: 10px; letter-spacing: 1px; color: var(--gold); text-transform: uppercase; background: var(--gold-glow); border: 1px solid var(--gold-dim); padding: 4px 12px; border-radius: 20px; }
+.usage-pill { font-family: var(--mono); font-size: 10px; color: var(--text-dim); background: var(--bg3); border: 1px solid var(--border); padding: 4px 12px; border-radius: 20px; }
+.usage-pill span { color: var(--gold); font-weight: 700; }
+main { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 56px 24px 100px; }
+.greeting { margin-bottom: 48px; opacity: 0; transform: translateY(12px); animation: fadeUp .5s ease .1s forwards; }
+.greeting-label { font-family: var(--mono); font-size: 10px; letter-spacing: 2px; color: var(--text-faint); text-transform: uppercase; margin-bottom: 8px; }
+.greeting-title { font-family: var(--display); font-size: 42px; letter-spacing: 3px; color: var(--text); line-height: 1; }
+.greeting-title span { color: var(--gold); }
+.greeting-sub { font-size: 14px; color: var(--text-dim); margin-top: 8px; line-height: 1.6; }
+.stat-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 40px; opacity: 0; transform: translateY(12px); animation: fadeUp .5s ease .2s forwards; }
+.stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; position: relative; overflow: hidden; transition: border-color .2s; }
+.stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--gold-dim), transparent); opacity: 0; transition: opacity .3s; }
+.stat-card:hover { border-color: var(--gold-dim); }
+.stat-card:hover::before { opacity: 1; }
+.stat-label { font-family: var(--mono); font-size: 9px; letter-spacing: 1.5px; color: var(--text-faint); text-transform: uppercase; margin-bottom: 8px; }
+.stat-value { font-family: var(--display); font-size: 32px; letter-spacing: 2px; line-height: 1; }
+.stat-sub { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+.stat-up { color: var(--green); } .stat-warn { color: var(--yellow); } .stat-red { color: var(--red); } .stat-gold { color: var(--gold); }
+.section-label { font-family: var(--mono); font-size: 9px; letter-spacing: 2px; color: var(--text-faint); text-transform: uppercase; margin-bottom: 16px; }
+.action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 40px; opacity: 0; transform: translateY(12px); animation: fadeUp .5s ease .3s forwards; }
+.action-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 28px; cursor: pointer; text-decoration: none; display: block; position: relative; overflow: hidden; transition: all .25s; }
+.action-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(210,170,80,0.04) 0%, transparent 60%); opacity: 0; transition: opacity .3s; }
+.action-card:hover { border-color: var(--gold-dim); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,.08); }
+.action-card:hover::after { opacity: 1; }
+.action-card.primary { grid-column: span 2; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 24px; background: var(--bg2); border-color: var(--gold-dim); padding: 32px 36px; }
+.action-card.primary:hover { border-color: var(--gold); box-shadow: 0 12px 48px rgba(0,0,0,.1); }
+.ac-icon { width: 44px; height: 44px; background: var(--gold-glow); border: 1px solid var(--gold-dim); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 16px; flex-shrink: 0; }
+.action-card.primary .ac-icon { width: 52px; height: 52px; font-size: 24px; margin-bottom: 0; }
+.ac-title { font-family: var(--display); font-size: 22px; letter-spacing: 2px; color: var(--text); margin-bottom: 6px; }
+.action-card.primary .ac-title { font-size: 28px; color: var(--gold); }
+.ac-desc { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+.ac-arrow { font-family: var(--mono); font-size: 22px; color: var(--gold-dim); transition: all .2s; flex-shrink: 0; }
+.action-card:hover .ac-arrow { color: var(--gold); transform: translateX(4px); }
+.ac-badge { font-family: var(--mono); font-size: 9px; letter-spacing: 1px; color: var(--text-faint); background: var(--bg3); border: 1px solid var(--border); padding: 2px 8px; border-radius: 3px; margin-top: 10px; display: inline-block; }
+.ac-badge.soon { color: var(--amber); border-color: rgba(224,123,32,.3); background: rgba(224,123,32,.06); }
+.action-card.disabled { opacity: .5; cursor: default; pointer-events: none; }
+.recent-section { opacity: 0; transform: translateY(12px); animation: fadeUp .5s ease .4s forwards; }
+.recent-list { display: flex; flex-direction: column; gap: 8px; }
+.recent-item { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 20px; display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 16px; cursor: pointer; transition: all .2s; text-decoration: none; }
+.recent-item:hover { border-color: var(--gold-dim); background: var(--bg3); }
+.ri-score { font-family: var(--display); font-size: 24px; letter-spacing: 1px; width: 48px; text-align: center; }
+.ri-info { min-width: 0; }
+.ri-name { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ri-meta { font-family: var(--mono); font-size: 10px; color: var(--text-faint); }
+.ri-clasif { font-family: var(--mono); font-size: 9px; letter-spacing: .5px; padding: 3px 8px; border-radius: 3px; border: 1px solid; white-space: nowrap; }
+.ri-arrow { color: var(--text-faint); font-size: 14px; transition: all .2s; }
+.recent-item:hover .ri-arrow { color: var(--gold); transform: translateX(3px); }
+.empty-recent { background: var(--bg2); border: 1px dashed var(--border); border-radius: 8px; padding: 40px 24px; text-align: center; }
+.empty-recent p { font-family: var(--mono); font-size: 11px; color: var(--text-faint); letter-spacing: 1px; text-transform: uppercase; }
+.empty-cta { display: inline-block; margin-top: 16px; font-family: var(--mono); font-size: 11px; letter-spacing: 1px; color: var(--gold); background: var(--gold-glow); border: 1px solid var(--gold-dim); padding: 8px 20px; border-radius: 4px; cursor: pointer; transition: all .2s; text-transform: uppercase; }
+.empty-cta:hover { background: rgba(210,170,80,.2); }
+.score-alto { color: #1e7a4a; border-color: rgba(30,122,74,.35); background: rgba(30,122,74,.08); }
+.score-funcional { color: #8a6a00; border-color: rgba(138,106,0,.35); background: rgba(138,106,0,.08); }
+.score-problemas { color: #c05e0a; border-color: rgba(192,94,10,.35); background: rgba(192,94,10,.08); }
+.score-critico { color: #c03030; border-color: rgba(192,48,48,.35); background: rgba(192,48,48,.08); }
+.fab { position: fixed; bottom: 28px; right: 28px; z-index: 200; display: flex; align-items: center; gap: 10px; background: var(--gold); color: #fff; font-family: var(--display); font-size: 16px; letter-spacing: 2px; padding: 14px 24px; border-radius: 40px; text-decoration: none; box-shadow: 0 4px 20px rgba(160,117,42,0.35); transition: all .2s; }
+.fab:hover { background: var(--gold-dim); transform: translateY(-2px); box-shadow: 0 8px 28px rgba(160,117,42,0.45); }
+.fab-icon { font-size: 18px; }
+#toast { position: fixed; bottom: 24px; right: 24px; background: var(--bg2); border: 1px solid var(--gold-dim); color: var(--gold); font-family: var(--mono); font-size: 12px; padding: 10px 16px; border-radius: 6px; z-index: 1000; transform: translateY(20px); opacity: 0; transition: all .3s; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,.1); }
+#toast.show { transform: translateY(0); opacity: 1; }
+.impact-section { margin-bottom: 40px; opacity: 0; transform: translateY(12px); animation: fadeUp .5s ease .25s forwards; }
+.impact-card { background: var(--bg2); border: 1px solid var(--gold-dim); border-radius: 10px; overflow: hidden; box-shadow: 0 2px 12px rgba(160,117,42,0.08); }
+.impact-header { background: linear-gradient(135deg, var(--gold-glow), transparent); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+.impact-title { font-family: var(--mono); font-size: 10px; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+.impact-title::before { content: '◆'; font-size: 8px; }
+.impact-subtitle { font-family: var(--mono); font-size: 9px; color: var(--text-faint); letter-spacing: 1px; }
+.impact-body { padding: 24px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 24px; }
+.impact-label { font-family: var(--mono); font-size: 9px; letter-spacing: 1.5px; color: var(--text-faint); text-transform: uppercase; margin-bottom: 6px; }
+.impact-number { font-family: var(--display); font-size: 36px; letter-spacing: 2px; line-height: 1; }
+.impact-number.current { color: var(--red); }
+.impact-number.potential { color: var(--green); }
+.impact-detail { font-size: 12px; color: var(--text-dim); margin-top: 4px; line-height: 1.4; }
+.impact-slider-col { display: flex; flex-direction: column; align-items: center; gap: 12px; min-width: 200px; }
+.slider-label { font-family: var(--mono); font-size: 9px; letter-spacing: 1px; color: var(--text-faint); text-transform: uppercase; text-align: center; }
+.slider-value { font-family: var(--display); font-size: 28px; letter-spacing: 2px; color: var(--gold); text-align: center; }
+input[type=range] { -webkit-appearance: none; width: 100%; height: 4px; background: var(--surface); border-radius: 2px; outline: none; border: 1px solid var(--border); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; background: var(--gold); border-radius: 50%; cursor: pointer; box-shadow: 0 2px 6px rgba(160,117,42,0.3); transition: transform .15s; }
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+.slider-range { display: flex; justify-content: space-between; width: 100%; }
+.slider-range span { font-family: var(--mono); font-size: 9px; color: var(--text-faint); }
+.impact-result { background: var(--bg3); border-top: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.ir-label { font-family: var(--mono); font-size: 10px; letter-spacing: 1px; color: var(--text-dim); text-transform: uppercase; }
+.ir-number { font-family: var(--display); font-size: 28px; letter-spacing: 2px; color: var(--green); }
+.ir-detail { font-size: 12px; color: var(--text-dim); }
+.ir-note { font-family: var(--mono); font-size: 9px; color: var(--text-faint); letter-spacing: .5px; text-align: right; max-width: 280px; }
+@keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 700px) {
+  header { padding: 0 20px; } main { padding: 36px 16px 80px; }
+  .stat-bar { grid-template-columns: 1fr 1fr; }
+  .action-grid { grid-template-columns: 1fr; }
+  .action-card.primary { grid-column: span 1; grid-template-columns: 1fr; }
+  .action-card.primary .ac-arrow { display: none; }
+  .greeting-title { font-size: 32px; }
+  .recent-item { grid-template-columns: auto 1fr auto; }
+  .ri-clasif { display: none; }
+  .fab { bottom: 20px; right: 16px; padding: 12px 20px; font-size: 14px; }
+}
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;header&gt;
+  &lt;a class="logo" href="#"&gt;
+    &lt;svg class="logo-icon" viewBox="0 0 32 32" fill="none"&gt;
+      &lt;path d="M16 2 L28 9 L28 23 L16 30 L4 23 L4 9 Z" fill="#e8e0d0" stroke="#a0752a" stroke-width="1.5"/&gt;
+      &lt;path d="M10 16 Q16 10 22 16 Q16 22 10 16" fill="#a0752a" opacity="0.9"/&gt;
+      &lt;circle cx="16" cy="16" r="2.5" fill="#a0752a"/&gt;
+    &lt;/svg&gt;
+    &lt;div&gt;
+      &lt;div class="logo-text"&gt;AURISIQ&lt;/div&gt;
+      &lt;div class="logo-sub"&gt;Análisis de conversaciones&lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/a&gt;
+  &lt;div class="header-right"&gt;
+    &lt;div class="workspace-pill" id="header-workspace"&gt;EnPagos&lt;/div&gt;
+    &lt;div class="usage-pill"&gt;Este mes: &lt;span id="uso-count"&gt;0&lt;/span&gt; análisis&lt;/div&gt;
+  &lt;/div&gt;
+&lt;/header&gt;
+&lt;main&gt;
+  &lt;div class="greeting"&gt;
+    &lt;div class="greeting-label"&gt;// Dashboard&lt;/div&gt;
+    &lt;h1 class="greeting-title"&gt;BUEN DÍA,&lt;br&gt;&lt;span id="greeting-name"&gt;EQUIPO&lt;/span&gt;&lt;/h1&gt;
+    &lt;p class="greeting-sub"&gt;Carga una transcripción y AurisIQ evalúa el 100% de la conversación en menos de 30 segundos.&lt;/p&gt;
+  &lt;/div&gt;
+  &lt;div class="stat-bar"&gt;
+    &lt;div class="stat-card"&gt;&lt;div class="stat-label"&gt;Análisis este mes&lt;/div&gt;&lt;div class="stat-value stat-gold" id="stat-mes"&gt;0&lt;/div&gt;&lt;div class="stat-sub"&gt;transcripciones analizadas&lt;/div&gt;&lt;/div&gt;
+    &lt;div class="stat-card"&gt;&lt;div class="stat-label"&gt;Score promedio&lt;/div&gt;&lt;div class="stat-value" id="stat-avg"&gt;—&lt;/div&gt;&lt;div class="stat-sub" id="stat-avg-label"&gt;sin datos aún&lt;/div&gt;&lt;/div&gt;
+    &lt;div class="stat-card"&gt;&lt;div class="stat-label"&gt;Mejor análisis&lt;/div&gt;&lt;div class="stat-value" id="stat-best"&gt;—&lt;/div&gt;&lt;div class="stat-sub" id="stat-best-label"&gt;sin datos aún&lt;/div&gt;&lt;/div&gt;
+    &lt;div class="stat-card"&gt;&lt;div class="stat-label"&gt;Brecha más frecuente&lt;/div&gt;&lt;div class="stat-value" style="font-size:16px;padding-top:4px" id="stat-brecha"&gt;—&lt;/div&gt;&lt;div class="stat-sub" id="stat-brecha-label"&gt;sin datos aún&lt;/div&gt;&lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class="impact-section"&gt;
+    &lt;div class="impact-card"&gt;
+      &lt;div class="impact-header"&gt;
+        &lt;div class="impact-title"&gt;Potencial de mejora — EnPagos&lt;/div&gt;
+        &lt;div class="impact-subtitle"&gt;Basado en datos reales de tu equipo&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class="impact-body"&gt;
+        &lt;div class="impact-side"&gt;
+          &lt;div class="impact-label"&gt;Tasa actual preaut→cierre&lt;/div&gt;
+          &lt;div class="impact-number current" id="imp-actual"&gt;11%&lt;/div&gt;
+          &lt;div class="impact-detail"&gt;~&lt;span id="imp-cierres-actual"&gt;10&lt;/span&gt; cierres/mes&lt;br&gt;con 92 preautorizados&lt;/div&gt;
+        &lt;/div&gt;
+        &lt;div class="impact-slider-col"&gt;
+          &lt;div class="slider-label"&gt;Tu objetivo de mejora&lt;/div&gt;
+          &lt;div class="slider-value" id="slider-display"&gt;16%&lt;/div&gt;
+          &lt;input type="range" id="tasa-slider" min="11" max="25" value="16" step="1"&gt;
+          &lt;div class="slider-range"&gt;&lt;span&gt;Hoy: 11%&lt;/span&gt;&lt;span&gt;Mejor 2024: 22.5%&lt;/span&gt;&lt;/div&gt;
+        &lt;/div&gt;
+        &lt;div class="impact-side" style="text-align:right"&gt;
+          &lt;div class="impact-label"&gt;Con tasa objetivo&lt;/div&gt;
+          &lt;div class="impact-number potential" id="imp-potencial"&gt;16%&lt;/div&gt;
+          &lt;div class="impact-detail"&gt;~&lt;span id="imp-cierres-nuevo"&gt;15&lt;/span&gt; cierres/mes&lt;br&gt;+&lt;span id="imp-cierres-delta"&gt;5&lt;/span&gt; cierres adicionales&lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class="impact-result"&gt;
+        &lt;div&gt;
+          &lt;div class="ir-label"&gt;Ventas adicionales estimadas / mes&lt;/div&gt;
+          &lt;div class="ir-number" id="imp-ventas"&gt;$325,000 MXN&lt;/div&gt;
+          &lt;div class="ir-detail"&gt;× $65,000 ticket promedio · &lt;span id="imp-cierres-delta2"&gt;5&lt;/span&gt; cierres más&lt;/div&gt;
+        &lt;/div&gt;
+        &lt;div class="ir-note"&gt;Cada punto % de mejora en conversación&lt;br&gt;= ~1 cierre más/mes = $65K adicionales.&lt;br&gt;&lt;strong&gt;Esto pasa cuando tus vendedores aplican&lt;br&gt;el siguiente paso de cada análisis.&lt;/strong&gt;&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class="section-label"&gt;// Acciones&lt;/div&gt;
+  &lt;div class="action-grid"&gt;
+    &lt;a class="action-card primary" href="aurisiq.html"&gt;
+      &lt;div&gt;&lt;div class="ac-title"&gt;NUEVO ANÁLISIS&lt;/div&gt;&lt;div class="ac-desc"&gt;Pega la transcripción de una llamada o conversación. AurisIQ evalúa el 100% con el Scorecard V1 Financiero.&lt;/div&gt;&lt;/div&gt;
+      &lt;div style="display:flex;align-items:center;gap:20px;flex-shrink:0"&gt;&lt;div class="ac-icon"&gt;⚡&lt;/div&gt;&lt;div class="ac-arrow"&gt;→&lt;/div&gt;&lt;/div&gt;
+    &lt;/a&gt;
+    &lt;a class="action-card" href="historial.html" id="btn-historial"&gt;
+      &lt;div class="ac-icon"&gt;◈&lt;/div&gt;&lt;div class="ac-title"&gt;MIS ANÁLISIS&lt;/div&gt;
+      &lt;div class="ac-desc"&gt;Revisa todos tus análisis anteriores. Score, diagnóstico y siguiente paso de cada conversación.&lt;/div&gt;
+      &lt;div class="ac-badge" id="historial-count"&gt;0 análisis guardados&lt;/div&gt;
+    &lt;/a&gt;
+    &lt;a class="action-card disabled" href="#"&gt;
+      &lt;div class="ac-icon"&gt;▦&lt;/div&gt;&lt;div class="ac-title"&gt;MI EQUIPO&lt;/div&gt;
+      &lt;div class="ac-desc"&gt;Ranking del equipo, score promedio por vendedor y patrones de error colectivos.&lt;/div&gt;
+      &lt;div class="ac-badge soon"&gt;Próximamente&lt;/div&gt;
+    &lt;/a&gt;
+  &lt;/div&gt;
+  &lt;div class="recent-section"&gt;
+    &lt;div class="section-label"&gt;// Últimos análisis&lt;/div&gt;
+    &lt;div class="recent-list" id="recent-list"&gt;
+      &lt;div class="empty-recent"&gt;
+        &lt;p&gt;Sin análisis todavía&lt;/p&gt;
+        &lt;div class="empty-cta" onclick="window.location.href='aurisiq.html'"&gt;Hacer el primer análisis →&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/main&gt;
+&lt;a class="fab" href="aurisiq.html"&gt;&lt;span class="fab-icon"&gt;⚡&lt;/span&gt; NUEVO ANÁLISIS&lt;/a&gt;
+&lt;div id="toast"&gt;&lt;/div&gt;
+&lt;script type="module"&gt;
+import { getHistorial, getUsoMes } from './modules/analisis.js';
+import { WORKSPACE } from './modules/config.js';
+function getScoreClass(s) { if (s&gt;=85) return 'score-alto'; if (s&gt;=65) return 'score-funcional'; if (s&gt;=45) return 'score-problemas'; return 'score-critico'; }
+function getScoreColor(s) { if (s&gt;=85) return '#1e7a4a'; if (s&gt;=65) return '#8a6a00'; if (s&gt;=45) return '#c05e0a'; return '#c03030'; }
+const historial = getHistorial();
+const usoMes = getUsoMes();
+document.getElementById('header-workspace').textContent = WORKSPACE.nombre;
+document.getElementById('uso-count').textContent = usoMes;
+const hora = new Date().getHours();
+const saludo = hora &lt; 12 ? 'BUEN DÍA' : hora &lt; 19 ? 'BUENAS TARDES' : 'BUENAS NOCHES';
+document.querySelector('.greeting-title').innerHTML = `${saludo},&lt;br&gt;&lt;span&gt;${WORKSPACE.nombre.toUpperCase()}&lt;/span&gt;`;
+document.getElementById('stat-mes').textContent = usoMes;
+if (historial.length &gt; 0) {
+  const scores = historial.map(h =&gt; h.score_general);
+  const avg = Math.round(scores.reduce((a,b) =&gt; a+b,0) / scores.length);
+  const best = Math.max(...scores);
+  const bestItem = historial.find(h =&gt; h.score_general === best);
+  const avgEl = document.getElementById('stat-avg');
+  avgEl.textContent = avg; avgEl.className = 'stat-value ' + getScoreClass(avg);
+  document.getElementById('stat-avg-label').textContent = `de ${historial.length} análisis`;
+  document.getElementById('stat-best').textContent = best;
+  document.getElementById('stat-best').className = 'stat-value ' + getScoreClass(best);
+  document.getElementById('stat-best-label').textContent = bestItem?._meta?.vendedor || '—';
+  const faseNames = historial[0].fases.map(f =&gt; f.nombre);
+  const fasePcts = faseNames.map((_,fi) =&gt; { const a = historial.reduce((s,h) =&gt; { const f=h.fases[fi]; return s+(f?f.puntaje/f.maximo:0); },0)/historial.length; return {nombre:faseNames[fi],pct:a}; });
+  const weakest = fasePcts.sort((a,b) =&gt; a.pct-b.pct)[0];
+  const brechaEl = document.getElementById('stat-brecha');
+  brechaEl.textContent = weakest.nombre.split(' ')[0]; brechaEl.style.color = 'var(--red)';
+  document.getElementById('stat-brecha-label').textContent = `${Math.round(weakest.pct*100)}% promedio del equipo`;
+}
+document.getElementById('historial-count').textContent = `${historial.length} análisis guardados`;
+const PREAUT_MES=92, TICKET=65000, TASA_ACTUAL=0.11;
+const slider=document.getElementById('tasa-slider'), sliderDisplay=document.getElementById('slider-display');
+const impPotencial=document.getElementById('imp-potencial'), impCierresNuevo=document.getElementById('imp-cierres-nuevo');
+const impCierresDelta=document.getElementById('imp-cierres-delta'), impCierresDelta2=document.getElementById('imp-cierres-delta2');
+const impVentas=document.getElementById('imp-ventas'), impCierresActual=document.getElementById('imp-cierres-actual');
+const cierresActual=Math.round(PREAUT_MES*TASA_ACTUAL);
+impCierresActual.textContent=cierresActual;
+function updateImpact() {
+  const tasa=parseInt(slider.value)/100, cierres=Math.round(PREAUT_MES*tasa), delta=cierres-cierresActual, ventas=delta*TICKET;
+  sliderDisplay.textContent=slider.value+'%'; impPotencial.textContent=slider.value+'%';
+  impCierresNuevo.textContent=cierres; impCierresDelta.textContent='+'+delta; impCierresDelta2.textContent=delta;
+  impVentas.textContent='$'+ventas.toLocaleString('es-MX')+' MXN';
+  const pct=Math.min(1,(parseInt(slider.value)-11)/14);
+  const r=Math.round(192*(1-pct)), g=Math.round(48+74*pct), b=Math.round(48*(1-pct)+74*pct);
+  impVentas.style.color = delta&gt;0 ? `rgb(${r},${g},${b})` : 'var(--text-dim)';
+}
+slider.addEventListener('input', updateImpact); updateImpact();
+const recentList=document.getElementById('recent-list');
+if (historial.length &gt; 0) {
+  recentList.innerHTML = historial.slice(0,5).map((h,i) =&gt; {
+    const fecha=new Date(h._meta.fecha).toLocaleDateString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    const sc=getScoreClass(h.score_general), color=getScoreColor(h.score_general);
+    return `&lt;div class="recent-item" data-idx="${i}"&gt;&lt;div class="ri-score" style="color:${color}"&gt;${h.score_general}&lt;/div&gt;&lt;div class="ri-info"&gt;&lt;div class="ri-name"&gt;${h._meta.vendedor}&lt;/div&gt;&lt;div class="ri-meta"&gt;${h._meta.empresa} · ${h._meta.producto} · ${fecha}&lt;/div&gt;&lt;/div&gt;&lt;div class="ri-clasif ${sc}"&gt;${h.clasificacion}&lt;/div&gt;&lt;div class="ri-arrow"&gt;→&lt;/div&gt;&lt;/div&gt;`;
+  }).join('');
+  recentList.querySelectorAll('.recent-item').forEach(el =&gt; { el.addEventListener('click', () =&gt; { localStorage.setItem('aurisiq_ver_idx', el.dataset.idx); window.location.href='aurisiq.html'; }); });
+}
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
