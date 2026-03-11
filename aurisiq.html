@@ -1027,11 +1027,16 @@ Prospecto: Sí, dígame..." oninput="updateCharCount()"></textarea>
 
   try {
     const existing = JSON.parse(localStorage.getItem(storageKey) || '[]');
-    if (existing.length === 0) {
-      localStorage.setItem(storageKey, JSON.stringify(DEMO_CASES));
-      console.log('AurisIQ: 4 casos demo cargados en', storageKey);
+    // Siempre asegurar que los demos existen — identificados por vendedor+empresa
+    const demoKeys = DEMO_CASES.map(d => d._meta.vendedor + '|' + d._meta.empresa);
+    const existingKeys = existing.map(d => (d._meta?.vendedor || '') + '|' + (d._meta?.empresa || ''));
+    const missing = DEMO_CASES.filter((_, i) => !existingKeys.includes(demoKeys[i]));
+    if (missing.length > 0) {
+      const merged = [...missing, ...existing];
+      localStorage.setItem(storageKey, JSON.stringify(merged));
+      console.log('AurisIQ: ' + missing.length + ' casos demo añadidos al historial');
     } else {
-      console.log('AurisIQ: historial existente (' + existing.length + ' casos), no se sobreescribe');
+      console.log('AurisIQ: demos ya presentes, sin cambios');
     }
   } catch(e) {
     console.warn('AurisIQ: no se pudieron cargar casos demo', e);
