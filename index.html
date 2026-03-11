@@ -385,7 +385,8 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
     <!-- NAV TABS — igual que aurisiq.html -->
     <div class="nav-tabs">
       <button class="nav-tab active" id="tab-dashboard" onclick="showScreen('dashboard', this)">◆ Dashboard</button>
-      <button class="nav-tab" onclick="window.location.href='aurisiq.html'">⚡ Análisis</button>
+      <button class="nav-tab" onclick="window.location.href='aurisiq.html'">⚡ Nuevo análisis</button>
+      <a class="nav-tab" href="historial.html" style="text-decoration:none;">◈ Mis análisis</a>
       <button class="nav-tab nav-tab-premium" onclick="window.location.href='aurisiq.html#equipo'">👑 Equipo</button>
       <button class="nav-tab nav-tab-premium" onclick="window.location.href='aurisiq.html#coaching'">👑 Coaching</button>
       <button class="nav-tab" onclick="window.location.href='aurisiq.html#config'">⚙ Config</button>
@@ -485,8 +486,8 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
         </div>
       </a>
 
-      <!-- Historial — FIX: redirige a aurisiq.html en vez de historial.html -->
-      <a class="action-card" href="aurisiq.html" id="btn-historial">
+      <!-- Historial — página dedicada solo a ver análisis pasados -->
+      <a class="action-card" href="historial.html" id="btn-historial">
         <div class="ac-icon">◈</div>
         <div class="ac-title">MIS ANÁLISIS</div>
         <div class="ac-desc">Revisa todos tus análisis anteriores. Score, diagnóstico y siguiente paso de cada conversación.</div>

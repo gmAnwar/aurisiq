@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AurisIQ — Mis Análisis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #f5f0e8;
+  --bg2:       #ffffff;
+  --bg3:       #ede8df;
+  --surface:   #e8e0d0;
+  --border:    #d5cbbf;
+  --gold:      #a0752a;
+  --gold-dim:  #c49840;
+  --gold-glow: rgba(160,117,42,0.10);
+  --amber:     #c05e0a;
+  --text:      #1a1208;
+  --text-dim:  #6b5c42;
+  --text-faint:#9e8e78;
+  --green:     #1e7a4a;
+  --yellow:    #8a6a00;
+  --red:       #c03030;
+  --mono:      'Space Mono', monospace;
+  --display:   'Bebas Neue', cursive;
+  --body:      'Outfit', sans-serif;
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    linear-gradient(rgba(160,117,42,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(160,117,42,0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* HEADER */
+header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(245,240,232,0.96);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 40px; height: 60px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.logo-icon { width: 30px; height: 30px; }
+.logo-text { font-family: var(--display); font-size: 22px; letter-spacing: 2px; color: var(--gold); }
+.logo-sub { font-family: var(--mono); font-size: 9px; color: var(--text-faint); letter-spacing: 1px; text-transform: uppercase; display: block; margin-top: 1px; }
+
+.header-right { display: flex; align-items: center; gap: 12px; }
+
+.nav-tabs { display: flex; gap: 4px; }
+.nav-tab {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.5px;
+  padding: 6px 14px; border-radius: 4px;
+  border: 1px solid transparent;
+  background: none; color: var(--text-dim);
+  cursor: pointer; transition: all 0.2s; text-transform: uppercase;
+  text-decoration: none; display: inline-flex; align-items: center;
+}
+.nav-tab:hover { color: var(--text); border-color: var(--border); background: var(--bg3); }
+.nav-tab.active { background: var(--gold-glow); border-color: var(--gold-dim); color: var(--gold); }
+
+/* MAIN */
+main {
+  position: relative; z-index: 1;
+  max-width: 960px; margin: 0 auto;
+  padding: 48px 24px 100px;
+}
+
+/* PAGE HEADER */
+.page-header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  margin-bottom: 32px;
+  opacity: 0; transform: translateY(12px);
+  animation: fadeUp .4s ease .05s forwards;
+}
+
+.page-title-block .label {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 2px;
+  color: var(--text-faint); text-transform: uppercase; margin-bottom: 6px;
+}
+.page-title-block h1 {
+  font-family: var(--display); font-size: 38px; letter-spacing: 3px;
+  color: var(--text); line-height: 1;
+}
+.page-title-block .subtitle {
+  font-size: 13px; color: var(--text-dim); margin-top: 6px;
+}
+
+.btn-nuevo {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--gold); color: #fff;
+  font-family: var(--display); font-size: 15px; letter-spacing: 2px;
+  padding: 10px 20px; border-radius: 8px; text-decoration: none;
+  transition: all .2s; flex-shrink: 0;
+}
+.btn-nuevo:hover { background: var(--gold-dim); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(160,117,42,0.3); }
+
+/* STATS ROW */
+.stats-row {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 12px; margin-bottom: 28px;
+  opacity: 0; transform: translateY(12px);
+  animation: fadeUp .4s ease .1s forwards;
+}
+.stat-mini {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px 16px;
+}
+.stat-mini-label { font-family: var(--mono); font-size: 9px; letter-spacing: 1.5px; color: var(--text-faint); text-transform: uppercase; margin-bottom: 6px; }
+.stat-mini-value { font-family: var(--display); font-size: 28px; letter-spacing: 2px; line-height: 1; }
+.stat-mini-sub { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+.c-green  { color: var(--green); }
+.c-yellow { color: var(--yellow); }
+.c-amber  { color: var(--amber); }
+.c-red    { color: var(--red); }
+.c-gold   { color: var(--gold); }
+
+/* FILTERS */
+.filters {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 20px; flex-wrap: wrap;
+  opacity: 0; transform: translateY(12px);
+  animation: fadeUp .4s ease .15s forwards;
+}
+
+.filter-label {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 1px;
+  color: var(--text-faint); text-transform: uppercase;
+}
+
+.filter-chip {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .5px;
+  padding: 5px 12px; border-radius: 20px;
+  border: 1px solid var(--border); background: var(--bg2);
+  color: var(--text-dim); cursor: pointer; transition: all .2s;
+  text-transform: uppercase;
+}
+.filter-chip:hover { border-color: var(--gold-dim); color: var(--gold); background: var(--gold-glow); }
+.filter-chip.active { border-color: var(--gold); color: var(--gold); background: var(--gold-glow); font-weight: 700; }
+
+.filter-sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+
+select.filter-select {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .5px;
+  padding: 5px 12px; border-radius: 20px;
+  border: 1px solid var(--border); background: var(--bg2);
+  color: var(--text-dim); cursor: pointer; outline: none;
+  transition: border-color .2s; text-transform: uppercase;
+  appearance: none; padding-right: 28px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239e8e78' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+select.filter-select:focus { border-color: var(--gold-dim); }
+
+.filter-count {
+  font-family: var(--mono); font-size: 10px; color: var(--text-faint);
+  margin-left: auto;
+}
+
+/* HISTORIAL LIST */
+.historial-container {
+  opacity: 0; transform: translateY(12px);
+  animation: fadeUp .4s ease .2s forwards;
+}
+
+.historial-list { display: flex; flex-direction: column; gap: 8px; }
+
+/* ITEM COLAPSADO */
+.h-item {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+  transition: border-color .2s;
+}
+.h-item:hover { border-color: var(--gold-dim); }
+.h-item.expanded { border-color: var(--gold-dim); }
+
+.h-item-header {
+  display: grid;
+  grid-template-columns: 60px 1fr auto auto auto;
+  align-items: center; gap: 16px;
+  padding: 16px 20px;
+  cursor: pointer; user-select: none;
+}
+
+.h-score {
+  font-family: var(--display); font-size: 28px; letter-spacing: 1px;
+  text-align: center; line-height: 1;
+}
+
+.h-info { min-width: 0; }
+.h-vendedor { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.h-meta { font-family: var(--mono); font-size: 10px; color: var(--text-faint); display: flex; gap: 12px; flex-wrap: wrap; }
+
+.h-clasif {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .5px;
+  padding: 4px 10px; border-radius: 4px; border: 1px solid;
+  white-space: nowrap; align-self: center;
+}
+
+.h-prob {
+  font-family: var(--mono); font-size: 11px;
+  padding: 4px 10px; border-radius: 4px;
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text-dim); white-space: nowrap; align-self: center;
+}
+
+.h-chevron {
+  color: var(--text-faint); font-size: 14px;
+  transition: transform .25s; align-self: center;
+}
+.h-item.expanded .h-chevron { transform: rotate(180deg); color: var(--gold); }
+
+/* SCORE COLORS */
+.score-alto     { color: #1e7a4a; }
+.score-funcional{ color: #8a6a00; }
+.score-problemas{ color: #c05e0a; }
+.score-critico  { color: #c03030; }
+
+.clasif-alto     { color: #1e7a4a; border-color: rgba(30,122,74,.3);  background: rgba(30,122,74,.07); }
+.clasif-funcional{ color: #8a6a00; border-color: rgba(138,106,0,.3);  background: rgba(138,106,0,.07); }
+.clasif-problemas{ color: #c05e0a; border-color: rgba(192,94,10,.3);  background: rgba(192,94,10,.07); }
+.clasif-critico  { color: #c03030; border-color: rgba(192,48,48,.3);  background: rgba(192,48,48,.07); }
+
+/* DETALLE EXPANDIDO */
+.h-detail {
+  display: none;
+  border-top: 1px solid var(--border);
+  padding: 24px 20px;
+  background: var(--bg3);
+}
+.h-item.expanded .h-detail { display: block; }
+
+/* Señales de venta */
+.detail-signals {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px; margin-bottom: 20px;
+}
+.ds-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 12px 14px;
+}
+.ds-label { font-family: var(--mono); font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-faint); margin-bottom: 6px; }
+.ds-value { font-size: 13px; color: var(--text); line-height: 1.5; }
+.ds-value.big { font-family: var(--display); font-size: 22px; letter-spacing: 1px; }
+
+/* Fases */
+.detail-fases { margin-bottom: 20px; }
+.detail-section-title {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px;
+  color: var(--gold); text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.fases-grid-mini {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+.fase-mini {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 10px 12px; text-align: center;
+}
+.fase-mini-name { font-family: var(--mono); font-size: 9px; color: var(--text-faint); letter-spacing: .5px; text-transform: uppercase; margin-bottom: 4px; }
+.fase-mini-score { font-family: var(--display); font-size: 18px; letter-spacing: 1px; }
+.fase-mini-bar { height: 3px; background: var(--surface); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+.fase-mini-fill { height: 100%; border-radius: 2px; }
+
+/* Diagnóstico y siguiente paso */
+.detail-blocks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.detail-block {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 14px 16px;
+}
+.detail-block-label { font-family: var(--mono); font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+.detail-block-text { font-size: 13px; color: var(--text); line-height: 1.7; }
+
+/* Señales de pérdida */
+.signal-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.sig-chip {
+  font-family: var(--mono); font-size: 10px;
+  padding: 3px 10px; border-radius: 3px;
+  border: 1px solid rgba(192,48,48,.3); color: #c05050;
+  background: rgba(192,48,48,.05); font-style: italic;
+}
+.sig-chip-ok {
+  color: var(--green); border-color: rgba(30,122,74,.3);
+  background: rgba(30,122,74,.05); font-style: normal;
+}
+
+/* Acciones */
+.detail-actions {
+  display: flex; gap: 8px; padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.btn-detail-action {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .5px;
+  padding: 7px 14px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--bg2);
+  color: var(--text-dim); cursor: pointer; transition: all .2s;
+  text-transform: uppercase;
+}
+.btn-detail-action:hover { border-color: var(--gold-dim); color: var(--gold); background: var(--gold-glow); }
+.btn-detail-action.primary { background: var(--gold-glow); border-color: var(--gold-dim); color: var(--gold); }
+
+/* EMPTY */
+.empty-state {
+  text-align: center; padding: 80px 24px;
+  background: var(--bg2); border: 1px dashed var(--border);
+  border-radius: 12px;
+}
+.empty-icon { font-size: 48px; margin-bottom: 16px; opacity: .4; }
+.empty-title { font-family: var(--display); font-size: 24px; letter-spacing: 2px; color: var(--text-faint); margin-bottom: 8px; }
+.empty-sub { font-size: 13px; color: var(--text-faint); margin-bottom: 24px; }
+.empty-cta {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 1px;
+  color: var(--gold); background: var(--gold-glow);
+  border: 1px solid var(--gold-dim); padding: 10px 20px;
+  border-radius: 6px; text-decoration: none; text-transform: uppercase;
+  transition: all .2s;
+}
+.empty-cta:hover { background: rgba(160,117,42,.2); }
+
+/* FAB */
+.fab {
+  position: fixed; bottom: 28px; right: 28px; z-index: 200;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--gold); color: #fff;
+  font-family: var(--display); font-size: 16px; letter-spacing: 2px;
+  padding: 14px 24px; border-radius: 40px; text-decoration: none;
+  box-shadow: 0 4px 20px rgba(160,117,42,0.35); transition: all .2s;
+}
+.fab:hover { background: var(--gold-dim); transform: translateY(-2px); }
+.fab-icon { font-size: 18px; }
+
+/* TOAST */
+#toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--bg2); border: 1px solid var(--gold-dim);
+  color: var(--gold); font-family: var(--mono); font-size: 12px;
+  padding: 10px 16px; border-radius: 6px; z-index: 1000;
+  transform: translateY(20px); opacity: 0;
+  transition: all .3s; pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0,0,0,.1);
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+
+@keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+
+@media (max-width: 700px) {
+  header { padding: 0 20px; }
+  main { padding: 32px 16px 80px; }
+  .stats-row { grid-template-columns: 1fr 1fr; }
+  .h-item-header { grid-template-columns: 48px 1fr auto; }
+  .h-clasif, .h-prob { display: none; }
+  .fases-grid-mini { grid-template-columns: repeat(3, 1fr); }
+  .detail-blocks { grid-template-columns: 1fr; }
+  .detail-signals { grid-template-columns: 1fr; }
+  .nav-tabs { display: none; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="index.html">
+    <svg class="logo-icon" viewBox="0 0 32 32" fill="none">
+      <path d="M16 2 L28 9 L28 23 L16 30 L4 23 L4 9 Z" fill="#e8e0d0" stroke="#a0752a" stroke-width="1.5"/>
+      <path d="M10 16 Q16 10 22 16 Q16 22 10 16" fill="#a0752a" opacity="0.9"/>
+      <circle cx="16" cy="16" r="2.5" fill="#a0752a"/>
+    </svg>
+    <div>
+      <div class="logo-text">AURISIQ</div>
+      <div class="logo-sub">Análisis de conversaciones</div>
+    </div>
+  </a>
+  <div class="header-right">
+    <div class="nav-tabs">
+      <a class="nav-tab" href="index.html">◆ Dashboard</a>
+      <a class="nav-tab" href="aurisiq.html">⚡ Nuevo análisis</a>
+      <a class="nav-tab active" href="historial.html">◈ Mis análisis</a>
+      <a class="nav-tab" href="aurisiq.html#equipo" onclick="sessionStorage.setItem('aurisiq_tab','equipo')">👑 Equipo</a>
+      <a class="nav-tab" href="aurisiq.html#coaching" onclick="sessionStorage.setItem('aurisiq_tab','coaching')">👑 Coaching</a>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="page-title-block">
+      <div class="label">// Historial</div>
+      <h1>MIS ANÁLISIS</h1>
+      <p class="subtitle" id="subtitle-text">Todas las conversaciones analizadas</p>
+    </div>
+    <a class="btn-nuevo" href="aurisiq.html">⚡ Nuevo análisis</a>
+  </div>
+
+  <!-- STATS ROW -->
+  <div class="stats-row" id="stats-row">
+    <div class="stat-mini">
+      <div class="stat-mini-label">Total analizadas</div>
+      <div class="stat-mini-value c-gold" id="st-total">0</div>
+      <div class="stat-mini-sub">conversaciones</div>
+    </div>
+    <div class="stat-mini">
+      <div class="stat-mini-label">Score promedio</div>
+      <div class="stat-mini-value" id="st-avg">—</div>
+      <div class="stat-mini-sub" id="st-avg-sub">sin datos</div>
+    </div>
+    <div class="stat-mini">
+      <div class="stat-mini-label">Alto potencial</div>
+      <div class="stat-mini-value c-green" id="st-alto">0</div>
+      <div class="stat-mini-sub">score ≥ 85</div>
+    </div>
+    <div class="stat-mini">
+      <div class="stat-mini-label">Necesitan trabajo</div>
+      <div class="stat-mini-value c-red" id="st-bajo">0</div>
+      <div class="stat-mini-sub">score &lt; 65</div>
+    </div>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="filters" id="filters-bar">
+    <span class="filter-label">Filtrar:</span>
+    <button class="filter-chip active" data-filter="todos" onclick="setFilter('todos', this)">Todos</button>
+    <button class="filter-chip" data-filter="alto" onclick="setFilter('alto', this)">Alto potencial</button>
+    <button class="filter-chip" data-filter="funcional" onclick="setFilter('funcional', this)">Funcional</button>
+    <button class="filter-chip" data-filter="bajo" onclick="setFilter('bajo', this)">Necesitan mejora</button>
+    <div class="filter-sep"></div>
+    <select class="filter-select" id="filter-vendedor" onchange="setVendedorFilter()">
+      <option value="">Todos los vendedores</option>
+    </select>
+    <span class="filter-count" id="filter-count"></span>
+  </div>
+
+  <!-- LISTA -->
+  <div class="historial-container">
+    <div class="historial-list" id="historial-list"></div>
+  </div>
+
+</main>
+
+<a class="fab" href="aurisiq.html">
+  <span class="fab-icon">⚡</span> NUEVO ANÁLISIS
+</a>
+
+<div id="toast"></div>
+
+<script type="module">
+import { getHistorial } from './modules/analisis.js';
+
+// ── Helpers ─────────────────────────────────────────────────
+function scoreClass(s) {
+  if (s >= 85) return 'score-alto';
+  if (s >= 65) return 'score-funcional';
+  if (s >= 45) return 'score-problemas';
+  return 'score-critico';
+}
+function clasifClass(s) {
+  if (s >= 85) return 'clasif-alto';
+  if (s >= 65) return 'clasif-funcional';
+  if (s >= 45) return 'clasif-problemas';
+  return 'clasif-critico';
+}
+function faseColor(pct) {
+  if (pct >= 0.85) return '#1e7a4a';
+  if (pct >= 0.65) return '#8a6a00';
+  if (pct >= 0.45) return '#c05e0a';
+  return '#c03030';
+}
+function fmt(n) { return n?.toLocaleString('es-MX') ?? '—'; }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── Cargar historial ────────────────────────────────────────
+const historial = getHistorial();
+let filtroActual = 'todos';
+let filtroVendedor = '';
+
+// Stats
+document.getElementById('st-total').textContent = historial.length;
+document.getElementById('subtitle-text').textContent =
+  `${historial.length} conversación${historial.length !== 1 ? 'es' : ''} analizada${historial.length !== 1 ? 's' : ''}`;
+
+if (historial.length > 0) {
+  const scores = historial.map(h => h.score_general);
+  const avg = Math.round(scores.reduce((a,b) => a+b,0) / scores.length);
+  const avgEl = document.getElementById('st-avg');
+  avgEl.textContent = avg;
+  avgEl.className = 'stat-mini-value ' + scoreClass(avg);
+  document.getElementById('st-avg-sub').textContent = `de ${historial.length} análisis`;
+  document.getElementById('st-alto').textContent = scores.filter(s => s >= 85).length;
+  document.getElementById('st-bajo').textContent  = scores.filter(s => s < 65).length;
+
+  // Vendedores únicos para el select
+  const vendedores = [...new Set(historial.map(h => h._meta?.vendedor).filter(Boolean))];
+  const sel = document.getElementById('filter-vendedor');
+  vendedores.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v; opt.textContent = v;
+    sel.appendChild(opt);
+  });
+}
+
+// ── Render ──────────────────────────────────────────────────
+function render() {
+  const lista = document.getElementById('historial-list');
+
+  let filtrado = historial.filter(h => {
+    if (filtroVendedor && h._meta?.vendedor !== filtroVendedor) return false;
+    if (filtroActual === 'alto')      return h.score_general >= 85;
+    if (filtroActual === 'funcional') return h.score_general >= 65 && h.score_general < 85;
+    if (filtroActual === 'bajo')      return h.score_general < 65;
+    return true;
+  });
+
+  document.getElementById('filter-count').textContent =
+    filtrado.length !== historial.length ? `${filtrado.length} de ${historial.length}` : `${historial.length} análisis`;
+
+  if (filtrado.length === 0) {
+    lista.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">◈</div>
+        <div class="empty-title">${historial.length === 0 ? 'SIN ANÁLISIS AÚN' : 'SIN RESULTADOS'}</div>
+        <p class="empty-sub">${historial.length === 0 ? 'Aún no has analizado ninguna conversación.' : 'No hay análisis con este filtro.'}</p>
+        <a class="empty-cta" href="aurisiq.html">⚡ Hacer el primer análisis →</a>
+      </div>`;
+    return;
+  }
+
+  lista.innerHTML = filtrado.map((h, i) => {
+    const score   = h.score_general;
+    const sc      = scoreClass(score);
+    const cc      = clasifClass(score);
+    const fecha   = new Date(h._meta?.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const duracion= h._meta?.duracion ? ` · ${h._meta.duracion}` : '';
+    const prob    = h.probabilidad_cierre ?? h.probabilidad_de_cierre ?? Math.round(score * 0.9);
+    const clasif  = h.clasificacion || (score >= 85 ? 'ALTO POTENCIAL' : score >= 65 ? 'FUNCIONAL' : score >= 45 ? 'NECESITA MEJORA' : 'CRÍTICO');
+
+    // Fases
+    const fasesHTML = (h.fases || []).map(f => {
+      const pct  = f.puntaje / f.maximo;
+      const col  = faseColor(pct);
+      const pctN = Math.round(pct * 100);
+      return `
+        <div class="fase-mini">
+          <div class="fase-mini-name">${f.nombre.split(' ')[0]}</div>
+          <div class="fase-mini-score ${scoreClass(pctN)}">${f.puntaje}/${f.maximo}</div>
+          <div class="fase-mini-bar"><div class="fase-mini-fill" style="width:${pctN}%;background:${col}"></div></div>
+        </div>`;
+    }).join('');
+
+    // Señales de pérdida
+    const sigs = h.senales_perdida || h.señales_de_perdida || [];
+    const sigsHTML = sigs.length > 0
+      ? sigs.map(s => `<span class="sig-chip">"${s}"</span>`).join('')
+      : `<span class="sig-chip sig-chip-ok">Sin señales de pérdida detectadas ✓</span>`;
+
+    // Objeción y siguiente paso
+    const objMain = h.objecion_principal || h.objecion_no_resuelta || (h.objeciones?.length ? h.objeciones[0]?.objecion : 'Ninguna');
+    const siguientePaso = h.siguiente_accion || h.accion_recomendada || h.siguiente_paso?.accion_inmediata || '—';
+    const diagnostico = h.diagnostico_general || h.diagnostico || h.resumen_ejecutivo || '—';
+
+    return `
+      <div class="h-item" id="item-${i}">
+        <div class="h-item-header" onclick="toggleItem(${i})">
+          <div class="h-score ${sc}">${score}</div>
+          <div class="h-info">
+            <div class="h-vendedor">${h._meta?.vendedor || '—'}</div>
+            <div class="h-meta">
+              <span>${h._meta?.empresa || ''}</span>
+              <span>${h._meta?.producto || ''}</span>
+              <span>${fecha}${duracion}</span>
+            </div>
+          </div>
+          <div class="h-clasif ${cc}">${clasif}</div>
+          <div class="h-prob">Cierre: ${prob}%</div>
+          <div class="h-chevron">▼</div>
+        </div>
+
+        <div class="h-detail">
+          <!-- Señales clave -->
+          <div class="detail-signals">
+            <div class="ds-card">
+              <div class="ds-label">Probabilidad de cierre</div>
+              <div class="ds-value big ${scoreClass(prob)}">${prob}%</div>
+            </div>
+            <div class="ds-card">
+              <div class="ds-label">Objeción principal no resuelta</div>
+              <div class="ds-value" style="font-style:italic;color:var(--yellow)">${objMain}</div>
+            </div>
+            <div class="ds-card">
+              <div class="ds-label">Siguiente acción</div>
+              <div class="ds-value">${siguientePaso}</div>
+            </div>
+          </div>
+
+          <!-- Fases -->
+          ${h.fases?.length ? `
+          <div class="detail-fases">
+            <div class="detail-section-title">Desglose por fase</div>
+            <div class="fases-grid-mini">${fasesHTML}</div>
+          </div>` : ''}
+
+          <!-- Diagnóstico + siguiente paso completo -->
+          <div class="detail-blocks">
+            <div class="detail-block">
+              <div class="detail-block-label">Diagnóstico general</div>
+              <div class="detail-block-text">${diagnostico}</div>
+            </div>
+            <div class="detail-block">
+              <div class="detail-block-label">Señales de pérdida detectadas</div>
+              <div class="signal-chips">${sigsHTML}</div>
+            </div>
+          </div>
+
+          <!-- Acciones -->
+          <div class="detail-actions">
+            <button class="btn-detail-action primary" onclick="verCompleto(${i})">Ver análisis completo →</button>
+            <button class="btn-detail-action" onclick="copiarSiguientePaso(${i})">Copiar siguiente paso</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Interacciones ───────────────────────────────────────────
+window.toggleItem = function(i) {
+  const el = document.getElementById('item-' + i);
+  el.classList.toggle('expanded');
+};
+
+window.verCompleto = function(i) {
+  // Guardar índice y redirigir a aurisiq.html para ver el resultado completo
+  const h = historial[i];
+  // Buscar índice real en historial completo
+  const idxReal = historial.indexOf(h);
+  localStorage.setItem('aurisiq_ver_idx', idxReal);
+  window.location.href = 'aurisiq.html';
+};
+
+window.copiarSiguientePaso = function(i) {
+  const h = historial[i];
+  const paso = h.siguiente_accion || h.accion_recomendada || h.siguiente_paso?.accion_inmediata || '—';
+  navigator.clipboard.writeText(paso).then(() => showToast('✓ Siguiente paso copiado'));
+};
+
+window.setFilter = function(f, el) {
+  filtroActual = f;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  render();
+};
+
+window.setVendedorFilter = function() {
+  filtroVendedor = document.getElementById('filter-vendedor').value;
+  render();
+};
+
+// Render inicial
+render();
+
+// Si venía de index.html con un idx pendiente, expandirlo automáticamente
+const idxVer = localStorage.getItem('aurisiq_ver_idx');
+if (idxVer !== null) {
+  // No lo removemos aquí porque puede que el usuario quiera verlo en aurisiq.html también
+}
+</script>
+</body>
+</html>
