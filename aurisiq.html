@@ -447,6 +447,108 @@
   /* NAV TAB PREMIUM */
   .nav-tab-premium { color: var(--text-faint) !important; opacity: 0.7; }
   .nav-tab-premium:hover { opacity: 1; }
+
+  /* ── PANTALLA SELECCIÓN CLIENTES ─────────────────────────── */
+  .clientes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 8px;
+  }
+  .cliente-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 24px;
+    cursor: pointer;
+    transition: all .2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .cliente-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--gold);
+    opacity: 0;
+    transition: opacity .2s;
+  }
+  .cliente-card:hover { border-color: var(--gold-dim); transform: translateY(-2px); box-shadow: 0 6px 24px rgba(160,117,42,.12); }
+  .cliente-card:hover::before { opacity: 1; }
+  .cliente-card-icon { font-size: 32px; margin-bottom: 14px; }
+  .cliente-card-nombre { font-family: var(--display); font-size: 22px; letter-spacing: 2px; color: var(--text); margin-bottom: 4px; }
+  .cliente-card-desc { font-size: 13px; color: var(--text-dim); margin-bottom: 16px; line-height: 1.5; }
+  .cliente-card-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cliente-meta-chip {
+    font-family: var(--mono); font-size: 9px; letter-spacing: .5px;
+    padding: 3px 8px; border-radius: 3px;
+    border: 1px solid var(--border);
+    background: var(--bg3); color: var(--text-faint);
+    text-transform: uppercase;
+  }
+  .cliente-meta-chip.active { border-color: rgba(160,117,42,.4); color: var(--gold); background: var(--gold-glow); }
+  .cliente-card-arrow {
+    position: absolute; top: 50%; right: 20px;
+    transform: translateY(-50%);
+    font-size: 20px; color: var(--border);
+    transition: all .2s;
+  }
+  .cliente-card:hover .cliente-card-arrow { color: var(--gold); transform: translateY(-50%) translateX(3px); }
+
+  /* Sub-selector de tipo (cuando cliente tiene múltiples) */
+  .subtipo-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(245,240,232,.92);
+    backdrop-filter: blur(12px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .subtipo-overlay.show { opacity: 1; pointer-events: all; }
+  .subtipo-modal {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px;
+    width: 100%; max-width: 560px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.1);
+  }
+  .subtipo-title { font-family: var(--display); font-size: 24px; letter-spacing: 2px; color: var(--text); margin-bottom: 6px; }
+  .subtipo-sub { font-size: 13px; color: var(--text-dim); margin-bottom: 24px; }
+  .subtipo-list { display: flex; flex-direction: column; gap: 10px; }
+  .subtipo-option {
+    display: flex; align-items: center; gap: 16px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px 20px;
+    cursor: pointer; transition: all .2s;
+  }
+  .subtipo-option:hover { border-color: var(--gold-dim); background: var(--gold-glow); }
+  .subtipo-option-icon { font-size: 24px; flex-shrink: 0; }
+  .subtipo-option-info { flex: 1; }
+  .subtipo-option-nombre { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .subtipo-option-desc { font-size: 12px; color: var(--text-dim); }
+  .subtipo-close {
+    margin-top: 20px; width: 100%;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 1px;
+    padding: 10px; border-radius: 6px;
+    border: 1px solid var(--border); background: none;
+    color: var(--text-faint); cursor: pointer; text-transform: uppercase;
+    transition: all .2s;
+  }
+  .subtipo-close:hover { color: var(--text); border-color: var(--text-faint); }
+
+  /* Indicador cliente activo en header */
+  .cliente-activo-badge {
+    display: none; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .5px;
+    color: var(--gold); background: var(--gold-glow);
+    border: 1px solid rgba(160,117,42,.3);
+    padding: 4px 12px 4px 8px; border-radius: 20px;
+    cursor: pointer; transition: all .2s; text-transform: uppercase;
+  }
+  .cliente-activo-badge.show { display: flex; }
+  .cliente-activo-badge:hover { background: rgba(160,117,42,.15); }
+  .cliente-activo-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); }
+
 </style>
 </head>
 <body>
@@ -479,6 +581,11 @@
     </div>
   </a>
   <div class="header-right">
+    <div class="cliente-activo-badge" id="cliente-activo-badge" onclick="volverAClientes()">
+      <span class="cliente-activo-dot"></span>
+      <span id="cliente-activo-nombre">—</span>
+      <span style="opacity:.5">✕</span>
+    </div>
     <div class="usage-badge" id="usage-display">Análisis este mes: <span id="uso-count">0</span>/5</div>
     <div class="nav-tabs">
       <button class="nav-tab active" id="tab-analisis" onclick="showScreen('analisis', this)">◆ Análisis</button>
@@ -493,8 +600,17 @@
 <!-- MAIN -->
 <main>
 
-  <!-- ===== PANTALLA 1: ANÁLISIS ===== -->
-  <div id="screen-analisis" class="screen active">
+  <!-- ===== PANTALLA 0: SELECCIÓN DE CLIENTE ===== -->
+  <div id="screen-clientes" class="screen active">
+    <div class="page-title">
+      <h1>¿PARA QUIÉN ES EL ANÁLISIS?</h1>
+      <p>Selecciona el cliente — AurisIQ carga el scorecard correcto automáticamente</p>
+    </div>
+    <div id="clientes-grid" class="clientes-grid"></div>
+  </div>
+
+    <!-- ===== PANTALLA 1: ANÁLISIS ===== -->
+  <div id="screen-analisis" class="screen">
     <div class="page-title">
       <h1>NUEVO ANÁLISIS</h1>
       <p>Pega la transcripción · AurisIQ evalúa el 100% de la conversación</p>
@@ -792,6 +908,17 @@ Prospecto: Sí, dígame..." oninput="updateCharCount()"></textarea>
     </div>
   </div>
 
+
+<!-- MODAL SUB-TIPO (clientes con múltiples scorecards) -->
+<div class="subtipo-overlay" id="subtipo-overlay">
+  <div class="subtipo-modal">
+    <div class="subtipo-title" id="subtipo-titulo">—</div>
+    <div class="subtipo-sub">Selecciona el tipo de conversación a analizar</div>
+    <div class="subtipo-list" id="subtipo-lista"></div>
+    <button class="subtipo-close" onclick="cerrarSubtipo()">← Volver a clientes</button>
+  </div>
+</div>
+
 </main>
 
 <div id="toast"></div>
@@ -804,6 +931,179 @@ import { WORKSPACE } from './modules/config.js';
 
 let analisisActual = null;
 
+// ── CATÁLOGO DE CLIENTES ──────────────────────────────────────
+const CLIENTES = [
+  {
+    id: 'enpagos',
+    nombre: 'EnPagos',
+    icono: '💳',
+    descripcion: 'Crédito PyME y financiamiento empresarial',
+    chips: ['Scorecard v1 Financiero', 'Crédito para empresas'],
+    scorecard: 'v1',
+    tipos: null, // un solo tipo de análisis
+    empresa: 'EnPagos',
+    producto: 'Crédito PyME',
+    vendedorLabel: 'Vendedor',
+    badgeScorecard: 'SCORECARD V1 FINANCIERO',
+  },
+  {
+    id: 'immobili',
+    nombre: 'Immobili',
+    icono: '🏠',
+    descripcion: 'Captación de propiedades Infonavit para venta',
+    chips: ['Scorecard v5 Inmobiliario', '2 tipos de análisis'],
+    scorecard: 'v5',
+    tipos: [
+      {
+        id: 'llamada',
+        nombre: 'Llamada de captación',
+        icono: '📞',
+        descripcion: 'Evalúa a la captadora en Etapa 1 — calificación técnica Infonavit y expectativa de precio',
+        empresa: 'Immobili Internacional',
+        producto: 'Captación de propiedad Infonavit',
+        vendedorLabel: 'Captadora',
+        badgeScorecard: 'SCORECARD V5A — LLAMADA CAPTACIÓN',
+      },
+      {
+        id: 'visita',
+        nombre: 'Visita presencial',
+        icono: '🚗',
+        descripcion: 'Evalúa al captador de campo en Etapa 3 — certeza del proceso y cierre en visita',
+        empresa: 'Immobili Internacional',
+        producto: 'Visita y cierre de captación',
+        vendedorLabel: 'Captador de campo',
+        badgeScorecard: 'SCORECARD V5B — VISITA PRESENCIAL',
+      }
+    ]
+  }
+];
+
+let clienteActivo = null;
+
+// ── RENDER TARJETAS DE CLIENTES ───────────────────────────────
+function renderClientes() {
+  const grid = document.getElementById('clientes-grid');
+  if (!grid) return;
+  grid.innerHTML = CLIENTES.map(c => `
+    <div class="cliente-card" onclick="seleccionarCliente('${c.id}')">
+      <div class="cliente-card-icon">${c.icono}</div>
+      <div class="cliente-card-nombre">${c.nombre}</div>
+      <div class="cliente-card-desc">${c.descripcion}</div>
+      <div class="cliente-card-meta">
+        ${c.chips.map(ch => `<span class="cliente-meta-chip active">${ch}</span>`).join('')}
+      </div>
+      <span class="cliente-card-arrow">→</span>
+    </div>
+  `).join('');
+}
+
+// ── SELECCIONAR CLIENTE ───────────────────────────────────────
+window.seleccionarCliente = function(clienteId) {
+  const cliente = CLIENTES.find(c => c.id === clienteId);
+  if (!cliente) return;
+  clienteActivo = cliente;
+
+  if (cliente.tipos && cliente.tipos.length > 0) {
+    // Mostrar modal de sub-tipo
+    document.getElementById('subtipo-titulo').textContent = cliente.nombre + ' — ¿qué vas a analizar?';
+    document.getElementById('subtipo-lista').innerHTML = cliente.tipos.map(t => `
+      <div class="subtipo-option" onclick="seleccionarTipo('${clienteId}', '${t.id}')">
+        <span class="subtipo-option-icon">${t.icono}</span>
+        <div class="subtipo-option-info">
+          <div class="subtipo-option-nombre">${t.nombre}</div>
+          <div class="subtipo-option-desc">${t.descripcion}</div>
+        </div>
+        <span style="color:var(--text-faint)">→</span>
+      </div>
+    `).join('');
+    document.getElementById('subtipo-overlay').classList.add('show');
+  } else {
+    cargarAnalisisConCliente(cliente, null);
+  }
+};
+
+window.seleccionarTipo = function(clienteId, tipoId) {
+  const cliente = CLIENTES.find(c => c.id === clienteId);
+  const tipo = cliente?.tipos?.find(t => t.id === tipoId);
+  if (!cliente || !tipo) return;
+  document.getElementById('subtipo-overlay').classList.remove('show');
+  cargarAnalisisConCliente(cliente, tipo);
+};
+
+window.cerrarSubtipo = function() {
+  document.getElementById('subtipo-overlay').classList.remove('show');
+};
+
+// ── CARGAR PANTALLA DE ANÁLISIS CON DATOS DEL CLIENTE ────────
+function cargarAnalisisConCliente(cliente, tipo) {
+  const cfg = tipo || cliente;
+
+  // Rellenar campos
+  const empresaEl  = document.getElementById('empresa');
+  const productoEl = document.getElementById('producto');
+  const vendedorEl = document.getElementById('vendedor');
+  const badgeEl    = document.querySelector('.panel-badge');
+
+  if (empresaEl)  { empresaEl.value = cfg.empresa  || ''; }
+  if (productoEl) { productoEl.value = cfg.producto || ''; }
+  if (vendedorEl) {
+    vendedorEl.value = '';
+    vendedorEl.placeholder = 'Ej: ' + (cfg.vendedorLabel || 'Vendedor');
+    // Actualizar label
+    const labelEl = vendedorEl.previousElementSibling;
+    if (labelEl && labelEl.tagName === 'LABEL') labelEl.textContent = cfg.vendedorLabel || 'Vendedor';
+  }
+  if (badgeEl) badgeEl.textContent = cfg.badgeScorecard || '';
+
+  // Loading overlay text
+  const loadingSub = document.querySelector('.loading-sub');
+  if (loadingSub) loadingSub.textContent = 'Procesando con AurisIQ · ' + (cfg.badgeScorecard || 'Analizando');
+
+  // Actualizar placeholder de transcripción
+  const txEl = document.getElementById('transcripcion');
+  if (txEl && cliente.id === 'immobili') {
+    if (tipo?.id === 'llamada') {
+      txEl.placeholder = 'Pega aquí la transcripción de la llamada de captación...
+
+Captadora: Buenos días, le llamo de Immobili...
+Propietario: Sí, dígame...';
+    } else {
+      txEl.placeholder = 'Pega aquí la transcripción de la visita presencial...
+
+Elizandro: Buenos días, soy Elizandro de Immobili...
+Propietario: Pase, le presento la casa...';
+    }
+  }
+
+  // Mostrar badge en header
+  const badge = document.getElementById('cliente-activo-badge');
+  const badgeNombre = document.getElementById('cliente-activo-nombre');
+  if (badge && badgeNombre) {
+    badgeNombre.textContent = cliente.nombre + (tipo ? ' · ' + tipo.nombre : '');
+    badge.classList.add('show');
+  }
+
+  // Ir a pantalla análisis
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('screen-analisis').classList.add('active');
+  const tabAnalisis = document.getElementById('tab-analisis');
+  if (tabAnalisis) tabAnalisis.classList.add('active');
+}
+
+// ── VOLVER A SELECCIÓN DE CLIENTES ───────────────────────────
+window.volverAClientes = function() {
+  clienteActivo = null;
+  const badge = document.getElementById('cliente-activo-badge');
+  if (badge) badge.classList.remove('show');
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('screen-clientes').classList.add('active');
+};
+
+// Render inicial
+renderClientes();
+
 updateUsageDisplay(getUsoMes());
 renderHistorial(getHistorial(), verHistorial);
 const cfgEmpresa = document.getElementById('cfg-empresa');
@@ -812,6 +1112,11 @@ if (cfgEmpresa) cfgEmpresa.textContent = WORKSPACE.nombre;
 window.showToast = showToast;
 
 window.showScreen = function(id, tabEl) {
+  // Si intenta ir a análisis sin cliente activo → redirigir al selector
+  if (id === 'analisis' && !clienteActivo) {
+    volverAClientes();
+    return;
+  }
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   const target = document.getElementById('screen-' + id);
