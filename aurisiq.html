@@ -1296,7 +1296,10 @@ window.analizar = async function() {
     renderSalesMetrics(resultado);
     const _hist = getHistorial();
     const _histFiltrado = window.clienteActivo
-      ? _hist.filter(item => !item._meta?.cliente || item._meta.cliente === window.clienteActivo.id)
+      ? _hist.filter(item => {
+          const itemCliente = item._meta?.cliente || 'enpagos'; // sin campo = EnPagos por defecto
+          return itemCliente === window.clienteActivo.id;
+        })
       : _hist;
     renderHistorial(_histFiltrado, verHistorial);
     updateUsageDisplay(getUsoMes());
