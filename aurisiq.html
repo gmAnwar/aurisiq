@@ -1173,15 +1173,9 @@ window.cargarAnalisisConCliente = function(cliente, tipo) {
   const txEl = document.getElementById('transcripcion');
   if (txEl && cliente.id === 'immobili') {
     if (tipo?.id === 'llamada') {
-      txEl.placeholder = 'Pega aquí la transcripción de la llamada de captación...
-
-Captadora: Buenos días, le llamo de Immobili...
-Propietario: Sí, dígame...';
+      txEl.placeholder = 'Pega aquí la transcripción de la llamada de captación...\n\nCaptadora: Buenos días, le llamo de Immobili...\nPropietario: Sí, dígame...';
     } else {
-      txEl.placeholder = 'Pega aquí la transcripción de la visita presencial...
-
-Elizandro: Buenos días, soy Elizandro de Immobili...
-Propietario: Pase, le presento la casa...';
+      txEl.placeholder = 'Pega aquí la transcripción de la visita presencial...\n\nElizandro: Buenos días, soy Elizandro de Immobili...\nPropietario: Pase, le presento la casa...';
     }
   }
 
