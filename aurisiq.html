@@ -927,9 +927,9 @@
 
   .preview-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:28px; position:relative; }
   @media (max-width:700px) { .preview-grid { grid-template-columns:1fr; } }
-  .preview-card { background:var(--bg2); border:1px solid var(--border); border-radius:8px; overflow:hidden; filter:blur(3px); opacity:0.5; pointer-events:none; user-select:none; }
+  .preview-card { background:var(--bg2); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
   .preview-card-full { grid-column:1/-1; }
-  .preview-lock-overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; z-index:2; }
+  .preview-lock-overlay { display:none; }
   .lock-icon { font-size:36px; opacity:0.6; }
   .lock-label { font-family:var(--display); font-size:20px; letter-spacing:3px; color:var(--gold); opacity:0.8; }
   .lock-sub { font-family:var(--mono); font-size:10px; color:var(--text-faint); letter-spacing:1px; text-align:center; }
@@ -977,7 +977,7 @@
 
 <!-- HEADER -->
 <header>
-  <div class="logo">
+  <a class="logo" href="index.html" style="text-decoration:none;">
     <svg class="logo-icon" viewBox="0 0 32 32" fill="none">
       <path d="M16 2 L28 9 L28 23 L16 30 L4 23 L4 9 Z" fill="#2e2010" stroke="#d2aa50" stroke-width="1.5"/>
       <path d="M10 16 Q16 10 22 16 Q16 22 10 16" fill="#d2aa50" opacity="0.9"/>
@@ -987,7 +987,7 @@
       <div class="logo-text">AURISIQ</div>
       <div class="logo-sub">ANÁLISIS DE CONVERSACIONES</div>
     </div>
-  </div>
+  </a>
   <div class="header-right">
     <div class="usage-badge" id="usage-display">Análisis este mes: <span id="uso-count">0</span>/5</div>
     <div class="nav-tabs">
