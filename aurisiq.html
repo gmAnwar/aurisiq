@@ -8,24 +8,24 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:        #130e07;
-    --bg2:       #1c1409;
-    --bg3:       #251b0d;
-    --surface:   #2e2010;
-    --border:    #3d2c14;
-    --gold:      #d2aa50;
-    --gold-dim:  #8a6d30;
-    --gold-glow: rgba(210,170,80,0.15);
-    --amber:     #e07b20;
-    --text:      #f0e6d0;
-    --text-dim:  #9a8a70;
-    --text-faint:#5a4a35;
-    --green:     #4caf7d;
-    --yellow:    #f0c040;
-    --red:       #e05050;
-    --mono: 'Space Mono', monospace;
-    --display: 'Bebas Neue', cursive;
-    --body: 'Outfit', sans-serif;
+    --bg:        #f5f0e8;
+    --bg2:       #ffffff;
+    --bg3:       #ede8df;
+    --surface:   #e8e0d0;
+    --border:    #d5cbbf;
+    --gold:      #a0752a;
+    --gold-dim:  #c49840;
+    --gold-glow: rgba(160,117,42,0.10);
+    --amber:     #c05e0a;
+    --text:      #1a1208;
+    --text-dim:  #6b5c42;
+    --text-faint:#9e8e78;
+    --green:     #1e7a4a;
+    --yellow:    #8a6a00;
+    --red:       #c03030;
+    --mono:      'Space Mono', monospace;
+    --display:   'Bebas Neue', cursive;
+    --body:      'Outfit', sans-serif;
   }
 
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -44,95 +44,71 @@
     position: fixed;
     inset: 0;
     background-image:
-      linear-gradient(rgba(210,170,80,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(210,170,80,0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
+      linear-gradient(rgba(160,117,42,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(160,117,42,0.06) 1px, transparent 1px);
+    background-size: 48px 48px;
     pointer-events: none;
     z-index: 0;
   }
 
+  body::after {
+    content: '';
+    position: fixed;
+    top: -20%; left: 50%;
+    transform: translateX(-50%);
+    width: 800px; height: 400px;
+    background: radial-gradient(ellipse, rgba(160,117,42,0.06) 0%, transparent 70%);
+    pointer-events: none; z-index: 0;
+  }
+
   /* HEADER */
   header {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: rgba(19,14,7,0.95);
-    backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(245,240,232,0.96);
+    backdrop-filter: blur(16px);
     border-bottom: 1px solid var(--border);
-    padding: 0 32px;
-    height: 60px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    padding: 0 32px; height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
   }
 
   .logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    display: flex; align-items: center; gap: 10px; text-decoration: none;
   }
-
-  .logo-icon {
-    width: 32px;
-    height: 32px;
-  }
-
+  .logo-icon { width: 32px; height: 32px; }
   .logo-text {
     font-family: var(--display);
-    font-size: 24px;
-    letter-spacing: 2px;
-    color: var(--gold);
+    font-size: 24px; letter-spacing: 2px; color: var(--gold);
   }
-
   .logo-sub {
     font-family: var(--mono);
-    font-size: 10px;
-    color: var(--text-dim);
-    letter-spacing: 1px;
-    text-transform: uppercase;
+    font-size: 10px; color: var(--text-faint);
+    letter-spacing: 1px; text-transform: uppercase;
   }
 
   .header-right {
-    display: flex;
-    align-items: center;
-    gap: 20px;
+    display: flex; align-items: center; gap: 20px;
   }
 
   .usage-badge {
     font-family: var(--mono);
-    font-size: 11px;
-    color: var(--text-dim);
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    padding: 4px 10px;
-    border-radius: 4px;
+    font-size: 11px; color: var(--text-dim);
+    background: var(--bg3); border: 1px solid var(--border);
+    padding: 4px 10px; border-radius: 4px;
   }
+  .usage-badge span { color: var(--gold); font-weight: 700; }
 
-  .usage-badge span {
-    color: var(--gold);
-    font-weight: 700;
-  }
-
-  .nav-tabs {
-    display: flex;
-    gap: 4px;
-  }
+  .nav-tabs { display: flex; gap: 4px; }
 
   .nav-tab {
     font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.5px;
-    padding: 6px 14px;
-    border-radius: 4px;
+    font-size: 11px; letter-spacing: 0.5px;
+    padding: 6px 14px; border-radius: 4px;
     border: 1px solid transparent;
-    background: none;
-    color: var(--text-dim);
-    cursor: pointer;
-    transition: all 0.2s;
+    background: none; color: var(--text-dim);
+    cursor: pointer; transition: all 0.2s;
     text-transform: uppercase;
   }
-
-  .nav-tab:hover { color: var(--text); border-color: var(--border); }
+  .nav-tab:hover { color: var(--text); border-color: var(--border); background: var(--bg3); }
   .nav-tab.active {
     background: var(--gold-glow);
     border-color: var(--gold-dim);
@@ -141,14 +117,11 @@
 
   /* MAIN */
   main {
-    position: relative;
-    z-index: 1;
-    max-width: 1100px;
-    margin: 0 auto;
+    position: relative; z-index: 1;
+    max-width: 1100px; margin: 0 auto;
     padding: 40px 24px 80px;
   }
 
-  /* SCREENS */
   .screen { display: none; }
   .screen.active { display: block; }
 
@@ -158,791 +131,245 @@
   .analysis-grid {
     display: grid;
     grid-template-columns: 1fr 380px;
-    gap: 24px;
-    align-items: start;
+    gap: 24px; align-items: start;
   }
-
-  @media (max-width: 900px) {
-    .analysis-grid { grid-template-columns: 1fr; }
-  }
+  @media (max-width: 900px) { .analysis-grid { grid-template-columns: 1fr; } }
 
   .panel {
     background: var(--bg2);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
+    border-radius: 8px; overflow: hidden;
   }
 
   .panel-header {
-    background: var(--bg3);
-    border-bottom: 1px solid var(--border);
+    background: var(--bg3); border-bottom: 1px solid var(--border);
     padding: 14px 20px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    display: flex; align-items: center; justify-content: space-between;
   }
 
   .panel-title {
     font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: var(--text-dim);
+    font-size: 11px; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--text-dim);
   }
 
   .panel-badge {
-    font-family: var(--mono);
-    font-size: 10px;
-    background: var(--gold-glow);
-    border: 1px solid var(--gold-dim);
-    color: var(--gold);
-    padding: 2px 8px;
-    border-radius: 3px;
+    font-family: var(--mono); font-size: 10px;
+    background: var(--gold-glow); border: 1px solid var(--gold-dim);
+    color: var(--gold); padding: 2px 8px; border-radius: 3px;
   }
 
   .panel-body { padding: 20px; }
 
-  /* FORM */
-  .form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 12px;
-  }
-
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
   .form-group { display: flex; flex-direction: column; gap: 6px; }
 
   label {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--text-dim);
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim);
   }
 
   input, select, textarea {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: var(--body);
-    font-size: 14px;
-    padding: 10px 12px;
-    border-radius: 6px;
-    outline: none;
-    transition: border-color 0.2s;
+    background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--body);
+    font-size: 14px; padding: 10px 12px;
+    border-radius: 6px; outline: none; transition: border-color 0.2s;
   }
-
-  input:focus, select:focus, textarea:focus {
-    border-color: var(--gold-dim);
-  }
-
+  input:focus, select:focus, textarea:focus { border-color: var(--gold-dim); }
   select option { background: var(--bg3); }
 
   textarea {
-    resize: vertical;
-    min-height: 200px;
-    line-height: 1.6;
-    font-size: 13px;
+    resize: vertical; min-height: 200px;
+    line-height: 1.6; font-size: 13px;
   }
 
   .char-count {
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--text-faint);
-    text-align: right;
-    margin-top: 4px;
+    font-family: var(--mono); font-size: 10px;
+    color: var(--text-faint); text-align: right; margin-top: 4px;
   }
 
   .btn-analyze {
-    width: 100%;
-    padding: 16px;
-    background: var(--gold);
-    color: var(--bg);
-    border: none;
-    border-radius: 6px;
-    font-family: var(--display);
-    font-size: 20px;
-    letter-spacing: 2px;
-    cursor: pointer;
-    transition: all 0.2s;
-    margin-top: 16px;
-    position: relative;
-    overflow: hidden;
+    width: 100%; padding: 16px;
+    background: var(--gold); color: #fff;
+    border: none; border-radius: 6px;
+    font-family: var(--display); font-size: 20px;
+    letter-spacing: 2px; cursor: pointer;
+    transition: all 0.2s; margin-top: 16px;
+    position: relative; overflow: hidden;
   }
-
   .btn-analyze:hover {
-    background: #e8c060;
+    background: var(--gold-dim);
     transform: translateY(-1px);
-    box-shadow: 0 4px 20px rgba(210,170,80,0.3);
+    box-shadow: 0 4px 20px rgba(160,117,42,0.3);
   }
-
   .btn-analyze:disabled {
-    background: var(--surface);
-    color: var(--text-faint);
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
+    background: var(--surface); color: var(--text-faint);
+    cursor: not-allowed; transform: none; box-shadow: none;
   }
-
-  .btn-analyze .btn-loading {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-
+  .btn-analyze .btn-loading { display: none; align-items: center; justify-content: center; gap: 8px; }
   .btn-analyze.loading .btn-text { display: none; }
   .btn-analyze.loading .btn-loading { display: flex; }
 
   .spinner {
-    width: 16px;
-    height: 16px;
-    border: 2px solid rgba(0,0,0,0.2);
-    border-top-color: var(--bg);
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
   }
-
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* HISTORIAL PANEL */
   .history-list { display: flex; flex-direction: column; gap: 8px; }
 
   .history-item {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 12px 14px;
-    cursor: pointer;
-    transition: all 0.2s;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 6px; padding: 12px 14px;
+    cursor: pointer; transition: all 0.2s;
   }
+  .history-item:hover { border-color: var(--gold-dim); background: var(--surface); }
 
-  .history-item:hover {
-    border-color: var(--gold-dim);
-    background: var(--surface);
-  }
+  .hi-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .hi-name { font-family: var(--mono); font-size: 12px; color: var(--text); font-weight: 700; }
+  .hi-score { font-family: var(--display); font-size: 18px; letter-spacing: 1px; }
+  .hi-meta { font-family: var(--mono); font-size: 10px; color: var(--text-faint); }
 
-  .hi-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 4px;
-  }
-
-  .hi-name {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--text);
-    font-weight: 700;
-  }
-
-  .hi-score {
-    font-family: var(--display);
-    font-size: 18px;
-    letter-spacing: 1px;
-  }
-
-  .hi-meta {
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--text-faint);
-  }
-
-  .score-alto    { color: var(--green); }
-  .score-funcional { color: var(--yellow); }
-  .score-problemas { color: var(--amber); }
-  .score-critico { color: var(--red); }
+  .score-alto     { color: var(--green); }
+  .score-funcional{ color: var(--yellow); }
+  .score-problemas{ color: var(--amber); }
+  .score-critico  { color: var(--red); }
 
   .empty-history {
-    text-align: center;
-    padding: 30px 20px;
-    color: var(--text-faint);
-    font-family: var(--mono);
-    font-size: 11px;
+    text-align: center; padding: 30px 20px;
+    color: var(--text-faint); font-family: var(--mono); font-size: 11px;
   }
 
-  /* =====================
-     RESULTADO
-  ===================== */
+  /* RESULTADO */
   #resultado-section {
-    margin-top: 32px;
-    display: none;
+    margin-top: 32px; display: none;
     animation: fadeUp 0.4s ease;
   }
-
   @keyframes fadeUp {
     from { opacity:0; transform: translateY(16px); }
     to   { opacity:1; transform: translateY(0); }
   }
 
   .result-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 24px;
-    padding-bottom: 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px; padding-bottom: 20px;
     border-bottom: 1px solid var(--border);
   }
 
-  .result-score-block {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
-
+  .result-score-block { display: flex; align-items: center; gap: 16px; }
   .score-ring-wrap { position: relative; width: 90px; height: 90px; }
-
   .score-ring-wrap svg { transform: rotate(-90deg); }
-
   .score-ring-bg { fill: none; stroke: var(--surface); stroke-width: 7; }
-  .score-ring-fill {
-    fill: none;
-    stroke-width: 7;
-    stroke-linecap: round;
-    transition: stroke-dasharray 1.2s cubic-bezier(0.4, 0, 0.2, 1);
-  }
+  .score-ring-fill { fill: none; stroke-width: 7; stroke-linecap: round; transition: stroke-dasharray 1.2s cubic-bezier(0.4, 0, 0.2, 1); }
+  .score-number { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .score-num { font-family: var(--display); font-size: 28px; line-height: 1; }
+  .score-max { font-family: var(--mono); font-size: 9px; color: var(--text-faint); }
 
-  .score-number {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .score-num {
-    font-family: var(--display);
-    font-size: 28px;
-    line-height: 1;
-  }
-
-  .score-max {
-    font-family: var(--mono);
-    font-size: 9px;
-    color: var(--text-faint);
-  }
-
-  .result-meta h2 {
-    font-family: var(--display);
-    font-size: 22px;
-    letter-spacing: 1px;
-    color: var(--text);
-    margin-bottom: 4px;
-  }
-
+  .result-meta h2 { font-family: var(--display); font-size: 22px; letter-spacing: 1px; color: var(--text); margin-bottom: 4px; }
   .result-meta .classification {
-    display: inline-block;
-    font-family: var(--mono);
-    font-size: 11px;
-    padding: 3px 10px;
-    border-radius: 3px;
-    border: 1px solid;
-    margin-bottom: 6px;
+    display: inline-block; font-family: var(--mono); font-size: 11px;
+    padding: 3px 10px; border-radius: 3px; border: 1px solid; margin-bottom: 6px;
   }
-
-  .result-meta .vendedor-info {
-    font-size: 13px;
-    color: var(--text-dim);
-  }
+  .result-meta .vendedor-info { font-size: 13px; color: var(--text-dim); }
 
   .btn-nueva {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    padding: 8px 16px;
-    background: none;
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
+    font-family: var(--mono); font-size: 11px;
+    letter-spacing: 1px; text-transform: uppercase;
+    padding: 8px 16px; background: none;
+    border: 1px solid var(--border); color: var(--text-dim);
+    border-radius: 6px; cursor: pointer; transition: all 0.2s;
   }
-
   .btn-nueva:hover { border-color: var(--gold-dim); color: var(--gold); }
 
-  /* BLOQUES DE RESULTADO */
   .result-blocks { display: flex; flex-direction: column; gap: 16px; }
 
-  .result-block {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
-  }
+  .result-block { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 
   .rb-header {
-    background: var(--bg3);
-    border-bottom: 1px solid var(--border);
+    background: var(--bg3); border-bottom: 1px solid var(--border);
     padding: 12px 20px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-    user-select: none;
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; user-select: none;
   }
-
   .rb-title {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: var(--gold);
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    font-family: var(--mono); font-size: 11px;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--gold); display: flex; align-items: center; gap: 8px;
   }
-
   .rb-icon { font-size: 14px; }
   .rb-chevron { color: var(--text-faint); transition: transform 0.2s; }
   .rb-header.open .rb-chevron { transform: rotate(180deg); }
-
-  .rb-body {
-    padding: 20px;
-    display: none;
-  }
-
+  .rb-body { padding: 20px; display: none; }
   .rb-body.open { display: block; }
+  .rb-text { font-size: 14px; line-height: 1.8; color: var(--text); white-space: pre-wrap; }
 
-  .rb-text {
-    font-size: 14px;
-    line-height: 1.8;
-    color: var(--text);
-    white-space: pre-wrap;
-  }
-
-  /* FASES */
   .fases-grid { display: flex; flex-direction: column; gap: 12px; }
+  .fase-item { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; }
+  .fase-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .fase-name { font-family: var(--mono); font-size: 11px; letter-spacing: 0.5px; color: var(--text); }
+  .fase-score { font-family: var(--display); font-size: 16px; letter-spacing: 1px; }
+  .fase-bar-wrap { height: 4px; background: var(--surface); border-radius: 2px; overflow: hidden; margin-bottom: 8px; }
+  .fase-bar-fill { height: 100%; border-radius: 2px; transition: width 1s ease; }
+  .fase-text { font-size: 13px; line-height: 1.6; color: var(--text-dim); }
 
-  .fase-item {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 14px 16px;
-  }
-
-  .fase-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 8px;
-  }
-
-  .fase-name {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.5px;
-    color: var(--text);
-  }
-
-  .fase-score {
-    font-family: var(--display);
-    font-size: 16px;
-    letter-spacing: 1px;
-  }
-
-  .fase-bar-wrap {
-    height: 4px;
-    background: var(--surface);
-    border-radius: 2px;
-    overflow: hidden;
-    margin-bottom: 8px;
-  }
-
-  .fase-bar-fill {
-    height: 100%;
-    border-radius: 2px;
-    transition: width 1s ease;
-  }
-
-  .fase-text {
-    font-size: 13px;
-    line-height: 1.6;
-    color: var(--text-dim);
-  }
-
-  /* OBJECIONES */
-  .objecion-item {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 14px 16px;
-    margin-bottom: 10px;
-  }
-
+  .objecion-item { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; margin-bottom: 10px; }
   .obj-header { margin-bottom: 8px; }
-  .obj-label {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--text-faint);
-    margin-bottom: 3px;
-  }
+  .obj-label { font-family: var(--mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-faint); margin-bottom: 3px; }
   .obj-text { font-size: 13px; color: var(--text); font-style: italic; }
-
-  .obj-eval {
-    display: inline-block;
-    font-family: var(--mono);
-    font-size: 10px;
-    padding: 2px 8px;
-    border-radius: 3px;
-    border: 1px solid;
-    margin: 6px 0;
-  }
-
-  .eval-ok    { color: var(--green);  border-color: var(--green);  background: rgba(76,175,125,0.1); }
-  .eval-mejora{ color: var(--yellow); border-color: var(--yellow); background: rgba(240,192,64,0.1); }
-  .eval-no    { color: var(--red);    border-color: var(--red);    background: rgba(224,80,80,0.1); }
-
+  .obj-eval { display: inline-block; font-family: var(--mono); font-size: 10px; padding: 2px 8px; border-radius: 3px; border: 1px solid; margin: 6px 0; }
+  .eval-ok    { color: var(--green);  border-color: var(--green);  background: rgba(30,122,74,0.1); }
+  .eval-mejora{ color: var(--yellow); border-color: var(--yellow); background: rgba(138,106,0,0.1); }
+  .eval-no    { color: var(--red);    border-color: var(--red);    background: rgba(192,48,48,0.1); }
   .obj-recomendacion {
-    background: rgba(210,170,80,0.07);
-    border-left: 2px solid var(--gold-dim);
-    padding: 8px 12px;
-    font-size: 13px;
-    color: var(--text-dim);
-    line-height: 1.6;
-    margin-top: 8px;
-    border-radius: 0 4px 4px 0;
+    background: var(--gold-glow); border-left: 2px solid var(--gold-dim);
+    padding: 8px 12px; font-size: 13px; color: var(--text-dim);
+    line-height: 1.6; margin-top: 8px; border-radius: 0 4px 4px 0;
   }
 
-  /* SIGUIENTE PASO */
-  .paso-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-
-  .paso-item {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 12px 14px;
-  }
-
-  .paso-label {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--text-faint);
-    margin-bottom: 6px;
-  }
-
+  .paso-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .paso-item { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; }
+  .paso-label { font-family: var(--mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-faint); margin-bottom: 6px; }
   .paso-value { font-size: 13px; color: var(--text); line-height: 1.6; }
 
-  .whatsapp-box {
-    background: rgba(37,99,235,0.08);
-    border: 1px solid rgba(37,99,235,0.25);
-    border-radius: 6px;
-    padding: 14px 16px;
-    margin-top: 12px;
-  }
+  .whatsapp-box { background: rgba(37,99,235,0.05); border: 1px solid rgba(37,99,235,0.2); border-radius: 6px; padding: 14px 16px; margin-top: 12px; }
+  .whatsapp-box .paso-label { color: #4a7ed8; }
+  .whatsapp-box .paso-value { font-family: var(--mono); font-size: 12px; color: #5a8ee8; white-space: pre-wrap; }
 
-  .whatsapp-box .paso-label { color: #60a5fa; }
-  .whatsapp-box .paso-value {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: #93c5fd;
-    white-space: pre-wrap;
-  }
-
-  /* ERROR PRINCIPAL */
-  .error-box {
-    background: rgba(224,80,80,0.06);
-    border: 1px solid rgba(224,80,80,0.2);
-    border-radius: 6px;
-    padding: 16px;
-  }
-
+  .error-box { background: rgba(192,48,48,0.05); border: 1px solid rgba(192,48,48,0.2); border-radius: 6px; padding: 16px; }
   .error-box p { font-size: 14px; line-height: 1.8; color: var(--text); }
 
   /* =====================
-     PANTALLA 5 — CONFIG
+     PANTALLA EQUIPO + COACHING
   ===================== */
-  .config-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-  }
-
-  @media (max-width: 700px) {
-    .config-grid { grid-template-columns: 1fr; }
-  }
-
-  .config-section-title {
-    font-family: var(--display);
-    font-size: 18px;
-    letter-spacing: 2px;
-    color: var(--gold);
-    margin-bottom: 4px;
-  }
-
-  .config-section-desc {
-    font-size: 13px;
-    color: var(--text-dim);
-    margin-bottom: 16px;
-  }
-
-  .workspace-info {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 16px;
-    margin-bottom: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .wi-label { font-family: var(--mono); font-size: 10px; color: var(--text-faint); margin-bottom: 4px; }
-  .wi-value { font-size: 14px; color: var(--text); }
-
-  .plan-badge {
-    font-family: var(--display);
-    font-size: 14px;
-    letter-spacing: 1px;
-    padding: 4px 12px;
-    border-radius: 4px;
-    background: var(--gold-glow);
-    border: 1px solid var(--gold-dim);
-    color: var(--gold);
-  }
-
-  .vendedores-list { display: flex; flex-direction: column; gap: 8px; }
-
-  .vendedor-row {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 10px 14px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .vr-name { font-size: 14px; color: var(--text); }
-  .vr-stats { font-family: var(--mono); font-size: 10px; color: var(--text-faint); }
-  .vr-avg { font-family: var(--display); font-size: 16px; }
-
-  .btn-add-vendedor {
-    width: 100%;
-    margin-top: 8px;
-    padding: 10px;
-    background: none;
-    border: 1px dashed var(--border);
-    color: var(--text-dim);
-    border-radius: 6px;
-    cursor: pointer;
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 1px;
-    transition: all 0.2s;
-    text-transform: uppercase;
-  }
-
-  .btn-add-vendedor:hover { border-color: var(--gold-dim); color: var(--gold); }
-
-  .integration-item {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 14px 16px;
-    margin-bottom: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .int-info { display: flex; align-items: center; gap: 10px; }
-  .int-icon {
-    width: 32px; height: 32px;
-    background: var(--surface);
-    border-radius: 6px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 16px;
-  }
-  .int-name { font-size: 13px; color: var(--text); font-weight: 500; }
-  .int-status { font-family: var(--mono); font-size: 10px; color: var(--text-faint); }
-
-  .int-badge {
-    font-family: var(--mono);
-    font-size: 10px;
-    padding: 3px 8px;
-    border-radius: 3px;
-    border: 1px solid;
-  }
-
-  .int-pending { color: var(--yellow); border-color: var(--yellow); background: rgba(240,192,64,0.08); }
-  .int-connected { color: var(--green); border-color: var(--green); background: rgba(76,175,125,0.08); }
-
-  /* PAGE TITLE */
-  .page-title {
-    margin-bottom: 28px;
-  }
-
-  .page-title h1 {
-    font-family: var(--display);
-    font-size: 32px;
-    letter-spacing: 3px;
-    color: var(--text);
-    line-height: 1;
-  }
-
-  .page-title p {
-    font-size: 13px;
-    color: var(--text-dim);
-    margin-top: 6px;
-  }
-
-  /* TOAST */
-  #toast {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    background: var(--bg3);
-    border: 1px solid var(--gold-dim);
-    color: var(--gold);
-    font-family: var(--mono);
-    font-size: 12px;
-    padding: 10px 16px;
-    border-radius: 6px;
-    z-index: 1000;
-    transform: translateY(20px);
-    opacity: 0;
-    transition: all 0.3s;
-    pointer-events: none;
-  }
-
-  #toast.show { transform: translateY(0); opacity: 1; }
-
-  /* MODAL */
-  .modal-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.7);
-    z-index: 200;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-  }
-
-  .modal-overlay.open { display: flex; }
-
-  .modal {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    width: 100%;
-    max-width: 700px;
-    max-height: 85vh;
-    overflow-y: auto;
-    padding: 28px;
-  }
-
-  .modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-  }
-
-  .modal-title {
-    font-family: var(--display);
-    font-size: 22px;
-    letter-spacing: 2px;
-    color: var(--gold);
-  }
-
-  .modal-close {
-    background: none;
-    border: none;
-    color: var(--text-dim);
-    cursor: pointer;
-    font-size: 20px;
-    padding: 4px;
-    transition: color 0.2s;
-  }
-
-  .modal-close:hover { color: var(--text); }
-
-  /* LOADING OVERLAY */
-  #loading-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(13,10,7,0.85);
-    z-index: 300;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  #loading-overlay.open { display: flex; }
-
-  .loading-icon {
-    width: 60px;
-    height: 60px;
-  }
-
-  .loading-label {
-    font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: 2px;
-    color: var(--gold);
-    text-transform: uppercase;
-    animation: pulse 1.5s ease-in-out infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 0.4; }
-    50% { opacity: 1; }
-  }
-
-  .loading-sub {
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--text-faint);
-    letter-spacing: 1px;
-  }
-
-  /* NAV TAB PREMIUM */
-  .nav-tab-premium { color: var(--text-faint) !important; opacity: 0.65; }
-  .nav-tab-premium:hover { opacity: 1; border-color: var(--border) !important; color: var(--text-dim) !important; background: none !important; }
-
-  /* LOCKED SCREENS */
   .screen-locked { display: none; }
   .screen-locked.active { display: block; }
 
   .locked-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid var(--border); }
   .locked-title h1 { font-family:var(--display); font-size:32px; letter-spacing:3px; color:var(--text); line-height:1; }
   .locked-title p { font-size:13px; color:var(--text-dim); margin-top:6px; }
-  .locked-badge { display:flex; align-items:center; gap:8px; background:rgba(210,170,80,0.06); border:1px solid var(--gold-dim); border-radius:6px; padding:10px 16px; }
+  .locked-badge { display:flex; align-items:center; gap:8px; background:var(--gold-glow); border:1px solid var(--gold-dim); border-radius:6px; padding:10px 16px; }
   .locked-badge-crown { font-size:20px; }
   .locked-badge-text { font-family:var(--mono); font-size:11px; letter-spacing:0.5px; color:var(--gold); line-height:1.5; }
   .locked-badge-text span { display:block; font-size:10px; color:var(--gold-dim); letter-spacing:0; font-weight:400; }
 
-  .preview-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:28px; position:relative; }
+  .preview-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:28px; }
   @media (max-width:700px) { .preview-grid { grid-template-columns:1fr; } }
   .preview-card { background:var(--bg2); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
   .preview-card-full { grid-column:1/-1; }
-  .preview-lock-overlay { display:none; }
-  .lock-icon { font-size:36px; opacity:0.6; }
-  .lock-label { font-family:var(--display); font-size:20px; letter-spacing:3px; color:var(--gold); opacity:0.8; }
-  .lock-sub { font-family:var(--mono); font-size:10px; color:var(--text-faint); letter-spacing:1px; text-align:center; }
 
   .unlock-cta { display:flex; align-items:center; justify-content:space-between; background:var(--bg3); border:1px solid var(--gold-dim); border-radius:8px; padding:20px 24px; margin-top:8px; }
   .unlock-text h3 { font-family:var(--display); font-size:18px; letter-spacing:2px; color:var(--gold); margin-bottom:4px; }
   .unlock-text p { font-size:13px; color:var(--text-dim); max-width:400px; line-height:1.5; }
   .btn-unlock { font-family:var(--mono); font-size:11px; letter-spacing:1px; text-transform:uppercase; padding:10px 20px; background:var(--gold-glow); border:1px solid var(--gold-dim); color:var(--gold); border-radius:6px; cursor:pointer; transition:all 0.2s; white-space:nowrap; flex-shrink:0; margin-left:20px; }
-  .btn-unlock:hover { background:rgba(210,170,80,0.2); border-color:var(--gold); }
+  .btn-unlock:hover { background:rgba(160,117,42,0.2); border-color:var(--gold); }
 
   /* SALES METRICS */
   .sales-metrics { background:var(--bg2); border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:16px; }
-  .sm-header { background:linear-gradient(90deg,rgba(224,80,80,0.08),rgba(210,170,80,0.05)); border-bottom:1px solid var(--border); padding:12px 20px; display:flex; align-items:center; justify-content:space-between; }
+  .sm-header { background:var(--bg3); border-bottom:1px solid var(--border); padding:12px 20px; display:flex; align-items:center; justify-content:space-between; }
   .sm-title { font-family:var(--mono); font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--gold); display:flex; align-items:center; gap:6px; }
   .sm-body { padding:16px 20px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
   @media (max-width:700px) { .sm-body { grid-template-columns:1fr; } }
@@ -951,12 +378,75 @@
   .sm-card-value { font-family:var(--display); font-size:26px; letter-spacing:1px; line-height:1; margin-bottom:6px; }
   .sm-card-detail { font-size:12px; color:var(--text-dim); line-height:1.5; }
   .sm-prob-high { color:var(--green); } .sm-prob-mid { color:var(--yellow); } .sm-prob-low { color:var(--amber); } .sm-prob-none { color:var(--red); }
-  .sm-signals { grid-column:1/-1; background:var(--bg3); border:1px solid rgba(224,80,80,0.2); border-radius:6px; padding:14px; }
+  .sm-signals { grid-column:1/-1; background:var(--bg3); border:1px solid rgba(192,48,48,0.2); border-radius:6px; padding:14px; }
   .sm-signals-label { font-family:var(--mono); font-size:10px; letter-spacing:0.8px; text-transform:uppercase; color:var(--red); opacity:0.8; margin-bottom:8px; display:flex; align-items:center; gap:4px; }
   .sm-signal-chips { display:flex; flex-wrap:wrap; gap:6px; }
-  .sm-chip { font-family:var(--mono); font-size:11px; padding:4px 10px; border-radius:3px; border:1px solid rgba(224,80,80,0.3); color:#f08080; background:rgba(224,80,80,0.06); font-style:italic; }
-  .sm-chip-none { color:var(--green); border-color:rgba(76,175,125,0.3); background:rgba(76,175,125,0.06); font-style:normal; }
+  .sm-chip { font-family:var(--mono); font-size:11px; padding:4px 10px; border-radius:3px; border:1px solid rgba(192,48,48,0.3); color:#c05050; background:rgba(192,48,48,0.06); font-style:italic; }
+  .sm-chip-none { color:var(--green); border-color:rgba(30,122,74,0.3); background:rgba(30,122,74,0.06); font-style:normal; }
 
+  /* CONFIG */
+  .config-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  @media (max-width:700px) { .config-grid { grid-template-columns:1fr; } }
+  .config-section-title { font-family:var(--display); font-size:18px; letter-spacing:2px; color:var(--gold); margin-bottom:4px; }
+  .config-section-desc { font-size:13px; color:var(--text-dim); margin-bottom:16px; }
+  .workspace-info { background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:16px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; }
+  .wi-label { font-family:var(--mono); font-size:10px; color:var(--text-faint); margin-bottom:4px; }
+  .wi-value { font-size:14px; color:var(--text); }
+  .plan-badge { font-family:var(--display); font-size:14px; letter-spacing:1px; padding:4px 12px; border-radius:4px; background:var(--gold-glow); border:1px solid var(--gold-dim); color:var(--gold); }
+  .vendedores-list { display:flex; flex-direction:column; gap:8px; }
+  .vendedor-row { background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; }
+  .vr-name { font-size:14px; color:var(--text); }
+  .vr-stats { font-family:var(--mono); font-size:10px; color:var(--text-faint); }
+  .vr-avg { font-family:var(--display); font-size:16px; }
+  .btn-add-vendedor { width:100%; margin-top:8px; padding:10px; background:none; border:1px dashed var(--border); color:var(--text-dim); border-radius:6px; cursor:pointer; font-family:var(--mono); font-size:11px; letter-spacing:1px; transition:all 0.2s; text-transform:uppercase; }
+  .btn-add-vendedor:hover { border-color:var(--gold-dim); color:var(--gold); }
+  .integration-item { background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:14px 16px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; }
+  .int-info { display:flex; align-items:center; gap:10px; }
+  .int-icon { width:32px; height:32px; background:var(--surface); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:16px; }
+  .int-name { font-size:13px; color:var(--text); font-weight:500; }
+  .int-status { font-family:var(--mono); font-size:10px; color:var(--text-faint); }
+  .int-badge { font-family:var(--mono); font-size:10px; padding:3px 8px; border-radius:3px; border:1px solid; }
+  .int-pending { color:var(--yellow); border-color:var(--yellow); background:rgba(138,106,0,0.08); }
+  .int-connected { color:var(--green); border-color:var(--green); background:rgba(30,122,74,0.08); }
+
+  /* PAGE TITLE */
+  .page-title { margin-bottom: 28px; }
+  .page-title h1 { font-family:var(--display); font-size:32px; letter-spacing:3px; color:var(--text); line-height:1; }
+  .page-title p { font-size:13px; color:var(--text-dim); margin-top:6px; }
+
+  /* TOAST */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--bg2); border: 1px solid var(--gold-dim);
+    color: var(--gold); font-family: var(--mono); font-size: 12px;
+    padding: 10px 16px; border-radius: 6px; z-index: 1000;
+    transform: translateY(20px); opacity: 0;
+    transition: all 0.3s; pointer-events: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+
+  /* LOADING OVERLAY */
+  #loading-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(245,240,232,0.9); z-index: 300;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+  }
+  #loading-overlay.open { display: flex; }
+  .loading-icon { width: 60px; height: 60px; }
+  .loading-label {
+    font-family: var(--mono); font-size: 12px;
+    letter-spacing: 2px; color: var(--gold);
+    text-transform: uppercase;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+  .loading-sub { font-family: var(--mono); font-size: 10px; color: var(--text-faint); letter-spacing: 1px; }
+
+  /* NAV TAB PREMIUM */
+  .nav-tab-premium { color: var(--text-faint) !important; opacity: 0.7; }
+  .nav-tab-premium:hover { opacity: 1; }
 </style>
 </head>
 <body>
@@ -964,12 +454,12 @@
 <!-- LOADING OVERLAY -->
 <div id="loading-overlay">
   <svg class="loading-icon" viewBox="0 0 60 60" fill="none">
-    <circle cx="30" cy="30" r="24" stroke="#3d2c14" stroke-width="4"/>
-    <path d="M30 6 A24 24 0 0 1 54 30" stroke="#d2aa50" stroke-width="4" stroke-linecap="round">
+    <circle cx="30" cy="30" r="24" stroke="#d5cbbf" stroke-width="4"/>
+    <path d="M30 6 A24 24 0 0 1 54 30" stroke="#a0752a" stroke-width="4" stroke-linecap="round">
       <animateTransform attributeName="transform" type="rotate" from="0 30 30" to="360 30 30" dur="0.8s" repeatCount="indefinite"/>
     </path>
-    <path d="M22 28 Q30 20 38 28 Q30 36 22 28" fill="#d2aa50" opacity="0.7"/>
-    <circle cx="30" cy="30" r="3" fill="#d2aa50"/>
+    <path d="M22 28 Q30 20 38 28 Q30 36 22 28" fill="#a0752a" opacity="0.7"/>
+    <circle cx="30" cy="30" r="3" fill="#a0752a"/>
   </svg>
   <div class="loading-label">Analizando conversación</div>
   <div class="loading-sub">Procesando con AurisIQ · Scorecard v1 Financiero</div>
@@ -977,11 +467,11 @@
 
 <!-- HEADER -->
 <header>
-  <a class="logo" href="index.html" style="text-decoration:none;">
+  <a class="logo" href="index.html">
     <svg class="logo-icon" viewBox="0 0 32 32" fill="none">
-      <path d="M16 2 L28 9 L28 23 L16 30 L4 23 L4 9 Z" fill="#2e2010" stroke="#d2aa50" stroke-width="1.5"/>
-      <path d="M10 16 Q16 10 22 16 Q16 22 10 16" fill="#d2aa50" opacity="0.9"/>
-      <circle cx="16" cy="16" r="2.5" fill="#d2aa50"/>
+      <path d="M16 2 L28 9 L28 23 L16 30 L4 23 L4 9 Z" fill="#e8e0d0" stroke="#a0752a" stroke-width="1.5"/>
+      <path d="M10 16 Q16 10 22 16 Q16 22 10 16" fill="#a0752a" opacity="0.9"/>
+      <circle cx="16" cy="16" r="2.5" fill="#a0752a"/>
     </svg>
     <div>
       <div class="logo-text">AURISIQ</div>
@@ -1010,7 +500,6 @@
     </div>
 
     <div class="analysis-grid">
-      <!-- FORM -->
       <div>
         <div class="panel">
           <div class="panel-header">
@@ -1070,7 +559,6 @@ Prospecto: Sí, dígame..." oninput="updateCharCount()"></textarea>
         </div>
       </div>
 
-      <!-- HISTORIAL -->
       <div>
         <div class="panel">
           <div class="panel-header">
@@ -1110,7 +598,6 @@ Prospecto: Sí, dígame..." oninput="updateCharCount()"></textarea>
         <button class="btn-nueva" onclick="nuevaConsulta()">+ Nueva consulta</button>
       </div>
 
-      <!-- MÉTRICAS DE VENTAS -->
       <div class="sales-metrics" id="sales-metrics-block" style="display:none;">
         <div class="sm-header">
           <span class="sm-title">⚡ Señales de venta</span>
@@ -1154,42 +641,35 @@ Prospecto: Sí, dígame..." oninput="updateCharCount()"></textarea>
         <div class="locked-badge-text">PLAN PROFESIONAL<span>Disponible próximamente</span></div>
       </div>
     </div>
-    <div style="position:relative;">
-      <div class="preview-grid">
-        <div class="preview-card">
-          <div class="panel-header"><span class="panel-title">Ranking del equipo</span><span class="panel-badge">ESTE MES</span></div>
-          <div class="panel-body">
-            <div style="display:flex;flex-direction:column;gap:10px;">
-              <div class="vendedor-row"><span class="vr-name">Carlos López</span><span class="vr-avg score-alto" style="font-family:var(--display);font-size:18px;">82</span></div>
-              <div class="vendedor-row"><span class="vr-name">María García</span><span class="vr-avg score-funcional" style="font-family:var(--display);font-size:18px;">71</span></div>
-              <div class="vendedor-row"><span class="vr-name">Jorge Mendez</span><span class="vr-avg score-problemas" style="font-family:var(--display);font-size:18px;">58</span></div>
-            </div>
-          </div>
-        </div>
-        <div class="preview-card">
-          <div class="panel-header"><span class="panel-title">Score promedio equipo</span></div>
-          <div class="panel-body" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;">
-            <div style="font-family:var(--display);font-size:72px;color:var(--yellow);line-height:1;">70</div>
-            <div style="font-family:var(--mono);font-size:11px;color:var(--text-faint);margin-top:8px;">PROMEDIO · 12 ANÁLISIS</div>
-            <div style="font-family:var(--mono);font-size:11px;color:var(--green);margin-top:8px;">▲ +8 vs mes anterior</div>
-          </div>
-        </div>
-        <div class="preview-card preview-card-full">
-          <div class="panel-header"><span class="panel-title">Skill gaps por categoría</span></div>
-          <div class="panel-body">
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
-              <div class="fase-item"><div class="fase-name">Apertura</div><div class="fase-score score-alto">88</div></div>
-              <div class="fase-item"><div class="fase-name">Descubrimiento</div><div class="fase-score score-funcional">72</div></div>
-              <div class="fase-item"><div class="fase-name">Objeciones</div><div class="fase-score score-problemas">55</div></div>
-              <div class="fase-item"><div class="fase-name">Cierre</div><div class="fase-score score-critico">48</div></div>
-            </div>
+    <div class="preview-grid">
+      <div class="preview-card">
+        <div class="panel-header"><span class="panel-title">Ranking del equipo</span><span class="panel-badge">ESTE MES</span></div>
+        <div class="panel-body">
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div class="vendedor-row"><span class="vr-name">Carlos López</span><span class="vr-avg score-alto" style="font-family:var(--display);font-size:18px;">82</span></div>
+            <div class="vendedor-row"><span class="vr-name">María García</span><span class="vr-avg score-funcional" style="font-family:var(--display);font-size:18px;">71</span></div>
+            <div class="vendedor-row"><span class="vr-name">Jorge Mendez</span><span class="vr-avg score-problemas" style="font-family:var(--display);font-size:18px;">58</span></div>
           </div>
         </div>
       </div>
-      <div class="preview-lock-overlay">
-        <div class="lock-icon">🔒</div>
-        <div class="lock-label">PLAN PROFESIONAL</div>
-        <div class="lock-sub">Disponible cuando AurisIQ tenga<br>20+ análisis de tu equipo</div>
+      <div class="preview-card">
+        <div class="panel-header"><span class="panel-title">Score promedio equipo</span></div>
+        <div class="panel-body" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;">
+          <div style="font-family:var(--display);font-size:72px;color:var(--yellow);line-height:1;">70</div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text-faint);margin-top:8px;">PROMEDIO · 12 ANÁLISIS</div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--green);margin-top:8px;">▲ +8 vs mes anterior</div>
+        </div>
+      </div>
+      <div class="preview-card preview-card-full">
+        <div class="panel-header"><span class="panel-title">Skill gaps por categoría</span></div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+            <div class="fase-item"><div class="fase-name">Apertura</div><div class="fase-score score-alto">88</div></div>
+            <div class="fase-item"><div class="fase-name">Descubrimiento</div><div class="fase-score score-funcional">72</div></div>
+            <div class="fase-item"><div class="fase-name">Objeciones</div><div class="fase-score score-problemas">55</div></div>
+            <div class="fase-item"><div class="fase-name">Cierre</div><div class="fase-score score-critico">48</div></div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="unlock-cta">
@@ -1197,7 +677,7 @@ Prospecto: Sí, dígame..." oninput="updateCharCount()"></textarea>
         <h3>DESBLOQUEA EL DASHBOARD DE EQUIPO</h3>
         <p>Ve el score promedio de cada vendedor, identifica quién necesita coaching y en qué fase específica está fallando tu equipo.</p>
       </div>
-      <button class="btn-unlock" onclick="window.showToast && showToast('Contacta a tu administrador para activar el plan Profesional')">Solicitar acceso →</button>
+      <button class="btn-unlock" onclick="showToast('Contacta a tu administrador para activar el plan Profesional')">Solicitar acceso →</button>
     </div>
   </div>
 
@@ -1206,151 +686,105 @@ Prospecto: Sí, dígame..." oninput="updateCharCount()"></textarea>
     <div class="locked-header">
       <div class="locked-title">
         <h1>COACHING</h1>
-        <p>Biblioteca de mejores respuestas · Planes de mejora</p>
+        <p>Biblioteca de respuestas a objeciones · Planes de mejora</p>
       </div>
       <div class="locked-badge">
         <span class="locked-badge-crown">👑</span>
         <div class="locked-badge-text">PLAN PROFESIONAL<span>Disponible próximamente</span></div>
       </div>
     </div>
-    <div style="position:relative;">
-      <div class="preview-grid">
-        <div class="preview-card">
-          <div class="panel-header"><span class="panel-title">Tendencia · Carlos López</span></div>
-          <div class="panel-body">
-            <div style="display:flex;align-items:flex-end;gap:6px;height:60px;">
-              <div style="flex:1;background:var(--surface);border-radius:3px 3px 0 0;height:40%;"></div>
-              <div style="flex:1;background:var(--surface);border-radius:3px 3px 0 0;height:55%;"></div>
-              <div style="flex:1;background:var(--gold-dim);border-radius:3px 3px 0 0;height:65%;opacity:0.6;"></div>
-              <div style="flex:1;background:var(--gold-dim);border-radius:3px 3px 0 0;height:72%;opacity:0.7;"></div>
-              <div style="flex:1;background:var(--gold);border-radius:3px 3px 0 0;height:82%;"></div>
-            </div>
-            <div style="font-family:var(--mono);font-size:10px;color:var(--green);margin-top:8px;">▲ +18 pts en 5 semanas</div>
+    <div class="preview-grid">
+      <div class="preview-card">
+        <div class="panel-header"><span class="panel-title">Tendencia · Carlos López</span></div>
+        <div class="panel-body">
+          <div style="display:flex;align-items:flex-end;gap:6px;height:60px;">
+            <div style="flex:1;background:var(--surface);border-radius:3px 3px 0 0;height:40%;"></div>
+            <div style="flex:1;background:var(--surface);border-radius:3px 3px 0 0;height:55%;"></div>
+            <div style="flex:1;background:var(--gold-dim);border-radius:3px 3px 0 0;height:65%;opacity:0.6;"></div>
+            <div style="flex:1;background:var(--gold-dim);border-radius:3px 3px 0 0;height:72%;opacity:0.7;"></div>
+            <div style="flex:1;background:var(--gold);border-radius:3px 3px 0 0;height:82%;"></div>
           </div>
-        </div>
-        <div class="preview-card">
-          <div class="panel-header"><span class="panel-title">Mejores rebuttals</span><span class="panel-badge">OBJECIONES</span></div>
-          <div class="panel-body" style="display:flex;flex-direction:column;gap:8px;">
-            <div class="objecion-item" style="margin:0;"><div class="obj-text">"Es muy caro"</div><div class="eval-ok obj-eval">REBUTTAL IDEAL</div><div class="obj-recomendacion">Ver cómo lo manejó Carlos en llamada del 8 Mar...</div></div>
-            <div class="objecion-item" style="margin:0;"><div class="obj-text">"Lo tengo que consultar"</div><div class="eval-mejora obj-eval">2 VERSIONES</div></div>
-          </div>
-        </div>
-        <div class="preview-card preview-card-full">
-          <div class="panel-header"><span class="panel-title">Plan de mejora · Jorge Mendez · Semana actual</span></div>
-          <div class="panel-body">
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-              <div class="paso-item"><div class="paso-label">Foco esta semana</div><div class="paso-value">Manejo de objeción de precio</div></div>
-              <div class="paso-item"><div class="paso-label">Ejercicio asignado</div><div class="paso-value">3 llamadas con script de anclaje</div></div>
-              <div class="paso-item"><div class="paso-label">Meta</div><div class="paso-value">Subir cierre de 48 → 60 pts</div></div>
-            </div>
-          </div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--green);margin-top:8px;">▲ +18 pts en 5 semanas</div>
         </div>
       </div>
-      <div class="preview-lock-overlay">
-        <div class="lock-icon">🔒</div>
-        <div class="lock-label">PLAN PROFESIONAL</div>
-        <div class="lock-sub">Disponible cuando AurisIQ tenga<br>20+ análisis de tu equipo</div>
+      <div class="preview-card">
+        <!-- RENOMBRADO: "Mejores rebuttals" → "Cómo responder objeciones" -->
+        <div class="panel-header"><span class="panel-title">Cómo responder objeciones</span><span class="panel-badge">BIBLIOTECA</span></div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:8px;">
+          <div class="objecion-item" style="margin:0;"><div class="obj-text">"Es muy caro"</div><div class="eval-ok obj-eval">RESPUESTA IDEAL</div><div class="obj-recomendacion">Ver cómo lo manejó Carlos en llamada del 8 Mar...</div></div>
+          <div class="objecion-item" style="margin:0;"><div class="obj-text">"Lo tengo que consultar"</div><div class="eval-mejora obj-eval">2 VERSIONES</div></div>
+        </div>
+      </div>
+      <div class="preview-card preview-card-full">
+        <div class="panel-header"><span class="panel-title">Plan de mejora · Jorge Mendez · Semana actual</span></div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+            <div class="paso-item"><div class="paso-label">Foco esta semana</div><div class="paso-value">Manejo de objeción de precio</div></div>
+            <div class="paso-item"><div class="paso-label">Ejercicio asignado</div><div class="paso-value">3 llamadas con script de anclaje</div></div>
+            <div class="paso-item"><div class="paso-label">Meta</div><div class="paso-value">Subir cierre de 48 → 60 pts</div></div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="unlock-cta">
       <div class="unlock-text">
         <h3>COACHING BASADO EN DATOS REALES</h3>
-        <p>Planes de mejora individuales, biblioteca de los mejores rebuttals de tu equipo y seguimiento de progreso semana a semana.</p>
+        <p>Planes de mejora individuales, biblioteca de respuestas a objeciones de tu equipo y seguimiento de progreso semana a semana.</p>
       </div>
-      <button class="btn-unlock" onclick="window.showToast && showToast('Contacta a tu administrador para activar el plan Profesional')">Solicitar acceso →</button>
+      <button class="btn-unlock" onclick="showToast('Contacta a tu administrador para activar el plan Profesional')">Solicitar acceso →</button>
     </div>
   </div>
+
+  <!-- ===== PANTALLA: CONFIG ===== -->
   <div id="screen-config" class="screen">
     <div class="page-title">
       <h1>WORKSPACE</h1>
       <p>Configuración del equipo e integraciones</p>
     </div>
-
     <div class="config-grid">
-      <!-- Workspace info -->
       <div>
         <div class="config-section-title">Workspace</div>
         <div class="config-section-desc">Datos del equipo activo</div>
-
         <div class="workspace-info">
-          <div>
-            <div class="wi-label">Empresa</div>
-            <div class="wi-value" id="cfg-empresa">EnPagos</div>
-          </div>
+          <div><div class="wi-label">Empresa</div><div class="wi-value" id="cfg-empresa">EnPagos</div></div>
         </div>
         <div class="workspace-info">
-          <div>
-            <div class="wi-label">Plan activo</div>
-            <div class="wi-value">BETA — Acceso completo</div>
-          </div>
+          <div><div class="wi-label">Plan activo</div><div class="wi-value">BETA — Acceso completo</div></div>
           <div class="plan-badge">BETA</div>
         </div>
         <div class="workspace-info">
-          <div>
-            <div class="wi-label">Análisis disponibles este mes</div>
-            <div class="wi-value">Ilimitados durante BETA</div>
-          </div>
+          <div><div class="wi-label">Análisis disponibles este mes</div><div class="wi-value">Ilimitados durante BETA</div></div>
         </div>
-
         <div class="config-section-title" style="margin-top:24px;">Vendedores</div>
         <div class="config-section-desc">Registros del equipo</div>
-
         <div id="vendedores-list" class="vendedores-list"></div>
         <button class="btn-add-vendedor" onclick="addVendedor()">+ Agregar vendedor</button>
       </div>
-
-      <!-- Integraciones -->
       <div>
         <div class="config-section-title">Integraciones</div>
         <div class="config-section-desc">Conecta fuentes de transcripción automática</div>
-
         <div class="integration-item">
-          <div class="int-info">
-            <div class="int-icon">📞</div>
-            <div>
-              <div class="int-name">Vixiees CRM</div>
-              <div class="int-status">CRM nativo · En evaluación</div>
-            </div>
-          </div>
+          <div class="int-info"><div class="int-icon">📞</div><div><div class="int-name">Vixiees CRM</div><div class="int-status">CRM nativo · En evaluación</div></div></div>
           <div class="int-badge int-pending">EN EVALUACIÓN</div>
         </div>
-
         <div class="integration-item">
-          <div class="int-info">
-            <div class="int-icon">🎙</div>
-            <div>
-              <div class="int-name">Fireflies.ai</div>
-              <div class="int-status">Transcripción automática de llamadas</div>
-            </div>
-          </div>
+          <div class="int-info"><div class="int-icon">🎙</div><div><div class="int-name">Fireflies.ai</div><div class="int-status">Transcripción automática de llamadas</div></div></div>
           <div class="int-badge int-pending">PRÓXIMAMENTE</div>
         </div>
-
         <div class="integration-item">
-          <div class="int-info">
-            <div class="int-icon">📁</div>
-            <div>
-              <div class="int-name">Carga manual</div>
-              <div class="int-status">Copiar y pegar transcripción</div>
-            </div>
-          </div>
+          <div class="int-info"><div class="int-icon">📁</div><div><div class="int-name">Carga manual</div><div class="int-status">Copiar y pegar transcripción</div></div></div>
           <div class="int-badge int-connected">ACTIVO</div>
         </div>
-
         <div class="config-section-title" style="margin-top:24px;">Scorecard activo</div>
         <div class="config-section-desc">Modelo de evaluación configurado para este workspace</div>
-
-        <div class="workspace-info" style="flex-direction:column; align-items:flex-start; gap:8px;">
-          <div>
-            <div class="wi-label">Scorecard</div>
-            <div class="wi-value">V1 — Financiero / Crédito PyME</div>
-          </div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <span style="font-family:var(--mono); font-size:10px; color:var(--text-faint); background:var(--surface); padding:2px 8px; border-radius:3px;">Apertura 15pts</span>
-            <span style="font-family:var(--mono); font-size:10px; color:var(--text-faint); background:var(--surface); padding:2px 8px; border-radius:3px;">Descubrimiento 25pts</span>
-            <span style="font-family:var(--mono); font-size:10px; color:var(--text-faint); background:var(--surface); padding:2px 8px; border-radius:3px;">Objeciones 25pts</span>
-            <span style="font-family:var(--mono); font-size:10px; color:var(--text-faint); background:var(--surface); padding:2px 8px; border-radius:3px;">Cierre 25pts</span>
-            <span style="font-family:var(--mono); font-size:10px; color:var(--text-faint); background:var(--surface); padding:2px 8px; border-radius:3px;">Señales 10pts</span>
+        <div class="workspace-info" style="flex-direction:column;align-items:flex-start;gap:8px;">
+          <div><div class="wi-label">Scorecard</div><div class="wi-value">V1 — Financiero / Crédito PyME</div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint);background:var(--surface);padding:2px 8px;border-radius:3px;">Apertura 15pts</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint);background:var(--surface);padding:2px 8px;border-radius:3px;">Descubrimiento 25pts</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint);background:var(--surface);padding:2px 8px;border-radius:3px;">Objeciones 25pts</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint);background:var(--surface);padding:2px 8px;border-radius:3px;">Cierre 25pts</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint);background:var(--surface);padding:2px 8px;border-radius:3px;">Señales 10pts</span>
           </div>
         </div>
       </div>
@@ -1359,14 +793,9 @@ Prospecto: Sí, dígame..." oninput="updateCharCount()"></textarea>
 
 </main>
 
-<!-- TOAST -->
 <div id="toast"></div>
 
-
 <script type="module">
-// ============================================================
-//  AurisIQ — aurisiq.html  v2.0
-// ============================================================
 import { analizar as analizarAPI, getHistorial, getUsoMes, getVendedoresFromHistorial } from './modules/analisis.js';
 import { renderResultado, renderHistorial, renderVendedoresConfig,
          showToast, setLoading, updateCharCount, updateUsageDisplay, showScreen as showScreenUI } from './modules/ui.js';
@@ -1379,10 +808,8 @@ renderHistorial(getHistorial(), verHistorial);
 const cfgEmpresa = document.getElementById('cfg-empresa');
 if (cfgEmpresa) cfgEmpresa.textContent = WORKSPACE.nombre;
 
-// Exponer showToast globalmente para botones en pantallas locked
 window.showToast = showToast;
 
-// showScreen — maneja las 4 tabs incluyendo las locked
 window.showScreen = function(id, tabEl) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -1475,60 +902,6 @@ function verHistorial(idx) {
   renderSalesMetrics(analisisActual);
   document.getElementById('resultado-section').scrollIntoView({ behavior: 'smooth' });
 }
-
-// DRAG & DROP
-const dropZone  = document.getElementById('drop-zone');
-const dropInput = document.getElementById('drop-input');
-const dropIcon  = document.getElementById('drop-icon');
-const dropLabel = document.getElementById('drop-label');
-const textarea  = document.getElementById('transcripcion');
-
-function loadFile(file) {
-  const ext = file.name.split('.').pop().toLowerCase();
-  if (ext === 'docx') {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const mammoth = await import('https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js');
-        const result = await mammoth.extractRawText({ arrayBuffer: e.target.result });
-        setTranscripcion(result.value, file.name);
-      } catch { showToast('No se pudo leer el .docx — intenta copiar y pegar el texto'); }
-    };
-    reader.readAsArrayBuffer(file);
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = (e) => setTranscripcion(e.target.result, file.name);
-  reader.readAsText(file, 'UTF-8');
-}
-
-function setTranscripcion(texto, nombre) {
-  textarea.value = texto;
-  updateCharCount();
-  dropIcon.textContent = '✅';
-  dropLabel.innerHTML  = `<span style="color:var(--green)">${nombre} cargado</span> — <span onclick="clearDrop()" style="cursor:pointer;color:var(--gold)">cambiar archivo</span>`;
-  dropZone.classList.add('loaded');
-}
-
-window.clearDrop = function() {
-  textarea.value = '';
-  updateCharCount();
-  dropIcon.textContent = '📄';
-  dropLabel.innerHTML  = 'Arrastra un archivo aquí o <span>selecciónalo</span>';
-  dropZone.classList.remove('loaded');
-  dropInput.value = '';
-};
-
-dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-dropZone.addEventListener('drop', (e) => {
-  e.preventDefault();
-  dropZone.classList.remove('dragover');
-  const file = e.dataTransfer.files[0];
-  if (file) loadFile(file);
-});
-dropInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (file) loadFile(file); });
-
 </script>
 </body>
 </html>
