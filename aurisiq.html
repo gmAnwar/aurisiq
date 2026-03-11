@@ -1211,6 +1211,31 @@ window.volverAClientes = function() {
   document.getElementById('screen-clientes').classList.add('active');
 };
 
+// Leer params de URL para pre-seleccionar cliente (viene desde index.html)
+(function readURLParams() {
+  const params = new URLSearchParams(window.location.search);
+  const clienteId = params.get('cliente');
+  const tipo = params.get('tipo');
+  if (!clienteId) return;
+  const cliente = CLIENTES.find(c => c.id === clienteId);
+  if (!cliente) return;
+  window.clienteActivo = cliente;
+  if (tipo) window.clienteActivo._tipoActivo = tipo;
+  // Ir directo a pantalla de análisis
+  document.addEventListener('DOMContentLoaded', function() {
+    var screens = document.querySelectorAll('.screen');
+    screens.forEach(function(s) { s.classList.remove('active'); });
+    var analisis = document.getElementById('screen-analisis');
+    if (analisis) analisis.classList.add('active');
+    var badge = document.getElementById('cliente-badge');
+    var badgeNombre = document.getElementById('badge-nombre');
+    if (badge && badgeNombre) {
+      badgeNombre.textContent = cliente.nombre + (tipo ? ' · ' + (tipo === 'llamada' ? 'Llamada' : 'Visita') : '');
+      badge.style.display = 'flex';
+    }
+  });
+})();
+
 // Render inicial — múltiples estrategias para garantizar que el DOM esté listo
 function initClientes() {
   var grid = document.getElementById('clientes-grid');
