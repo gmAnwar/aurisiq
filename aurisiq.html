@@ -1216,28 +1216,19 @@ window.volverAClientes = function() {
 // Se ejecuta DESPUÉS de que el DOM esté listo para no competir con initClientes
 function applyURLParams() {
   var params = new URLSearchParams(window.location.search);
-  // También leer sessionStorage como fallback (viene del index.html)
   var clienteId = params.get('cliente') || sessionStorage.getItem('aurisiq_cliente');
-  var tipo      = params.get('tipo')    || sessionStorage.getItem('aurisiq_tipo');
-  // Limpiar sessionStorage para no persistir entre navegaciones
+  var tipoId    = params.get('tipo')    || sessionStorage.getItem('aurisiq_tipo');
   sessionStorage.removeItem('aurisiq_cliente');
   sessionStorage.removeItem('aurisiq_tipo');
   if (!clienteId) return;
   var cliente = CLIENTES.find(function(c) { return c.id === clienteId; });
   if (!cliente) return;
-  window.clienteActivo = JSON.parse(JSON.stringify(cliente)); // copia limpia
-  if (tipo) window.clienteActivo._tipoActivo = tipo;
-  // Activar pantalla análisis
-  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
-  var analisis = document.getElementById('screen-analisis');
-  if (analisis) analisis.classList.add('active');
-  // Mostrar badge en header
-  var badge = document.getElementById('cliente-badge');
-  var badgeNombre = document.getElementById('badge-nombre');
-  if (badge && badgeNombre) {
-    badgeNombre.textContent = cliente.nombre + (tipo ? ' · ' + (tipo === 'llamada' ? 'Llamada' : 'Visita') : '');
-    badge.style.display = 'flex';
+  // Reusar cargarAnalisisConCliente que ya tiene toda la lógica correcta
+  var tipo = null;
+  if (tipoId && cliente.tipos) {
+    tipo = cliente.tipos.find(function(t) { return t.id === tipoId; });
   }
+  cargarAnalisisConCliente(cliente, tipo);
 }
 
 // Render inicial del grid de clientes
