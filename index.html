@@ -595,7 +595,7 @@
     <div style="display:flex; flex-direction:column; gap:12px;">
       <button onclick="confirmarSubtipo('llamada')" style="background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:18px 20px; text-align:left; cursor:pointer; transition:all .2s;" onmouseover="this.style.borderColor='var(--gold-dim)'" onmouseout="this.style.borderColor='var(--border)'">
         <div style="font-family:var(--display); font-size:18px; letter-spacing:1px; color:var(--gold); margin-bottom:4px;">LLAMADA DE CAPTACIÓN</div>
-        <div style="font-size:12px; color:var(--text-dim);">Etapa 1 — Calificación técnica Infonavit y expectativa de precio · Scorecard v5A</div>
+        <div style="font-size:12px; color:var(--text-dim);">Etapa 1 — Calificación técnica y expectativa de precio · Scorecard v5A</div>
       </button>
       <button onclick="confirmarSubtipo('visita')" style="background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:18px 20px; text-align:left; cursor:pointer; transition:all .2s;" onmouseover="this.style.borderColor='var(--gold-dim)'" onmouseout="this.style.borderColor='var(--border)'">
         <div style="font-family:var(--display); font-size:18px; letter-spacing:1px; color:var(--gold); margin-bottom:4px;">VISITA PRESENCIAL</div>
@@ -729,18 +729,18 @@ const CLIENTES = [
   {
     id: 'enpagos',
     nombre: 'EnPagos',
-    descripcion: 'Crédito PyME · Ventas por teléfono',
+    descripcion: 'Venta de Equipos a Crédito · Ventas por teléfono',
     icono: '◆',
     chips: ['Scorecard v1', 'Financiero'],
     empresa: 'EnPagos',
-    producto: 'Crédito PyME',
+    producto: 'Venta de Equipos a Crédito',
     scorecard: 'v1',
     url: 'aurisiq.html?cliente=enpagos'
   },
   {
     id: 'immobili',
     nombre: 'Immobili Internacional',
-    descripcion: 'Captación inmobiliaria · Infonavit',
+    descripcion: 'Captación inmobiliaria · Propietarios',
     icono: '⬡',
     chips: ['Scorecard v5A', 'Scorecard v5B', 'Inmobiliario'],
     empresa: 'Immobili Internacional',
@@ -775,12 +775,17 @@ window.seleccionarCliente = function(id) {
     const modal = document.getElementById('modal-subtipo');
     modal.style.display = 'flex';
   } else {
+    sessionStorage.setItem('aurisiq_cliente', id);
+    sessionStorage.removeItem('aurisiq_tipo');
     window.location.href = cliente.url;
   }
 };
 
 window.confirmarSubtipo = function(tipo) {
   cerrarModal();
+  // Guardar en sessionStorage como respaldo por si los params de URL no se leen
+  sessionStorage.setItem('aurisiq_cliente', 'immobili');
+  sessionStorage.setItem('aurisiq_tipo', tipo);
   window.location.href = 'aurisiq.html?cliente=immobili&tipo=' + tipo;
 };
 
