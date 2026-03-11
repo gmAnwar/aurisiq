@@ -70,28 +70,6 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    text-decoration: none;
-    cursor: pointer;
-  }
-
-  .back-btn {
-    display: flex;
-    align-items: center;
-    font-family: var(--mono);
-    font-size: 16px;
-    color: var(--text-dim);
-    text-decoration: none;
-    padding: 4px 8px;
-    border-radius: 4px;
-    border: 1px solid transparent;
-    transition: all .2s;
-    line-height: 1;
-  }
-
-  .back-btn:hover {
-    color: var(--gold);
-    border-color: var(--border);
-    background: var(--bg3);
   }
 
   .logo-icon {
@@ -265,65 +243,6 @@
     min-height: 200px;
     line-height: 1.6;
     font-size: 13px;
-  }
-
-  /* ── DRAG & DROP ── */
-  .drop-zone {
-    border: 2px dashed var(--border);
-    border-radius: 8px;
-    padding: 20px;
-    text-align: center;
-    cursor: pointer;
-    transition: all .2s;
-    margin-bottom: 8px;
-    background: var(--bg2);
-    position: relative;
-  }
-
-  .drop-zone:hover, .drop-zone.dragover {
-    border-color: var(--gold-dim);
-    background: var(--gold-glow);
-  }
-
-  .drop-zone.loaded {
-    border-color: var(--green);
-    border-style: solid;
-    background: rgba(76,175,125,0.05);
-  }
-
-  .drop-icon {
-    font-size: 24px;
-    margin-bottom: 6px;
-    display: block;
-  }
-
-  .drop-label {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 1px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-  }
-
-  .drop-label span {
-    color: var(--gold);
-    cursor: pointer;
-    text-decoration: underline;
-  }
-
-  .drop-label.success {
-    color: var(--green);
-  }
-
-  .drop-input {
-    display: none;
-  }
-
-  .drop-formats {
-    font-family: var(--mono);
-    font-size: 9px;
-    color: var(--text-faint);
-    margin-top: 4px;
   }
 
   .char-count {
@@ -861,23 +780,6 @@
   /* PAGE TITLE */
   .page-title {
     margin-bottom: 28px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .page-title-text h1 {
-    font-family: var(--display);
-    font-size: 32px;
-    letter-spacing: 3px;
-    color: var(--text);
-    line-height: 1;
-  }
-
-  .page-title-text p {
-    font-size: 13px;
-    color: var(--text-dim);
-    margin-top: 6px;
   }
 
   .page-title h1 {
@@ -1007,6 +909,54 @@
     letter-spacing: 1px;
   }
 
+  /* NAV TAB PREMIUM */
+  .nav-tab-premium { color: var(--text-faint) !important; opacity: 0.65; }
+  .nav-tab-premium:hover { opacity: 1; border-color: var(--border) !important; color: var(--text-dim) !important; background: none !important; }
+
+  /* LOCKED SCREENS */
+  .screen-locked { display: none; }
+  .screen-locked.active { display: block; }
+
+  .locked-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid var(--border); }
+  .locked-title h1 { font-family:var(--display); font-size:32px; letter-spacing:3px; color:var(--text); line-height:1; }
+  .locked-title p { font-size:13px; color:var(--text-dim); margin-top:6px; }
+  .locked-badge { display:flex; align-items:center; gap:8px; background:rgba(210,170,80,0.06); border:1px solid var(--gold-dim); border-radius:6px; padding:10px 16px; }
+  .locked-badge-crown { font-size:20px; }
+  .locked-badge-text { font-family:var(--mono); font-size:11px; letter-spacing:0.5px; color:var(--gold); line-height:1.5; }
+  .locked-badge-text span { display:block; font-size:10px; color:var(--gold-dim); letter-spacing:0; font-weight:400; }
+
+  .preview-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:28px; position:relative; }
+  @media (max-width:700px) { .preview-grid { grid-template-columns:1fr; } }
+  .preview-card { background:var(--bg2); border:1px solid var(--border); border-radius:8px; overflow:hidden; filter:blur(3px); opacity:0.5; pointer-events:none; user-select:none; }
+  .preview-card-full { grid-column:1/-1; }
+  .preview-lock-overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; z-index:2; }
+  .lock-icon { font-size:36px; opacity:0.6; }
+  .lock-label { font-family:var(--display); font-size:20px; letter-spacing:3px; color:var(--gold); opacity:0.8; }
+  .lock-sub { font-family:var(--mono); font-size:10px; color:var(--text-faint); letter-spacing:1px; text-align:center; }
+
+  .unlock-cta { display:flex; align-items:center; justify-content:space-between; background:var(--bg3); border:1px solid var(--gold-dim); border-radius:8px; padding:20px 24px; margin-top:8px; }
+  .unlock-text h3 { font-family:var(--display); font-size:18px; letter-spacing:2px; color:var(--gold); margin-bottom:4px; }
+  .unlock-text p { font-size:13px; color:var(--text-dim); max-width:400px; line-height:1.5; }
+  .btn-unlock { font-family:var(--mono); font-size:11px; letter-spacing:1px; text-transform:uppercase; padding:10px 20px; background:var(--gold-glow); border:1px solid var(--gold-dim); color:var(--gold); border-radius:6px; cursor:pointer; transition:all 0.2s; white-space:nowrap; flex-shrink:0; margin-left:20px; }
+  .btn-unlock:hover { background:rgba(210,170,80,0.2); border-color:var(--gold); }
+
+  /* SALES METRICS */
+  .sales-metrics { background:var(--bg2); border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:16px; }
+  .sm-header { background:linear-gradient(90deg,rgba(224,80,80,0.08),rgba(210,170,80,0.05)); border-bottom:1px solid var(--border); padding:12px 20px; display:flex; align-items:center; justify-content:space-between; }
+  .sm-title { font-family:var(--mono); font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--gold); display:flex; align-items:center; gap:6px; }
+  .sm-body { padding:16px 20px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+  @media (max-width:700px) { .sm-body { grid-template-columns:1fr; } }
+  .sm-card { background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:14px; }
+  .sm-card-label { font-family:var(--mono); font-size:10px; letter-spacing:0.8px; text-transform:uppercase; color:var(--text-faint); margin-bottom:8px; }
+  .sm-card-value { font-family:var(--display); font-size:26px; letter-spacing:1px; line-height:1; margin-bottom:6px; }
+  .sm-card-detail { font-size:12px; color:var(--text-dim); line-height:1.5; }
+  .sm-prob-high { color:var(--green); } .sm-prob-mid { color:var(--yellow); } .sm-prob-low { color:var(--amber); } .sm-prob-none { color:var(--red); }
+  .sm-signals { grid-column:1/-1; background:var(--bg3); border:1px solid rgba(224,80,80,0.2); border-radius:6px; padding:14px; }
+  .sm-signals-label { font-family:var(--mono); font-size:10px; letter-spacing:0.8px; text-transform:uppercase; color:var(--red); opacity:0.8; margin-bottom:8px; display:flex; align-items:center; gap:4px; }
+  .sm-signal-chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .sm-chip { font-family:var(--mono); font-size:11px; padding:4px 10px; border-radius:3px; border:1px solid rgba(224,80,80,0.3); color:#f08080; background:rgba(224,80,80,0.06); font-style:italic; }
+  .sm-chip-none { color:var(--green); border-color:rgba(76,175,125,0.3); background:rgba(76,175,125,0.06); font-style:normal; }
+
 </style>
 </head>
 <body>
@@ -1027,7 +977,7 @@
 
 <!-- HEADER -->
 <header>
-  <a class="logo" href="index.html">
+  <div class="logo">
     <svg class="logo-icon" viewBox="0 0 32 32" fill="none">
       <path d="M16 2 L28 9 L28 23 L16 30 L4 23 L4 9 Z" fill="#2e2010" stroke="#d2aa50" stroke-width="1.5"/>
       <path d="M10 16 Q16 10 22 16 Q16 22 10 16" fill="#d2aa50" opacity="0.9"/>
@@ -1037,12 +987,14 @@
       <div class="logo-text">AURISIQ</div>
       <div class="logo-sub">ANÁLISIS DE CONVERSACIONES</div>
     </div>
-  </a>
+  </div>
   <div class="header-right">
     <div class="usage-badge" id="usage-display">Análisis este mes: <span id="uso-count">0</span>/5</div>
     <div class="nav-tabs">
-      <button class="nav-tab active" onclick="showScreen('analisis')">◆ Análisis</button>
-      <button class="nav-tab" onclick="showScreen('config')">⚙ Config</button>
+      <button class="nav-tab active" id="tab-analisis" onclick="showScreen('analisis', this)">◆ Análisis</button>
+      <button class="nav-tab nav-tab-premium" id="tab-equipo" onclick="showScreen('equipo', this)">👑 Equipo</button>
+      <button class="nav-tab nav-tab-premium" id="tab-coaching" onclick="showScreen('coaching', this)">👑 Coaching</button>
+      <button class="nav-tab" id="tab-config" onclick="showScreen('config', this)">⚙ Config</button>
     </div>
   </div>
 </header>
@@ -1053,11 +1005,8 @@
   <!-- ===== PANTALLA 1: ANÁLISIS ===== -->
   <div id="screen-analisis" class="screen active">
     <div class="page-title">
-      <a class="back-btn" href="index.html">←</a>
-      <div class="page-title-text">
-        <h1>NUEVO ANÁLISIS</h1>
-        <p>Pega la transcripción · AurisIQ evalúa el 100% de la conversación</p>
-      </div>
+      <h1>NUEVO ANÁLISIS</h1>
+      <p>Pega la transcripción · AurisIQ evalúa el 100% de la conversación</p>
     </div>
 
     <div class="analysis-grid">
@@ -1095,15 +1044,16 @@
                 </select>
               </div>
             </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Teléfono del cliente <span style="color:var(--text-faint);font-weight:400;text-transform:none;">(opcional)</span></label>
+                <input type="tel" id="telefono-cliente" placeholder="Ej: 81 1234 5678">
+              </div>
+              <div class="form-group"></div>
+            </div>
             <div class="form-group">
               <label>Transcripción</label>
-              <div class="drop-zone" id="drop-zone" onclick="document.getElementById('drop-input').click()">
-                <input type="file" id="drop-input" class="drop-input" accept=".txt,.doc,.docx,.pdf,.md">
-                <span class="drop-icon" id="drop-icon">📄</span>
-                <div class="drop-label" id="drop-label">Arrastra un archivo aquí o <span>selecciónalo</span></div>
-                <div class="drop-formats">.txt · .doc · .docx · .pdf · .md</div>
-              </div>
-              <textarea id="transcripcion" placeholder="...o pega aquí la transcripción completa de la llamada o conversación...
+              <textarea id="transcripcion" placeholder="Pega aquí la transcripción completa de la llamada o conversación...
 
 Vendedor: Buenos días, le llamo de EnPagos...
 Prospecto: Sí, dígame..." oninput="updateCharCount()"></textarea>
@@ -1160,11 +1110,156 @@ Prospecto: Sí, dígame..." oninput="updateCharCount()"></textarea>
         <button class="btn-nueva" onclick="nuevaConsulta()">+ Nueva consulta</button>
       </div>
 
+      <!-- MÉTRICAS DE VENTAS -->
+      <div class="sales-metrics" id="sales-metrics-block" style="display:none;">
+        <div class="sm-header">
+          <span class="sm-title">⚡ Señales de venta</span>
+          <span class="panel-badge" id="sm-resultado-badge">—</span>
+        </div>
+        <div class="sm-body">
+          <div class="sm-card">
+            <div class="sm-card-label">Probabilidad de cierre</div>
+            <div class="sm-card-value" id="sm-prob-valor">—%</div>
+            <div class="sm-card-detail" id="sm-prob-detalle">Evaluando...</div>
+          </div>
+          <div class="sm-card">
+            <div class="sm-card-label">Objeción principal no resuelta</div>
+            <div class="sm-card-value" style="font-size:15px;font-family:var(--body);color:var(--yellow);padding-top:4px;" id="sm-objecion-main">—</div>
+            <div class="sm-card-detail" id="sm-objecion-detalle"></div>
+          </div>
+          <div class="sm-card">
+            <div class="sm-card-label">Siguiente acción recomendada</div>
+            <div class="sm-card-value" style="font-size:13px;font-family:var(--body);color:var(--text);padding-top:4px;line-height:1.4;" id="sm-accion">—</div>
+          </div>
+          <div class="sm-signals">
+            <div class="sm-signals-label">⚠ Señales de pérdida detectadas</div>
+            <div class="sm-signal-chips" id="sm-signals-chips"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="result-blocks" id="result-blocks"></div>
     </div>
   </div>
 
-  <!-- ===== PANTALLA 5: CONFIG ===== -->
+  <!-- ===== PANTALLA: EQUIPO ===== -->
+  <div id="screen-equipo" class="screen screen-locked">
+    <div class="locked-header">
+      <div class="locked-title">
+        <h1>EQUIPO</h1>
+        <p>Dashboard de rendimiento por vendedor</p>
+      </div>
+      <div class="locked-badge">
+        <span class="locked-badge-crown">👑</span>
+        <div class="locked-badge-text">PLAN PROFESIONAL<span>Disponible próximamente</span></div>
+      </div>
+    </div>
+    <div style="position:relative;">
+      <div class="preview-grid">
+        <div class="preview-card">
+          <div class="panel-header"><span class="panel-title">Ranking del equipo</span><span class="panel-badge">ESTE MES</span></div>
+          <div class="panel-body">
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div class="vendedor-row"><span class="vr-name">Carlos López</span><span class="vr-avg score-alto" style="font-family:var(--display);font-size:18px;">82</span></div>
+              <div class="vendedor-row"><span class="vr-name">María García</span><span class="vr-avg score-funcional" style="font-family:var(--display);font-size:18px;">71</span></div>
+              <div class="vendedor-row"><span class="vr-name">Jorge Mendez</span><span class="vr-avg score-problemas" style="font-family:var(--display);font-size:18px;">58</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="preview-card">
+          <div class="panel-header"><span class="panel-title">Score promedio equipo</span></div>
+          <div class="panel-body" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;">
+            <div style="font-family:var(--display);font-size:72px;color:var(--yellow);line-height:1;">70</div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--text-faint);margin-top:8px;">PROMEDIO · 12 ANÁLISIS</div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--green);margin-top:8px;">▲ +8 vs mes anterior</div>
+          </div>
+        </div>
+        <div class="preview-card preview-card-full">
+          <div class="panel-header"><span class="panel-title">Skill gaps por categoría</span></div>
+          <div class="panel-body">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+              <div class="fase-item"><div class="fase-name">Apertura</div><div class="fase-score score-alto">88</div></div>
+              <div class="fase-item"><div class="fase-name">Descubrimiento</div><div class="fase-score score-funcional">72</div></div>
+              <div class="fase-item"><div class="fase-name">Objeciones</div><div class="fase-score score-problemas">55</div></div>
+              <div class="fase-item"><div class="fase-name">Cierre</div><div class="fase-score score-critico">48</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="preview-lock-overlay">
+        <div class="lock-icon">🔒</div>
+        <div class="lock-label">PLAN PROFESIONAL</div>
+        <div class="lock-sub">Disponible cuando AurisIQ tenga<br>20+ análisis de tu equipo</div>
+      </div>
+    </div>
+    <div class="unlock-cta">
+      <div class="unlock-text">
+        <h3>DESBLOQUEA EL DASHBOARD DE EQUIPO</h3>
+        <p>Ve el score promedio de cada vendedor, identifica quién necesita coaching y en qué fase específica está fallando tu equipo.</p>
+      </div>
+      <button class="btn-unlock" onclick="window.showToast && showToast('Contacta a tu administrador para activar el plan Profesional')">Solicitar acceso →</button>
+    </div>
+  </div>
+
+  <!-- ===== PANTALLA: COACHING ===== -->
+  <div id="screen-coaching" class="screen screen-locked">
+    <div class="locked-header">
+      <div class="locked-title">
+        <h1>COACHING</h1>
+        <p>Biblioteca de mejores respuestas · Planes de mejora</p>
+      </div>
+      <div class="locked-badge">
+        <span class="locked-badge-crown">👑</span>
+        <div class="locked-badge-text">PLAN PROFESIONAL<span>Disponible próximamente</span></div>
+      </div>
+    </div>
+    <div style="position:relative;">
+      <div class="preview-grid">
+        <div class="preview-card">
+          <div class="panel-header"><span class="panel-title">Tendencia · Carlos López</span></div>
+          <div class="panel-body">
+            <div style="display:flex;align-items:flex-end;gap:6px;height:60px;">
+              <div style="flex:1;background:var(--surface);border-radius:3px 3px 0 0;height:40%;"></div>
+              <div style="flex:1;background:var(--surface);border-radius:3px 3px 0 0;height:55%;"></div>
+              <div style="flex:1;background:var(--gold-dim);border-radius:3px 3px 0 0;height:65%;opacity:0.6;"></div>
+              <div style="flex:1;background:var(--gold-dim);border-radius:3px 3px 0 0;height:72%;opacity:0.7;"></div>
+              <div style="flex:1;background:var(--gold);border-radius:3px 3px 0 0;height:82%;"></div>
+            </div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--green);margin-top:8px;">▲ +18 pts en 5 semanas</div>
+          </div>
+        </div>
+        <div class="preview-card">
+          <div class="panel-header"><span class="panel-title">Mejores rebuttals</span><span class="panel-badge">OBJECIONES</span></div>
+          <div class="panel-body" style="display:flex;flex-direction:column;gap:8px;">
+            <div class="objecion-item" style="margin:0;"><div class="obj-text">"Es muy caro"</div><div class="eval-ok obj-eval">REBUTTAL IDEAL</div><div class="obj-recomendacion">Ver cómo lo manejó Carlos en llamada del 8 Mar...</div></div>
+            <div class="objecion-item" style="margin:0;"><div class="obj-text">"Lo tengo que consultar"</div><div class="eval-mejora obj-eval">2 VERSIONES</div></div>
+          </div>
+        </div>
+        <div class="preview-card preview-card-full">
+          <div class="panel-header"><span class="panel-title">Plan de mejora · Jorge Mendez · Semana actual</span></div>
+          <div class="panel-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+              <div class="paso-item"><div class="paso-label">Foco esta semana</div><div class="paso-value">Manejo de objeción de precio</div></div>
+              <div class="paso-item"><div class="paso-label">Ejercicio asignado</div><div class="paso-value">3 llamadas con script de anclaje</div></div>
+              <div class="paso-item"><div class="paso-label">Meta</div><div class="paso-value">Subir cierre de 48 → 60 pts</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="preview-lock-overlay">
+        <div class="lock-icon">🔒</div>
+        <div class="lock-label">PLAN PROFESIONAL</div>
+        <div class="lock-sub">Disponible cuando AurisIQ tenga<br>20+ análisis de tu equipo</div>
+      </div>
+    </div>
+    <div class="unlock-cta">
+      <div class="unlock-text">
+        <h3>COACHING BASADO EN DATOS REALES</h3>
+        <p>Planes de mejora individuales, biblioteca de los mejores rebuttals de tu equipo y seguimiento de progreso semana a semana.</p>
+      </div>
+      <button class="btn-unlock" onclick="window.showToast && showToast('Contacta a tu administrador para activar el plan Profesional')">Solicitar acceso →</button>
+    </div>
+  </div>
   <div id="screen-config" class="screen">
     <div class="page-title">
       <h1>WORKSPACE</h1>
@@ -1270,49 +1365,52 @@ Prospecto: Sí, dígame..." oninput="updateCharCount()"></textarea>
 
 <script type="module">
 // ============================================================
-//  AurisIQ — aurisiq.html
-//  Este archivo solo tiene HTML + CSS.
-//  Toda la lógica vive en /modules/
+//  AurisIQ — aurisiq.html  v2.0
 // ============================================================
 import { analizar as analizarAPI, getHistorial, getUsoMes, getVendedoresFromHistorial } from './modules/analisis.js';
 import { renderResultado, renderHistorial, renderVendedoresConfig,
-         showToast, setLoading, updateCharCount, updateUsageDisplay, showScreen } from './modules/ui.js';
+         showToast, setLoading, updateCharCount, updateUsageDisplay, showScreen as showScreenUI } from './modules/ui.js';
 import { WORKSPACE } from './modules/config.js';
 
-// ── Estado local ─────────────────────────────────────────────
 let analisisActual = null;
 
-// ── Init ─────────────────────────────────────────────────────
 updateUsageDisplay(getUsoMes());
 renderHistorial(getHistorial(), verHistorial);
-
-// Actualizar empresa en config desde WORKSPACE
 const cfgEmpresa = document.getElementById('cfg-empresa');
 if (cfgEmpresa) cfgEmpresa.textContent = WORKSPACE.nombre;
 
-// ── Funciones globales (llamadas desde HTML onclick) ─────────
+// Exponer showToast globalmente para botones en pantallas locked
+window.showToast = showToast;
+
+// showScreen — maneja las 4 tabs incluyendo las locked
+window.showScreen = function(id, tabEl) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  const target = document.getElementById('screen-' + id);
+  if (target) target.classList.add('active');
+  if (tabEl) tabEl.classList.add('active');
+  else { const t = document.getElementById('tab-' + id); if (t) t.classList.add('active'); }
+  if (id === 'config') renderVendedoresConfig(getVendedoresFromHistorial());
+};
+
 window.analizar = async function() {
-  const empresa      = document.getElementById('empresa').value.trim() || WORKSPACE.nombre;
-  const producto     = document.getElementById('producto').value.trim() || WORKSPACE.producto;
-  const vendedor     = document.getElementById('vendedor').value.trim();
-  const duracion     = document.getElementById('duracion').value;
+  const empresa       = document.getElementById('empresa').value.trim() || WORKSPACE.nombre;
+  const producto      = document.getElementById('producto').value.trim() || WORKSPACE.producto;
+  const vendedor      = document.getElementById('vendedor').value.trim();
+  const duracion      = document.getElementById('duracion').value;
+  const telefono      = document.getElementById('telefono-cliente')?.value.trim() || '';
   const transcripcion = document.getElementById('transcripcion').value.trim();
 
-  if (!transcripcion || transcripcion.length < 50) {
-    showToast('⚠ La transcripción es muy corta o está vacía');
-    return;
-  }
-  if (!vendedor) {
-    showToast('⚠ Ingresa el nombre del vendedor');
-    document.getElementById('vendedor').focus();
-    return;
-  }
+  if (!transcripcion || transcripcion.length < 50) { showToast('⚠ La transcripción es muy corta o está vacía'); return; }
+  if (!vendedor) { showToast('⚠ Ingresa el nombre del vendedor'); document.getElementById('vendedor').focus(); return; }
 
   setLoading(true);
   try {
     const resultado = await analizarAPI({ empresa, producto, vendedor, duracion, transcripcion });
     analisisActual = resultado;
+    if (telefono) analisisActual.telefonoCliente = telefono;
     renderResultado(resultado);
+    renderSalesMetrics(resultado);
     renderHistorial(getHistorial(), verHistorial);
     updateUsageDisplay(getUsoMes());
     showToast('✓ Análisis completado');
@@ -1324,31 +1422,61 @@ window.analizar = async function() {
   }
 };
 
-window.showScreen = function(id) {
-  showScreen(id, event);
-  if (id === 'config') renderVendedoresConfig(getVendedoresFromHistorial());
-};
+function renderSalesMetrics(res) {
+  const block = document.getElementById('sales-metrics-block');
+  if (!block) return;
+  const score = res.score_total || res.puntaje_total || 0;
+  let badgeLabel = score >= 80 ? 'ALTO POTENCIAL' : score >= 60 ? 'EN SEGUIMIENTO' : score >= 40 ? 'NECESITA MEJORA' : 'RIESGO DE PÉRDIDA';
+  document.getElementById('sm-resultado-badge').textContent = badgeLabel;
+  const prob = res.probabilidad_cierre ?? res.probabilidad_de_cierre ?? Math.round(score * 0.9);
+  const probEl = document.getElementById('sm-prob-valor');
+  probEl.textContent = prob + '%';
+  probEl.className = 'sm-card-value ' + (prob >= 70 ? 'sm-prob-high' : prob >= 45 ? 'sm-prob-mid' : prob >= 25 ? 'sm-prob-low' : 'sm-prob-none');
+  document.getElementById('sm-prob-detalle').textContent = prob >= 70 ? 'Buenas señales de compra detectadas' : prob >= 45 ? 'Requiere seguimiento activo' : 'Objeciones no resueltas afectan el cierre';
+  const objMain = res.objecion_principal || res.objecion_no_resuelta || (res.objeciones?.length ? res.objeciones[0]?.objecion : 'Ninguna detectada');
+  document.getElementById('sm-objecion-main').textContent = objMain;
+  document.getElementById('sm-accion').textContent = res.siguiente_accion || res.accion_recomendada || res.siguiente_paso?.accion_inmediata || 'Ver detalle del análisis';
+  const chipsEl = document.getElementById('sm-signals-chips');
+  chipsEl.innerHTML = '';
+  const sigs = res.senales_perdida || res.señales_de_perdida || [];
+  if (sigs.length > 0) {
+    sigs.forEach(s => { const c = document.createElement('span'); c.className='sm-chip'; c.textContent='"'+s+'"'; chipsEl.appendChild(c); });
+  } else {
+    const texto = JSON.stringify(res).toLowerCase();
+    const conocidas = ['lo veo difícil','tengo que consultarlo','ahorita no','no me interesa','ya tengo','está muy caro','no tengo tiempo','lo pienso'];
+    const found = conocidas.filter(s => texto.includes(s));
+    if (found.length > 0) {
+      found.forEach(s => { const c = document.createElement('span'); c.className='sm-chip'; c.textContent='"'+s+'"'; chipsEl.appendChild(c); });
+    } else {
+      const c = document.createElement('span'); c.className='sm-chip sm-chip-none'; c.textContent='Sin señales de pérdida detectadas ✓'; chipsEl.appendChild(c);
+    }
+  }
+  block.style.display = '';
+}
 
 window.nuevaConsulta = function() {
   document.getElementById('resultado-section').style.display = 'none';
+  const sm = document.getElementById('sales-metrics-block');
+  if (sm) sm.style.display = 'none';
   document.getElementById('transcripcion').value = '';
   document.getElementById('vendedor').value = '';
+  const tel = document.getElementById('telefono-cliente');
+  if (tel) tel.value = '';
   document.getElementById('char-count').textContent = '0 caracteres';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 window.updateCharCount = updateCharCount;
-window.addVendedor = function() {
-  showToast('Los vendedores se registran automáticamente al analizar sus llamadas');
-};
+window.addVendedor = function() { showToast('Los vendedores se registran automáticamente al analizar sus llamadas'); };
 
 function verHistorial(idx) {
   analisisActual = getHistorial()[idx];
   renderResultado(analisisActual);
+  renderSalesMetrics(analisisActual);
   document.getElementById('resultado-section').scrollIntoView({ behavior: 'smooth' });
 }
 
-// ── DRAG & DROP ──────────────────────────────────────────────
+// DRAG & DROP
 const dropZone  = document.getElementById('drop-zone');
 const dropInput = document.getElementById('drop-input');
 const dropIcon  = document.getElementById('drop-icon');
@@ -1357,8 +1485,6 @@ const textarea  = document.getElementById('transcripcion');
 
 function loadFile(file) {
   const ext = file.name.split('.').pop().toLowerCase();
-
-  // Para .docx usamos mammoth si está disponible, sino texto plano
   if (ext === 'docx') {
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -1366,15 +1492,11 @@ function loadFile(file) {
         const mammoth = await import('https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js');
         const result = await mammoth.extractRawText({ arrayBuffer: e.target.result });
         setTranscripcion(result.value, file.name);
-      } catch {
-        showToast('No se pudo leer el .docx — intenta copiar y pegar el texto');
-      }
+      } catch { showToast('No se pudo leer el .docx — intenta copiar y pegar el texto'); }
     };
     reader.readAsArrayBuffer(file);
     return;
   }
-
-  // .txt, .md, .pdf (texto plano), y otros
   const reader = new FileReader();
   reader.onload = (e) => setTranscripcion(e.target.result, file.name);
   reader.readAsText(file, 'UTF-8');
@@ -1398,18 +1520,14 @@ window.clearDrop = function() {
 };
 
 dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
 dropZone.addEventListener('drop', (e) => {
   e.preventDefault();
   dropZone.classList.remove('dragover');
   const file = e.dataTransfer.files[0];
   if (file) loadFile(file);
 });
-
-dropInput.addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (file) loadFile(file);
-});
+dropInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (file) loadFile(file); });
 
 </script>
 </body>
