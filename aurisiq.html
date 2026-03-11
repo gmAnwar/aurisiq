@@ -1042,7 +1042,7 @@ Prospecto: Sí, dígame..." oninput="updateCharCount()"></textarea>
 <script>
 // ── Clientes AurisIQ — independiente de módulos ES6 ──────────
 // ── CATÁLOGO DE CLIENTES ──────────────────────────────────────
-const CLIENTES = [
+window.CLIENTES = [
   {
     id: 'enpagos',
     nombre: 'EnPagos',
@@ -1145,7 +1145,7 @@ window.cerrarSubtipo = function() {
 };
 
 // ── CARGAR PANTALLA DE ANÁLISIS CON DATOS DEL CLIENTE ────────
-function cargarAnalisisConCliente(cliente, tipo) {
+window.cargarAnalisisConCliente = function(cliente, tipo) {
   const cfg = tipo || cliente;
 
   // Rellenar campos
@@ -1199,7 +1199,7 @@ Propietario: Pase, le presento la casa...';
   document.getElementById('screen-analisis').classList.add('active');
   const tabAnalisis = document.getElementById('tab-analisis');
   if (tabAnalisis) tabAnalisis.classList.add('active');
-}
+};
 
 // ── VOLVER A SELECCIÓN DE CLIENTES ───────────────────────────
 window.volverAClientes = function() {
