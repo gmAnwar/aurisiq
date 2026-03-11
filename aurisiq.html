@@ -1211,11 +1211,21 @@ window.volverAClientes = function() {
   document.getElementById('screen-clientes').classList.add('active');
 };
 
-// Render inicial
-renderClientes();
-document.addEventListener('DOMContentLoaded', function() {
-  if (typeof renderClientes === 'function') renderClientes();
-});
+// Render inicial — múltiples estrategias para garantizar que el DOM esté listo
+function initClientes() {
+  var grid = document.getElementById('clientes-grid');
+  if (grid) {
+    renderClientes();
+  } else {
+    // Si el grid todavía no existe, reintentar en 50ms
+    setTimeout(initClientes, 50);
+  }
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initClientes);
+} else {
+  initClientes();
+}
 </script>
 
 <script type="module">
