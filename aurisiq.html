@@ -1117,6 +1117,7 @@ window.seleccionarCliente = function(clienteId) {
   if (!cliente) return;
   window.clienteActivo = cliente;
   localStorage.setItem('aurisiq_cliente_activo', cliente.id);
+  document.dispatchEvent(new CustomEvent('clienteActivoListo', { detail: cliente }));
   const _linkHistorial = document.getElementById('link-mis-analisis');
   if (_linkHistorial) _linkHistorial.href = 'historial.html?cliente=' + cliente.id;
 
@@ -1158,6 +1159,7 @@ window.cargarAnalisisConCliente = function(cliente, tipo) {
   localStorage.setItem('aurisiq_cliente_activo', cliente.id);
   const _lnk = document.getElementById('link-mis-analisis');
   if (_lnk) _lnk.href = 'historial.html?cliente=' + cliente.id;
+  document.dispatchEvent(new CustomEvent('clienteActivoListo', { detail: cliente }));
 
   const cfg = tipo || cliente;
 
@@ -1311,9 +1313,11 @@ window._renderHistorialFiltrado = function() {
   }
 };
 
-// Render inicial — el módulo ES siempre corre después del script inline,
-// por lo que window.clienteActivo ya está seteado en este punto
-window._renderHistorialFiltrado();
+// Escuchar evento clienteActivoListo — garantiza que clienteActivo esté seteado
+// antes de renderizar el historial filtrado (fix timing entre inline script y módulo ES)
+document.addEventListener('clienteActivoListo', function() {
+  window._renderHistorialFiltrado();
+}, { once: true });
 const cfgEmpresa = document.getElementById('cfg-empresa');
 if (cfgEmpresa) cfgEmpresa.textContent = WORKSPACE.nombre;
 
