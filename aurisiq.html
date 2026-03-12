@@ -1117,7 +1117,6 @@ window.seleccionarCliente = function(clienteId) {
   if (!cliente) return;
   window.clienteActivo = cliente;
   localStorage.setItem('aurisiq_cliente_activo', cliente.id);
-  document.dispatchEvent(new CustomEvent('clienteActivoListo', { detail: cliente }));
   const _linkHistorial = document.getElementById('link-mis-analisis');
   if (_linkHistorial) _linkHistorial.href = 'historial.html?cliente=' + cliente.id;
 
@@ -1159,7 +1158,6 @@ window.cargarAnalisisConCliente = function(cliente, tipo) {
   localStorage.setItem('aurisiq_cliente_activo', cliente.id);
   const _lnk = document.getElementById('link-mis-analisis');
   if (_lnk) _lnk.href = 'historial.html?cliente=' + cliente.id;
-  document.dispatchEvent(new CustomEvent('clienteActivoListo', { detail: cliente }));
 
   const cfg = tipo || cliente;
 
@@ -1263,31 +1261,11 @@ if (document.readyState === 'loading') {
   initClientes();
 }
 
-// Manejar hash URL — viene de historial.html con #equipo o #coaching
+// Hash URL manejado en el módulo ES — ver bloque al final del módulo
 (function handleHash() {
-  const hash = window.location.hash.replace('#', '');
-  if (!hash || hash === 'analisis') return;
-  const allowed = ['equipo', 'coaching', 'config'];
-  if (!allowed.includes(hash)) return;
-  let attempts = 0;
-  const tryActivate = () => {
-    attempts++;
-    if (typeof window.showScreen === 'function' && typeof window.clienteActivo !== 'undefined') {
-      // Asegurar que no hay clienteActivo pendiente que interfiera
-      window.showScreen(hash, document.getElementById('tab-' + hash));
-      // Verificar que activó correctamente
-      setTimeout(() => {
-        const target = document.getElementById('screen-' + hash);
-        if (target && !target.classList.contains('active')) {
-          window.showScreen(hash, document.getElementById('tab-' + hash));
-        }
-      }, 150);
-    } else if (attempts < 30) {
-      setTimeout(tryActivate, 100);
-    }
-  };
-  // Esperar a que initClientes termine (~400ms típico)
-  setTimeout(tryActivate, 400);
+  // El módulo ES maneja la activación de pantalla por hash
+  // después de que clienteActivo esté seteado
+  return;
 })();
 </script>
 
@@ -1313,15 +1291,18 @@ window._renderHistorialFiltrado = function() {
   }
 };
 
-// Escuchar evento clienteActivoListo — garantiza que clienteActivo esté seteado
 // antes de renderizar el historial filtrado (fix timing entre inline script y módulo ES)
-document.addEventListener('clienteActivoListo', function() {
-  window._renderHistorialFiltrado();
-  // Si la pantalla activa es equipo, renderizar el dashboard
-  if (document.getElementById('screen-equipo')?.classList.contains('active')) {
-    window.renderEquipoDashboard();
+// Módulo ES corre DESPUÉS del script inline (garantía ES Modules)
+// window.clienteActivo ya está seteado — llamar directamente
+window._renderHistorialFiltrado();
+// Manejar hash URL (equipo, coaching, config) con clienteActivo ya disponible
+(function() {
+  const hash = window.location.hash.replace('#', '');
+  const allowed = ['equipo', 'coaching', 'config'];
+  if (hash && allowed.includes(hash) && window.clienteActivo) {
+    window.showScreen(hash, document.getElementById('tab-' + hash));
   }
-}, { once: true });
+})();
 const cfgEmpresa = document.getElementById('cfg-empresa');
 if (cfgEmpresa) cfgEmpresa.textContent = WORKSPACE.nombre;
 
