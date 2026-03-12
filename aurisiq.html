@@ -1223,8 +1223,9 @@ window.volverAClientes = function() {
 // Se ejecuta DESPUÉS de que el DOM esté listo para no competir con initClientes
 function applyURLParams() {
   var params = new URLSearchParams(window.location.search);
-  var clienteId = params.get('cliente') || sessionStorage.getItem('aurisiq_cliente');
-  var tipoId    = params.get('tipo')    || sessionStorage.getItem('aurisiq_tipo');
+  var clienteId = params.get('cliente');
+  var tipoId    = params.get('tipo');
+  // Limpiar sessionStorage legacy por si quedó de versiones anteriores
   sessionStorage.removeItem('aurisiq_cliente');
   sessionStorage.removeItem('aurisiq_tipo');
   if (!clienteId) return;
