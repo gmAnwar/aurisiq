@@ -585,7 +585,7 @@
       <span id="cliente-activo-nombre">—</span>
       <span style="opacity:.5">✕</span>
     </div>
-    <div class="usage-badge" id="usage-display">Análisis este mes: <span id="uso-count">0</span>/5</div>
+    <div class="usage-badge" id="usage-display"><span id="uso-count">0</span> análisis</div>
     <div class="nav-tabs">
       <button class="nav-tab active" id="tab-analisis" onclick="showScreen('analisis', this)">◆ Análisis</button>
       <a class="nav-tab" id="link-mis-analisis" href="historial.html" style="text-decoration:none;">◈ Mis análisis</a>
@@ -1203,6 +1203,9 @@ window.cargarAnalisisConCliente = function(cliente, tipo) {
 
   // Re-renderizar historial filtrado por este cliente
   if (window._renderHistorialFiltrado) window._renderHistorialFiltrado();
+  // Actualizar contador con total real del cliente
+  const _totalH = getHistorial().filter(h => h._meta?.cliente === cliente.id).length;
+  updateUsageDisplay(_totalH);
 };
 
 // ── VOLVER A SELECCIÓN DE CLIENTES ───────────────────────────
@@ -1291,7 +1294,7 @@ let analisisActual = null;
 
 
 
-updateUsageDisplay(getUsoMes());
+// Contador se actualiza cuando se selecciona cliente
 renderHistorial(getHistorial(), verHistorial);
 
 // Exponer función de re-render filtrado para uso desde scripts inline
@@ -1345,7 +1348,9 @@ window.analizar = async function() {
       ? _hist.filter(item => item._meta?.cliente === window.clienteActivo.id)
       : _hist;
     renderHistorial(_histFiltrado, verHistorial);
-    updateUsageDisplay(getUsoMes());
+    // actualizar contador con total real del cliente
+    const _totalCliente = getHistorial().filter(h => h._meta?.cliente === window.clienteActivo?.id).length;
+    updateUsageDisplay(_totalCliente);
     showToast('✓ Análisis completado');
   } catch(err) {
     console.error(err);
