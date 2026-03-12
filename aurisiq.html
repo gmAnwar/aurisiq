@@ -1293,25 +1293,22 @@ let analisisActual = null;
 
 
 
-// Contador se actualiza cuando se selecciona cliente
-renderHistorial(getHistorial(), verHistorial);
-
-// Exponer función de re-render filtrado para uso desde scripts inline
+// Exponer función de re-render filtrado
 window._renderHistorialFiltrado = function() {
   const h = getHistorial();
   const filtrado = window.clienteActivo
     ? h.filter(item => item._meta?.cliente === window.clienteActivo.id)
     : h;
   renderHistorial(filtrado, verHistorial);
-  // Actualizar badge con total del cliente activo
   if (window.clienteActivo) {
-    const total = h.filter(item => item._meta?.cliente === window.clienteActivo.id).length;
-    updateUsageDisplay(total);
+    updateUsageDisplay(h.filter(item => item._meta?.cliente === window.clienteActivo.id).length);
   }
 };
-// Exponer para uso desde script inline
-window._getHistorial = getHistorial;
-window._updateUsageDisplay = updateUsageDisplay;
+
+// Render inicial: esperar a que applyURLParams haya activado clienteActivo, luego renderizar filtrado
+setTimeout(() => {
+  window._renderHistorialFiltrado();
+}, 50);
 const cfgEmpresa = document.getElementById('cfg-empresa');
 if (cfgEmpresa) cfgEmpresa.textContent = WORKSPACE.nombre;
 
