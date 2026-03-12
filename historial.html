@@ -512,8 +512,8 @@ let filtroVendedor = '';
 // Stats
 document.getElementById('st-total').textContent = historial.length;
 document.getElementById('subtitle-text').textContent = _clienteNombre
-  ? `${historial.length} conversación${historial.length !== 1 ? 'es' : ''} de ${_clienteNombre}`
-  : `${historial.length} conversación${historial.length !== 1 ? 'es' : ''} analizada${historial.length !== 1 ? 's' : ''}`;
+  ? `${historial.length !== 1 ? historial.length + ' conversaciones' : '1 conversación'} de ${_clienteNombre}`
+  : `${historial.length !== 1 ? historial.length + ' conversaciones analizadas' : '1 conversación analizada'}`;
 
 if (historial.length > 0) {
   const scores = historial.map(h => h.score_general);
