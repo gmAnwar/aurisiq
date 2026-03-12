@@ -1305,10 +1305,9 @@ window._renderHistorialFiltrado = function() {
   }
 };
 
-// Render inicial: esperar a que applyURLParams haya activado clienteActivo, luego renderizar filtrado
-setTimeout(() => {
-  window._renderHistorialFiltrado();
-}, 50);
+// Render inicial — el módulo ES siempre corre después del script inline,
+// por lo que window.clienteActivo ya está seteado en este punto
+window._renderHistorialFiltrado();
 const cfgEmpresa = document.getElementById('cfg-empresa');
 if (cfgEmpresa) cfgEmpresa.textContent = WORKSPACE.nombre;
 
