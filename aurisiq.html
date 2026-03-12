@@ -1252,15 +1252,25 @@ if (document.readyState === 'loading') {
   if (!hash || hash === 'analisis') return;
   const allowed = ['equipo', 'coaching', 'config'];
   if (!allowed.includes(hash)) return;
-  // Esperar a que showScreen esté disponible (lo define el módulo)
+  let attempts = 0;
   const tryActivate = () => {
-    if (typeof window.showScreen === 'function') {
+    attempts++;
+    if (typeof window.showScreen === 'function' && typeof window.clienteActivo !== 'undefined') {
+      // Asegurar que no hay clienteActivo pendiente que interfiera
       window.showScreen(hash, document.getElementById('tab-' + hash));
-    } else {
+      // Verificar que activó correctamente
+      setTimeout(() => {
+        const target = document.getElementById('screen-' + hash);
+        if (target && !target.classList.contains('active')) {
+          window.showScreen(hash, document.getElementById('tab-' + hash));
+        }
+      }, 150);
+    } else if (attempts < 30) {
       setTimeout(tryActivate, 100);
     }
   };
-  setTimeout(tryActivate, 200);
+  // Esperar a que initClientes termine (~400ms típico)
+  setTimeout(tryActivate, 400);
 })();
 </script>
 
