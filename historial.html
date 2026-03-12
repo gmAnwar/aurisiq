@@ -497,14 +497,23 @@ function showToast(msg) {
 }
 
 // ── Cargar historial ────────────────────────────────────────
-const historial = getHistorial();
+const _todosHistorial = getHistorial();
+// Leer cliente de URL param — aurisiq.html genera el link con ?cliente=X
+const _urlParams = new URLSearchParams(window.location.search);
+const _clienteId = _urlParams.get('cliente') || null;
+const historial = _clienteId
+  ? _todosHistorial.filter(h => (h._meta?.cliente || 'enpagos') === _clienteId)
+  : _todosHistorial;
+const _clienteNombres = { 'immobili': 'Immobili', 'enpagos': 'EnPagos' };
+const _clienteNombre = _clienteId ? (_clienteNombres[_clienteId] || _clienteId) : null;
 let filtroActual = 'todos';
 let filtroVendedor = '';
 
 // Stats
 document.getElementById('st-total').textContent = historial.length;
-document.getElementById('subtitle-text').textContent =
-  `${historial.length} conversación${historial.length !== 1 ? 'es' : ''} analizada${historial.length !== 1 ? 's' : ''}`;
+document.getElementById('subtitle-text').textContent = _clienteNombre
+  ? `${historial.length} conversación${historial.length !== 1 ? 'es' : ''} de ${_clienteNombre}`
+  : `${historial.length} conversación${historial.length !== 1 ? 'es' : ''} analizada${historial.length !== 1 ? 's' : ''}`;
 
 if (historial.length > 0) {
   const scores = historial.map(h => h.score_general);
