@@ -746,54 +746,54 @@ Prospecto: Sí, dígame..." oninput="updateCharCount()"></textarea>
   </div>
 
   <!-- ===== PANTALLA: EQUIPO ===== -->
-  <div id="screen-equipo" class="screen screen-locked">
-    <div class="locked-header">
-      <div class="locked-title">
-        <h1>EQUIPO</h1>
-        <p>Dashboard de rendimiento por vendedor</p>
-      </div>
-      <div class="locked-badge">
-        <span class="locked-badge-crown">👑</span>
-        <div class="locked-badge-text">PLAN PROFESIONAL<span>Disponible próximamente</span></div>
-      </div>
+  <div id="screen-equipo" class="screen">
+    <div class="page-title">
+      <h1>EQUIPO</h1>
+      <p id="equipo-subtitle">Dashboard de rendimiento por captadora</p>
     </div>
-    <div class="preview-grid">
-      <div class="preview-card">
-        <div class="panel-header"><span class="panel-title">Ranking del equipo</span><span class="panel-badge">ESTE MES</span></div>
-        <div class="panel-body">
-          <div style="display:flex;flex-direction:column;gap:10px;">
-            <div class="vendedor-row"><span class="vr-name">Carlos López</span><span class="vr-avg score-alto" style="font-family:var(--display);font-size:18px;">82</span></div>
-            <div class="vendedor-row"><span class="vr-name">María García</span><span class="vr-avg score-funcional" style="font-family:var(--display);font-size:18px;">71</span></div>
-            <div class="vendedor-row"><span class="vr-name">Jorge Mendez</span><span class="vr-avg score-problemas" style="font-family:var(--display);font-size:18px;">58</span></div>
+    <div id="equipo-empty" style="display:none;text-align:center;padding:60px 20px;">
+      <div style="font-family:var(--mono);font-size:13px;color:var(--text-faint);">SIN ANÁLISIS AÚN</div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text-faint);margin-top:8px;">Realiza el primer análisis para ver el dashboard del equipo</div>
+    </div>
+    <div id="equipo-content">
+      <!-- Fila 1: Ranking + Promedio -->
+      <div class="preview-grid" style="margin-bottom:16px;">
+        <div class="preview-card">
+          <div class="panel-header">
+            <span class="panel-title">Ranking del equipo</span>
+            <span class="panel-badge" id="equipo-badge-analisis">— ANÁLISIS</span>
+          </div>
+          <div class="panel-body">
+            <div id="equipo-ranking" style="display:flex;flex-direction:column;gap:8px;"></div>
+          </div>
+        </div>
+        <div class="preview-card">
+          <div class="panel-header"><span class="panel-title">Score promedio equipo</span></div>
+          <div class="panel-body" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;">
+            <div id="equipo-promedio" style="font-family:var(--display);font-size:72px;line-height:1;">—</div>
+            <div id="equipo-promedio-label" style="font-family:var(--mono);font-size:11px;color:var(--text-faint);margin-top:8px;">—</div>
           </div>
         </div>
       </div>
-      <div class="preview-card">
-        <div class="panel-header"><span class="panel-title">Score promedio equipo</span></div>
-        <div class="panel-body" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;">
-          <div style="font-family:var(--display);font-size:72px;color:var(--yellow);line-height:1;">70</div>
-          <div style="font-family:var(--mono);font-size:11px;color:var(--text-faint);margin-top:8px;">PROMEDIO · 12 ANÁLISIS</div>
-          <div style="font-family:var(--mono);font-size:11px;color:var(--green);margin-top:8px;">▲ +8 vs mes anterior</div>
+      <!-- Fila 2: Skill gaps por fase (relativo a máximo del scorecard) -->
+      <div class="preview-card preview-card-full" style="margin-bottom:16px;">
+        <div class="panel-header">
+          <span class="panel-title">Rendimiento por fase del scorecard</span>
+          <span class="panel-badge">PROMEDIO EQUIPO</span>
+        </div>
+        <div class="panel-body">
+          <div id="equipo-fases" style="display:flex;flex-direction:column;gap:10px;"></div>
         </div>
       </div>
+      <!-- Fila 3: Detalle individual -->
       <div class="preview-card preview-card-full">
-        <div class="panel-header"><span class="panel-title">Skill gaps por categoría</span></div>
+        <div class="panel-header">
+          <span class="panel-title">Detalle por captadora</span>
+        </div>
         <div class="panel-body">
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
-            <div class="fase-item"><div class="fase-name">Apertura</div><div class="fase-score score-alto">88</div></div>
-            <div class="fase-item"><div class="fase-name">Descubrimiento</div><div class="fase-score score-funcional">72</div></div>
-            <div class="fase-item"><div class="fase-name">Objeciones</div><div class="fase-score score-problemas">55</div></div>
-            <div class="fase-item"><div class="fase-name">Cierre</div><div class="fase-score score-critico">48</div></div>
-          </div>
+          <div id="equipo-detalle" style="display:flex;flex-direction:column;gap:12px;"></div>
         </div>
       </div>
-    </div>
-    <div class="unlock-cta">
-      <div class="unlock-text">
-        <h3>DESBLOQUEA EL DASHBOARD DE EQUIPO</h3>
-        <p>Ve el score promedio de cada vendedor, identifica quién necesita coaching y en qué fase específica está fallando tu equipo.</p>
-      </div>
-      <button class="btn-unlock" onclick="showToast('Contacta a tu administrador para activar el plan Profesional')">Solicitar acceso →</button>
     </div>
   </div>
 
@@ -1317,11 +1317,178 @@ window._renderHistorialFiltrado = function() {
 // antes de renderizar el historial filtrado (fix timing entre inline script y módulo ES)
 document.addEventListener('clienteActivoListo', function() {
   window._renderHistorialFiltrado();
+  // Si la pantalla activa es equipo, renderizar el dashboard
+  if (document.getElementById('screen-equipo')?.classList.contains('active')) {
+    window.renderEquipoDashboard();
+  }
 }, { once: true });
 const cfgEmpresa = document.getElementById('cfg-empresa');
 if (cfgEmpresa) cfgEmpresa.textContent = WORKSPACE.nombre;
 
 window.showToast = showToast;
+
+// ── DASHBOARD EQUIPO ─────────────────────────────────────────
+window.renderEquipoDashboard = function() {
+  const clienteId = window.clienteActivo?.id;
+  if (!clienteId) return;
+
+  const cfg = window.clienteActivo;
+  // Actualizar subtítulo con label de vendedor del cliente
+  const vendLabel = cfg?.tipos?.[0]?.vendedorLabel || cfg?.vendedorLabel || 'Vendedor';
+  const subtitleEl = document.getElementById('equipo-subtitle');
+  if (subtitleEl) subtitleEl.textContent = 'Dashboard de rendimiento por ' + vendLabel.toLowerCase();
+
+  // Obtener historial del cliente activo
+  const historial = (typeof getHistorialCliente === 'function')
+    ? getHistorialCliente(clienteId)
+    : JSON.parse(localStorage.getItem('aurisiq_historial') || '[]').filter(a => a._meta?.cliente === clienteId);
+
+  const emptyEl  = document.getElementById('equipo-empty');
+  const contentEl = document.getElementById('equipo-content');
+
+  if (!historial.length) {
+    if (emptyEl)   emptyEl.style.display   = 'block';
+    if (contentEl) contentEl.style.display = 'none';
+    return;
+  }
+  if (emptyEl)   emptyEl.style.display   = 'none';
+  if (contentEl) contentEl.style.display = 'block';
+
+  // ── Agrupar por vendedor ──────────────────────────────────
+  const byVendedor = {};
+  historial.forEach(a => {
+    const v = a._meta?.vendedor || 'Sin nombre';
+    if (!byVendedor[v]) byVendedor[v] = [];
+    byVendedor[v].push(a);
+  });
+
+  // Calcular promedio por vendedor
+  const vendedores = Object.entries(byVendedor).map(([nombre, analisis]) => {
+    const scores = analisis.map(a => a.score_general || 0);
+    const avg = Math.round(scores.reduce((s, n) => s + n, 0) / scores.length);
+    return { nombre, avg, analisis, count: analisis.length };
+  }).sort((a, b) => b.avg - a.avg);
+
+  // Promedio global
+  const allScores = historial.map(a => a.score_general || 0);
+  const globalAvg = Math.round(allScores.reduce((s, n) => s + n, 0) / allScores.length);
+
+  // ── Colores por score ─────────────────────────────────────
+  function scoreClass(s) {
+    if (s >= 80) return 'score-alto';
+    if (s >= 65) return 'score-funcional';
+    if (s >= 50) return 'score-problemas';
+    return 'score-critico';
+  }
+  function scoreColor(s) {
+    if (s >= 80) return 'var(--green)';
+    if (s >= 65) return 'var(--yellow)';
+    if (s >= 50) return 'var(--orange, #f08c00)';
+    return 'var(--red)';
+  }
+
+  // ── 1. Ranking ────────────────────────────────────────────
+  const rankingEl = document.getElementById('equipo-ranking');
+  if (rankingEl) {
+    rankingEl.innerHTML = vendedores.map((v, i) => `
+      <div class="vendedor-row">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint);width:16px;">${i + 1}</span>
+        <span class="vr-name" style="flex:1;">${v.nombre}</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text-dim);margin-right:8px;">${v.count} ${v.count === 1 ? 'análisis' : 'análisis'}</span>
+        <span class="${scoreClass(v.avg)}" style="font-family:var(--display);font-size:20px;">${v.avg}</span>
+      </div>`).join('');
+  }
+
+  // Badge
+  const badgeEl = document.getElementById('equipo-badge-analisis');
+  if (badgeEl) badgeEl.textContent = historial.length + ' ANÁLISIS';
+
+  // ── 2. Promedio global ────────────────────────────────────
+  const promedioEl = document.getElementById('equipo-promedio');
+  const promedioLabelEl = document.getElementById('equipo-promedio-label');
+  if (promedioEl) {
+    promedioEl.textContent = globalAvg;
+    promedioEl.style.color = scoreColor(globalAvg);
+  }
+  if (promedioLabelEl) {
+    promedioLabelEl.textContent = 'PROMEDIO · ' + historial.length + ' ANÁLISIS';
+  }
+
+  // ── 3. Fases del scorecard (promedio equipo) ──────────────
+  // Agrupar fases por nombre, calcular promedio puntaje/maximo
+  const fasesMap = {};
+  historial.forEach(a => {
+    (a.fases || []).forEach(f => {
+      const key = f.nombre;
+      if (!fasesMap[key]) fasesMap[key] = { totalPuntaje: 0, totalMaximo: 0, count: 0 };
+      fasesMap[key].totalPuntaje += f.puntaje || 0;
+      fasesMap[key].totalMaximo  += f.maximo  || 0;
+      fasesMap[key].count++;
+    });
+  });
+
+  const fasesEl = document.getElementById('equipo-fases');
+  if (fasesEl) {
+    const fasesOrdenadas = Object.entries(fasesMap)
+      .map(([nombre, d]) => {
+        const pct = d.totalMaximo > 0 ? Math.round((d.totalPuntaje / d.totalMaximo) * 100) : 0;
+        return { nombre, pct, avgPuntaje: Math.round(d.totalPuntaje / d.count), avgMaximo: Math.round(d.totalMaximo / d.count) };
+      })
+      .sort((a, b) => a.pct - b.pct); // peores primero = skill gaps arriba
+
+    fasesEl.innerHTML = fasesOrdenadas.map(f => `
+      <div style="display:grid;grid-template-columns:180px 1fr 60px;align-items:center;gap:12px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text-dim);">${f.nombre}</div>
+        <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;">
+          <div style="height:100%;width:${f.pct}%;background:${scoreColor(f.pct)};border-radius:3px;transition:width 0.6s ease;"></div>
+        </div>
+        <div style="font-family:var(--display);font-size:16px;${scoreColor(f.pct) ? 'color:' + scoreColor(f.pct) + ';' : ''}text-align:right;">${f.pct}<span style="font-family:var(--mono);font-size:9px;color:var(--text-faint);">%</span></div>
+      </div>`).join('');
+  }
+
+  // ── 4. Detalle individual por vendedor ────────────────────
+  const detalleEl = document.getElementById('equipo-detalle');
+  if (detalleEl) {
+    detalleEl.innerHTML = vendedores.map(v => {
+      // Fases de este vendedor
+      const vFasesMap = {};
+      v.analisis.forEach(a => {
+        (a.fases || []).forEach(f => {
+          if (!vFasesMap[f.nombre]) vFasesMap[f.nombre] = { totalPuntaje: 0, totalMaximo: 0, count: 0 };
+          vFasesMap[f.nombre].totalPuntaje += f.puntaje || 0;
+          vFasesMap[f.nombre].totalMaximo  += f.maximo  || 0;
+          vFasesMap[f.nombre].count++;
+        });
+      });
+
+      const vFases = Object.entries(vFasesMap).map(([nombre, d]) => ({
+        nombre,
+        pct: d.totalMaximo > 0 ? Math.round((d.totalPuntaje / d.totalMaximo) * 100) : 0
+      })).sort((a, b) => a.pct - b.pct);
+
+      const weakest = vFases[0];
+
+      return `
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div>
+              <div style="font-family:var(--display);font-size:16px;">${v.nombre}</div>
+              <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);margin-top:2px;">${v.count} análisis · ${v.analisis.map(a => a.clasificacion?.split(' ')[0]).join(', ')}</div>
+            </div>
+            <div class="${scoreClass(v.avg)}" style="font-family:var(--display);font-size:32px;">${v.avg}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            ${vFases.map(f => `
+              <div style="flex:1;min-width:90px;background:var(--surface);border-radius:4px;padding:6px 8px;">
+                <div style="font-family:var(--mono);font-size:9px;color:var(--text-faint);margin-bottom:3px;">${f.nombre.length > 16 ? f.nombre.substring(0,15)+'…' : f.nombre}</div>
+                <div style="font-family:var(--display);font-size:15px;color:${scoreColor(f.pct)};">${f.pct}<span style="font-size:9px;font-family:var(--mono);color:var(--text-faint);">%</span></div>
+              </div>`).join('')}
+          </div>
+          ${weakest ? `<div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);margin-top:8px;">⚠ Skill gap: <span style="color:var(--red);">${weakest.nombre}</span> (${weakest.pct}%)</div>` : ''}
+        </div>`;
+    }).join('');
+  }
+};
 
 window.showScreen = function(id, tabEl) {
   // Si intenta ir a análisis sin cliente activo → redirigir al selector
@@ -1336,6 +1503,7 @@ window.showScreen = function(id, tabEl) {
   if (tabEl) tabEl.classList.add('active');
   else { const t = document.getElementById('tab-' + id); if (t) t.classList.add('active'); }
   if (id === 'config') renderVendedoresConfig(getVendedoresFromHistorial());
+  if (id === 'equipo') window.renderEquipoDashboard();
 };
 
 window.analizar = async function() {
