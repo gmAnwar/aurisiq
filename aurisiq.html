@@ -1197,6 +1197,9 @@ window.cargarAnalisisConCliente = function(cliente, tipo) {
   document.getElementById('screen-analisis').classList.add('active');
   const tabAnalisis = document.getElementById('tab-analisis');
   if (tabAnalisis) tabAnalisis.classList.add('active');
+
+  // Re-renderizar historial filtrado por este cliente
+  if (window._renderHistorialFiltrado) window._renderHistorialFiltrado();
 };
 
 // ── VOLVER A SELECCIÓN DE CLIENTES ───────────────────────────
@@ -1256,6 +1259,18 @@ let analisisActual = null;
 
 updateUsageDisplay(getUsoMes());
 renderHistorial(getHistorial(), verHistorial);
+
+// Exponer función de re-render filtrado para uso desde scripts inline
+window._renderHistorialFiltrado = function() {
+  const h = getHistorial();
+  const filtrado = window.clienteActivo
+    ? h.filter(item => {
+        const itemCliente = item._meta?.cliente || 'enpagos';
+        return itemCliente === window.clienteActivo.id;
+      })
+    : h;
+  renderHistorial(filtrado, verHistorial);
+};
 const cfgEmpresa = document.getElementById('cfg-empresa');
 if (cfgEmpresa) cfgEmpresa.textContent = WORKSPACE.nombre;
 
