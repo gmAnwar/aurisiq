@@ -1245,6 +1245,23 @@ if (document.readyState === 'loading') {
 } else {
   initClientes();
 }
+
+// Manejar hash URL — viene de historial.html con #equipo o #coaching
+(function handleHash() {
+  const hash = window.location.hash.replace('#', '');
+  if (!hash || hash === 'analisis') return;
+  const allowed = ['equipo', 'coaching', 'config'];
+  if (!allowed.includes(hash)) return;
+  // Esperar a que showScreen esté disponible (lo define el módulo)
+  const tryActivate = () => {
+    if (typeof window.showScreen === 'function') {
+      window.showScreen(hash, document.getElementById('tab-' + hash));
+    } else {
+      setTimeout(tryActivate, 100);
+    }
+  };
+  setTimeout(tryActivate, 200);
+})();
 </script>
 
 <script type="module">
