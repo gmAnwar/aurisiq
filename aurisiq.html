@@ -1153,6 +1153,12 @@ window.cerrarSubtipo = function() {
 
 // ── CARGAR PANTALLA DE ANÁLISIS CON DATOS DEL CLIENTE ────────
 window.cargarAnalisisConCliente = function(cliente, tipo) {
+  // Asegurar que clienteActivo siempre esté seteado
+  window.clienteActivo = cliente;
+  localStorage.setItem('aurisiq_cliente_activo', cliente.id);
+  const _lnk = document.getElementById('link-mis-analisis');
+  if (_lnk) _lnk.href = 'historial.html?cliente=' + cliente.id;
+
   const cfg = tipo || cliente;
 
   // Rellenar campos
