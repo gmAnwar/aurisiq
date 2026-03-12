@@ -1314,17 +1314,15 @@ window.renderEquipoDashboard = function() {
   if (!clienteId) return;
 
   const cfg = window.clienteActivo;
-  // Actualizar subtítulo con label de vendedor del cliente
   const vendLabel = cfg?.tipos?.[0]?.vendedorLabel || cfg?.vendedorLabel || 'Vendedor';
   const subtitleEl = document.getElementById('equipo-subtitle');
   if (subtitleEl) subtitleEl.textContent = 'Dashboard de rendimiento por ' + vendLabel.toLowerCase();
 
-  // Obtener historial del cliente activo
   const historial = (typeof getHistorialCliente === 'function')
     ? getHistorialCliente(clienteId)
     : JSON.parse(localStorage.getItem('aurisiq_historial') || '[]').filter(a => a._meta?.cliente === clienteId);
 
-  const emptyEl  = document.getElementById('equipo-empty');
+  const emptyEl   = document.getElementById('equipo-empty');
   const contentEl = document.getElementById('equipo-content');
 
   if (!historial.length) {
@@ -1343,18 +1341,15 @@ window.renderEquipoDashboard = function() {
     byVendedor[v].push(a);
   });
 
-  // Calcular promedio por vendedor
   const vendedores = Object.entries(byVendedor).map(([nombre, analisis]) => {
     const scores = analisis.map(a => a.score_general || 0);
     const avg = Math.round(scores.reduce((s, n) => s + n, 0) / scores.length);
     return { nombre, avg, analisis, count: analisis.length };
   }).sort((a, b) => b.avg - a.avg);
 
-  // Promedio global
   const allScores = historial.map(a => a.score_general || 0);
   const globalAvg = Math.round(allScores.reduce((s, n) => s + n, 0) / allScores.length);
 
-  // ── Colores por score ─────────────────────────────────────
   function scoreClass(s) {
     if (s >= 80) return 'score-alto';
     if (s >= 65) return 'score-funcional';
@@ -1375,12 +1370,11 @@ window.renderEquipoDashboard = function() {
       <div class="vendedor-row">
         <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint);width:16px;">${i + 1}</span>
         <span class="vr-name" style="flex:1;">${v.nombre}</span>
-        <span style="font-family:var(--mono);font-size:10px;color:var(--text-dim);margin-right:8px;">${v.count} ${v.count === 1 ? 'análisis' : 'análisis'}</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text-dim);margin-right:8px;">${v.count} análisis</span>
         <span class="${scoreClass(v.avg)}" style="font-family:var(--display);font-size:20px;">${v.avg}</span>
       </div>`).join('');
   }
 
-  // Badge
   const badgeEl = document.getElementById('equipo-badge-analisis');
   if (badgeEl) badgeEl.textContent = historial.length + ' ANÁLISIS';
 
@@ -1391,12 +1385,9 @@ window.renderEquipoDashboard = function() {
     promedioEl.textContent = globalAvg;
     promedioEl.style.color = scoreColor(globalAvg);
   }
-  if (promedioLabelEl) {
-    promedioLabelEl.textContent = 'PROMEDIO · ' + historial.length + ' ANÁLISIS';
-  }
+  if (promedioLabelEl) promedioLabelEl.textContent = 'PROMEDIO · ' + historial.length + ' ANÁLISIS';
 
   // ── 3. Fases del scorecard (promedio equipo) ──────────────
-  // Agrupar fases por nombre, calcular promedio puntaje/maximo
   const fasesMap = {};
   historial.forEach(a => {
     (a.fases || []).forEach(f => {
@@ -1411,19 +1402,19 @@ window.renderEquipoDashboard = function() {
   const fasesEl = document.getElementById('equipo-fases');
   if (fasesEl) {
     const fasesOrdenadas = Object.entries(fasesMap)
-      .map(([nombre, d]) => {
-        const pct = d.totalMaximo > 0 ? Math.round((d.totalPuntaje / d.totalMaximo) * 100) : 0;
-        return { nombre, pct, avgPuntaje: Math.round(d.totalPuntaje / d.count), avgMaximo: Math.round(d.totalMaximo / d.count) };
-      })
-      .sort((a, b) => a.pct - b.pct); // peores primero = skill gaps arriba
+      .map(([nombre, d]) => ({
+        nombre,
+        pct: d.totalMaximo > 0 ? Math.round((d.totalPuntaje / d.totalMaximo) * 100) : 0
+      }))
+      .sort((a, b) => a.pct - b.pct);
 
     fasesEl.innerHTML = fasesOrdenadas.map(f => `
       <div style="display:grid;grid-template-columns:180px 1fr 60px;align-items:center;gap:12px;">
         <div style="font-family:var(--mono);font-size:11px;color:var(--text-dim);">${f.nombre}</div>
         <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;">
-          <div style="height:100%;width:${f.pct}%;background:${scoreColor(f.pct)};border-radius:3px;transition:width 0.6s ease;"></div>
+          <div style="height:100%;width:${f.pct}%;background:${scoreColor(f.pct)};border-radius:3px;"></div>
         </div>
-        <div style="font-family:var(--display);font-size:16px;${scoreColor(f.pct) ? 'color:' + scoreColor(f.pct) + ';' : ''}text-align:right;">${f.pct}<span style="font-family:var(--mono);font-size:9px;color:var(--text-faint);">%</span></div>
+        <div style="font-family:var(--display);font-size:16px;color:${scoreColor(f.pct)};text-align:right;">${f.pct}<span style="font-family:var(--mono);font-size:9px;color:var(--text-faint);">%</span></div>
       </div>`).join('');
   }
 
@@ -1442,34 +1433,166 @@ window.renderEquipoDashboard = function() {
         });
       });
 
-      const vFases = Object.entries(vFasesMap).map(([nombre, d]) => ({
-        nombre,
-        pct: d.totalMaximo > 0 ? Math.round((d.totalPuntaje / d.totalMaximo) * 100) : 0
-      })).sort((a, b) => a.pct - b.pct);
+      const vFases = Object.entries(vFasesMap)
+        .map(([nombre, d]) => ({
+          nombre,
+          pct: d.totalMaximo > 0 ? Math.round((d.totalPuntaje / d.totalMaximo) * 100) : 0
+        }))
+        .sort((a, b) => a.pct - b.pct);
 
+      // Área de oportunidad = fase más baja ESPECÍFICA de este vendedor
       const weakest = vFases[0];
 
+      // Último análisis para coaching
+      const ultimoAnalisis = v.analisis[v.analisis.length - 1];
+      const vendedorId = v.nombre.replace(/\s+/g, '_').toLowerCase();
+
       return `
-        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-            <div>
-              <div style="font-family:var(--display);font-size:16px;">${v.nombre}</div>
-              <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);margin-top:2px;">${v.count} análisis · ${v.analisis.map(a => a.clasificacion?.split(' ')[0]).join(', ')}</div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+          <!-- Header clickeable -->
+          <div onclick="window.toggleCoaching('${vendedorId}')"
+               style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;transition:background 0.15s;"
+               onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''">
+            <div style="display:flex;align-items:center;gap:14px;">
+              <div class="${scoreClass(v.avg)}" style="font-family:var(--display);font-size:36px;min-width:52px;">${v.avg}</div>
+              <div>
+                <div style="font-family:var(--display);font-size:15px;">${v.nombre}</div>
+                <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);margin-top:3px;">${v.count} análisis · ${v.analisis.map(a => a.clasificacion?.split(' ')[0]).join(', ')}</div>
+                ${weakest ? `<div style="font-family:var(--mono);font-size:10px;color:var(--orange,#f08c00);margin-top:4px;">↓ Área de oportunidad: ${weakest.nombre} (${weakest.pct}%)</div>` : ''}
+              </div>
             </div>
-            <div class="${scoreClass(v.avg)}" style="font-family:var(--display);font-size:32px;">${v.avg}</div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div style="display:flex;gap:5px;">
+                ${vFases.map(f => `
+                  <div style="text-align:center;background:var(--surface);border-radius:4px;padding:5px 8px;min-width:70px;">
+                    <div style="font-family:var(--mono);font-size:8px;color:var(--text-faint);margin-bottom:2px;">${f.nombre.length > 12 ? f.nombre.substring(0,11)+'…' : f.nombre}</div>
+                    <div style="font-family:var(--display);font-size:14px;color:${scoreColor(f.pct)};">${f.pct}%</div>
+                  </div>`).join('')}
+              </div>
+              <span id="chevron-${vendedorId}" style="font-size:12px;color:var(--text-dim);transition:transform 0.2s;">▼</span>
+            </div>
           </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            ${vFases.map(f => `
-              <div style="flex:1;min-width:90px;background:var(--surface);border-radius:4px;padding:6px 8px;">
-                <div style="font-family:var(--mono);font-size:9px;color:var(--text-faint);margin-bottom:3px;">${f.nombre.length > 16 ? f.nombre.substring(0,15)+'…' : f.nombre}</div>
-                <div style="font-family:var(--display);font-size:15px;color:${scoreColor(f.pct)};">${f.pct}<span style="font-size:9px;font-family:var(--mono);color:var(--text-faint);">%</span></div>
-              </div>`).join('')}
+          <!-- Panel coaching colapsable -->
+          <div id="coaching-${vendedorId}" style="display:none;border-top:1px solid var(--border);padding:16px;">
+            <div id="coaching-content-${vendedorId}">
+              <div style="font-family:var(--mono);font-size:11px;color:var(--text-dim);text-align:center;padding:20px;">
+                Generando ejemplos de coaching...
+              </div>
+            </div>
           </div>
-          ${weakest ? `<div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);margin-top:8px;">⚠ Skill gap: <span style="color:var(--red);">${weakest.nombre}</span> (${weakest.pct}%)</div>` : ''}
         </div>`;
     }).join('');
+
+    // Guardar datos de análisis para el coaching
+    window._equipoAnalisis = {};
+    vendedores.forEach(v => {
+      const id = v.nombre.replace(/\s+/g, '_').toLowerCase();
+      window._equipoAnalisis[id] = v.analisis;
+    });
   }
 };
+
+// ── TOGGLE COACHING PANEL ─────────────────────────────────
+window.toggleCoaching = async function(vendedorId) {
+  const panel = document.getElementById('coaching-' + vendedorId);
+  const chevron = document.getElementById('chevron-' + vendedorId);
+  if (!panel) return;
+
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+
+  if (!isOpen) {
+    const contentEl = document.getElementById('coaching-content-' + vendedorId);
+    // Solo generar si no está ya generado
+    if (contentEl && !contentEl.dataset.loaded) {
+      await window.generarCoaching(vendedorId, contentEl);
+    }
+  }
+};
+
+// ── GENERAR COACHING CON CLAUDE ───────────────────────────
+window.generarCoaching = async function(vendedorId, contentEl) {
+  const analisis = (window._equipoAnalisis || {})[vendedorId];
+  if (!analisis?.length) {
+    contentEl.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text-dim);padding:12px;">Sin datos suficientes.</div>';
+    return;
+  }
+
+  // Tomar el análisis con peor score para coaching más relevante
+  const peor = analisis.slice().sort((a, b) => (a.score_general || 0) - (b.score_general || 0))[0];
+  const nombre = peor._meta?.vendedor || vendedorId;
+
+  // Construir fases con %
+  const fasesTexto = (peor.fases || []).map(f => {
+    const pct = f.maximo > 0 ? Math.round((f.puntaje / f.maximo) * 100) : 0;
+    return `${f.nombre}: ${pct}% (${f.puntaje}/${f.maximo})`;
+  }).join(', ');
+
+  const prompt = `Eres un coach de ventas inmobiliarias. Analiza esta llamada de captación y genera 2 momentos de coaching específicos.
+
+VENDEDOR: ${nombre}
+SCORE: ${peor.score_general}/100 — ${peor.clasificacion}
+FASES: ${fasesTexto}
+MOMENTO CRÍTICO: ${peor.momento_critico || 'No disponible'}
+PATRÓN DE ERROR: ${peor.patron_error || 'No disponible'}
+OBJECIÓN PRINCIPAL: ${peor.objecion_principal || 'No disponible'}
+
+Genera exactamente 2 momentos de coaching en este formato JSON (solo el JSON, sin markdown):
+{
+  "momentos": [
+    {
+      "fase": "nombre de la fase donde ocurrió",
+      "lo_que_dijo": "frase o momento específico que dijo el vendedor (breve, máx 2 oraciones)",
+      "por_que_falla": "explicación breve de por qué no funciona",
+      "como_deberia_decirlo": "script exacto de cómo debería haberlo manejado"
+    }
+  ]
+}
+
+Basa los ejemplos en el momento crítico y patrón de error reales. Sé específico con el contexto inmobiliario/Infonavit.`;
+
+  try {
+    const resp = await fetch('https://optix-proxy.anwarhsg.workers.dev', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await resp.json();
+    const text = data.content?.[0]?.text || '';
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    const momentos = parsed.momentos || [];
+
+    contentEl.dataset.loaded = '1';
+    contentEl.innerHTML = `
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text-faint);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;">
+        Basado en su análisis más reciente · ${peor._meta?.fecha ? new Date(peor._meta.fecha).toLocaleDateString('es-MX', {day:'numeric',month:'short'}) : ''}
+      </div>
+      ${momentos.map((m, i) => `
+        <div style="background:var(--surface);border-radius:6px;padding:14px;margin-bottom:10px;${i < momentos.length-1 ? 'margin-bottom:10px;' : ''}">
+          <div style="font-family:var(--mono);font-size:9px;color:var(--text-faint);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">${m.fase}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div style="background:rgba(255,80,80,0.06);border:1px solid rgba(255,80,80,0.2);border-radius:5px;padding:10px;">
+              <div style="font-family:var(--mono);font-size:9px;color:var(--red);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Lo que dijo</div>
+              <div style="font-family:var(--sans,sans-serif);font-size:12px;color:var(--text);line-height:1.5;">"${m.lo_que_dijo}"</div>
+              <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);margin-top:6px;font-style:italic;">${m.por_que_falla}</div>
+            </div>
+            <div style="background:rgba(80,200,80,0.06);border:1px solid rgba(80,200,80,0.2);border-radius:5px;padding:10px;">
+              <div style="font-family:var(--mono);font-size:9px;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Cómo debería decirlo</div>
+              <div style="font-family:var(--sans,sans-serif);font-size:12px;color:var(--text);line-height:1.5;">"${m.como_deberia_decirlo}"</div>
+            </div>
+          </div>
+        </div>`).join('')}`;
+  } catch(e) {
+    contentEl.innerHTML = `<div style="font-family:var(--mono);font-size:11px;color:var(--red);padding:12px;">Error generando coaching. Intenta de nuevo.</div>`;
+  }
+};
+
 
 window.showScreen = function(id, tabEl) {
   // Si intenta ir a análisis sin cliente activo → redirigir al selector
