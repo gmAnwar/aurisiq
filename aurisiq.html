@@ -588,7 +588,7 @@
     <div class="usage-badge" id="usage-display">Análisis este mes: <span id="uso-count">0</span>/5</div>
     <div class="nav-tabs">
       <button class="nav-tab active" id="tab-analisis" onclick="showScreen('analisis', this)">◆ Análisis</button>
-      <a class="nav-tab" href="historial.html" style="text-decoration:none;">◈ Mis análisis</a>
+      <a class="nav-tab" id="link-mis-analisis" href="historial.html" style="text-decoration:none;">◈ Mis análisis</a>
       <button class="nav-tab nav-tab-premium" id="tab-equipo" onclick="showScreen('equipo', this)">👑 Equipo</button>
       <button class="nav-tab nav-tab-premium" id="tab-coaching" onclick="showScreen('coaching', this)">👑 Coaching</button>
       <button class="nav-tab" id="tab-config" onclick="showScreen('config', this)">⚙ Config</button>
@@ -1116,6 +1116,9 @@ window.seleccionarCliente = function(clienteId) {
   const cliente = CLIENTES.find(c => c.id === clienteId);
   if (!cliente) return;
   window.clienteActivo = cliente;
+  localStorage.setItem('aurisiq_cliente_activo', cliente.id);
+  const _linkHistorial = document.getElementById('link-mis-analisis');
+  if (_linkHistorial) _linkHistorial.href = 'historial.html?cliente=' + cliente.id;
 
   if (cliente.tipos && cliente.tipos.length > 0) {
     // Mostrar modal de sub-tipo
@@ -1205,6 +1208,9 @@ window.cargarAnalisisConCliente = function(cliente, tipo) {
 // ── VOLVER A SELECCIÓN DE CLIENTES ───────────────────────────
 window.volverAClientes = function() {
   window.clienteActivo = null;
+  localStorage.removeItem('aurisiq_cliente_activo');
+  const _linkH = document.getElementById('link-mis-analisis');
+  if (_linkH) _linkH.href = 'historial.html';
   const badge = document.getElementById('cliente-activo-badge');
   if (badge) badge.classList.remove('show');
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -1331,7 +1337,7 @@ window.analizar = async function() {
 
   setLoading(true);
   try {
-    const resultado = await analizarAPI({ empresa, producto, vendedor, duracion, transcripcion });
+    const resultado = await analizarAPI({ empresa, producto, vendedor, duracion, transcripcion, clienteId: window.clienteActivo?.id || 'enpagos' });
     analisisActual = resultado;
     if (telefono) analisisActual.telefonoCliente = telefono;
     renderResultado(resultado);
