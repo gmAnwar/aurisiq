@@ -1203,9 +1203,8 @@ window.cargarAnalisisConCliente = function(cliente, tipo) {
 
   // Re-renderizar historial filtrado por este cliente
   if (window._renderHistorialFiltrado) window._renderHistorialFiltrado();
-  // Actualizar contador con total real del cliente
-  const _totalH = getHistorial().filter(h => h._meta?.cliente === cliente.id).length;
-  updateUsageDisplay(_totalH);
+  // Actualizar contador via _renderHistorialFiltrado que ya tiene acceso al módulo
+  // (el render filtrado actualiza el badge internamente)
 };
 
 // ── VOLVER A SELECCIÓN DE CLIENTES ───────────────────────────
@@ -1304,7 +1303,15 @@ window._renderHistorialFiltrado = function() {
     ? h.filter(item => item._meta?.cliente === window.clienteActivo.id)
     : h;
   renderHistorial(filtrado, verHistorial);
+  // Actualizar badge con total del cliente activo
+  if (window.clienteActivo) {
+    const total = h.filter(item => item._meta?.cliente === window.clienteActivo.id).length;
+    updateUsageDisplay(total);
+  }
 };
+// Exponer para uso desde script inline
+window._getHistorial = getHistorial;
+window._updateUsageDisplay = updateUsageDisplay;
 const cfgEmpresa = document.getElementById('cfg-empresa');
 if (cfgEmpresa) cfgEmpresa.textContent = WORKSPACE.nombre;
 
@@ -1348,9 +1355,7 @@ window.analizar = async function() {
       ? _hist.filter(item => item._meta?.cliente === window.clienteActivo.id)
       : _hist;
     renderHistorial(_histFiltrado, verHistorial);
-    // actualizar contador con total real del cliente
-    const _totalCliente = getHistorial().filter(h => h._meta?.cliente === window.clienteActivo?.id).length;
-    updateUsageDisplay(_totalCliente);
+    // badge se actualiza via _renderHistorialFiltrado
     showToast('✓ Análisis completado');
   } catch(err) {
     console.error(err);
