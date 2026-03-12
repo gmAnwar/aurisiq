@@ -928,12 +928,18 @@ Prospecto: Sí, dígame..." oninput="updateCharCount()"></textarea>
 // Solo se insertan si el historial está vacío (primera vez o demo limpio)
 // Key probables del storage; el script prueba ambas
 (function seedDemoData() {
+  const SEED_VERSION = 'v3'; // cambiar esto fuerza reseed en todos los browsers
   const KEYS = ['aurisiq_historial', 'aurisiq-historial', 'historial'];
   const NOW = Date.now();
+  // Si la versión del seed no coincide, limpiar y resembrar
+  if (localStorage.getItem('aurisiq_seed_version') !== SEED_VERSION) {
+    KEYS.forEach(k => localStorage.removeItem(k));
+    localStorage.setItem('aurisiq_seed_version', SEED_VERSION);
+  }
 
   const DEMO_CASES = [
     {
-      _meta: { vendedor: 'Valeria Mendoza', empresa: 'Immobili Internacional', producto: 'Llamada Captación', fecha: new Date(NOW - 86400000 * 3).toISOString(), duracion: '14 min', cliente: 'immobili', tipo: 'llamada' },
+      _meta: { vendedor: 'Elizabeth Ramos', empresa: 'Immobili Internacional', producto: 'Llamada Captación', fecha: new Date(NOW - 86400000 * 3).toISOString(), duracion: '14 min', cliente: 'immobili', tipo: 'llamada' },
       score_general: 87,
       clasificacion: 'ALTO RENDIMIENTO',
       probabilidad_cierre: 82,
@@ -947,13 +953,13 @@ Prospecto: Sí, dígame..." oninput="updateCharCount()"></textarea>
       ],
       objecion_principal: 'Expectativa irreal de precio (esperaba 700k, recibe ~400k)',
       senales_perdida: ['Silencio prolongado tras recibir cifra real', 'No procesó el impacto emocional del propietario'],
-      siguiente_accion: 'Elizandro confirmar visita jueves 11am. Ir preparado con posible resistencia del propietario tras ajuste de expectativa.',
-      accion_recomendada: 'Confirmar visita por WhatsApp el miércoles y preparar a Elizandro con el contexto del ajuste de precio.',
+      siguiente_accion: 'Karla confirmar visita jueves 11am. Ir preparado con posible resistencia del propietario tras ajuste de expectativa.',
+      accion_recomendada: 'Confirmar visita por WhatsApp el miércoles y preparar a Karla con el contexto del ajuste de precio.',
       patron_error: 'No valida el estado emocional del propietario después de entregar números difíciles. Continúa el proceso sin procesar el impacto.',
-      momento_critico: 'Propietario guardó silencio 4 segundos tras escuchar "400 mil pesos". Valeria continuó con la agenda en lugar de hacer pausa y validar.'
+      momento_critico: 'Propietario guardó silencio 4 segundos tras escuchar "400 mil pesos". Elizabeth continuó con la agenda en lugar de hacer pausa y validar.'
     },
     {
-      _meta: { vendedor: 'Sofía Ibarra', empresa: 'Immobili Internacional', producto: 'Llamada Captación', fecha: new Date(NOW - 86400000 * 2).toISOString(), duracion: '11 min', cliente: 'immobili', tipo: 'llamada' },
+      _meta: { vendedor: 'Fernanda Ibarra', empresa: 'Immobili Internacional', producto: 'Llamada Captación', fecha: new Date(NOW - 86400000 * 2).toISOString(), duracion: '11 min', cliente: 'immobili', tipo: 'llamada' },
       score_general: 61,
       clasificacion: 'PROBLEMAS ESTRUCTURALES',
       probabilidad_cierre: 35,
@@ -967,13 +973,13 @@ Prospecto: Sí, dígame..." oninput="updateCharCount()"></textarea>
       ],
       objecion_principal: 'Propietaria con 8 meses sin pago — posible estado jurídico no verificado',
       senales_perdida: ['No entró al portal Infonavit para verificar estado jurídico', 'Aceptó "creo que debo como 120k" sin confirmar en sistema', 'No preguntó adeudos de servicios (CFE, agua, predial)'],
-      siguiente_accion: 'NO enviar a Elizandro todavía. Sofía debe llamar hoy a la propietaria y verificar Infonavit en portal antes del lunes.',
+      siguiente_accion: 'NO enviar a Karla todavía. Fernanda debe llamar hoy a la propietaria y verificar Infonavit en portal antes del lunes.',
       accion_recomendada: 'Llamar hoy a la señora Vega para revisar cuenta Infonavit juntas por teléfono. Si está en jurídico, descartar. Si no, proceder.',
       patron_error: 'Acepta toda la información de forma verbal sin verificación en portal. En Infonavit, la regla es: si el propietario dice que debe, hay que entrar al portal. Si dice que no debe, también.',
-      momento_critico: 'Propietaria dijo "llevo como 8 meses sin pagar pero no creo que esté en jurídico". Sofía respondió "Bueno, está bien, sigamos" sin abrir la cuenta.'
+      momento_critico: 'Propietaria dijo "llevo como 8 meses sin pagar pero no creo que esté en jurídico". Fernanda respondió "Bueno, está bien, sigamos" sin abrir la cuenta.'
     },
     {
-      _meta: { vendedor: 'Daniela Ríos', empresa: 'Immobili Internacional', producto: 'Llamada Captación', fecha: new Date(NOW - 86400000 * 1).toISOString(), duracion: '16 min', cliente: 'immobili', tipo: 'llamada' },
+      _meta: { vendedor: 'Carolina Maldonado', empresa: 'Immobili Internacional', producto: 'Llamada Captación', fecha: new Date(NOW - 86400000 * 1).toISOString(), duracion: '16 min', cliente: 'immobili', tipo: 'llamada' },
       score_general: 72,
       clasificacion: 'FUNCIONAL',
       probabilidad_cierre: 58,
@@ -987,13 +993,13 @@ Prospecto: Sí, dígame..." oninput="updateCharCount()"></textarea>
       ],
       objecion_principal: '¿Y ustedes cobran comisión? (preguntada 2 veces, diferida a la visita)',
       senales_perdida: ['Cerró sin fecha confirmada para la visita', 'Delegó la coordinación de cita al propietario', 'Dijo "vamos a ver en la visita qué podemos hacer" sobre el precio — ambiguo'],
-      siguiente_accion: 'Daniela enviar WhatsApp hoy con dos opciones de fecha específica para la visita.',
+      siguiente_accion: 'Carolina enviar WhatsApp hoy con dos opciones de fecha específica para la visita.',
       accion_recomendada: 'Proponer "¿le viene mejor el martes a las 10am o el miércoles a las 4pm?" — no dejar que el propietario coordine solo.',
       patron_error: 'Evita cerrar compromisos en la llamada. Cuando el propietario hace una pregunta incómoda (comisión), la pospone. Cuando llega el momento de la visita, delega. Ambas decisiones dejan la propiedad inestable.',
-      momento_critico: 'Propietario preguntó por segunda vez sobre la comisión. Daniela respondió "eso se lo explica Elizandro en la visita" — eso instaló desconfianza que llega a la visita sin resolver.'
+      momento_critico: 'Propietario preguntó por segunda vez sobre la comisión. Carolina respondió "eso se lo explica Karla en la visita" — eso instaló desconfianza que llega a la visita sin resolver.'
     },
     {
-      _meta: { vendedor: 'Elizandro Fuentes', empresa: 'Immobili Internacional', producto: 'Visita Presencial', fecha: new Date(NOW - 3600000 * 5).toISOString(), duracion: '34 min', cliente: 'immobili', tipo: 'visita' },
+      _meta: { vendedor: 'Karla Segovia', empresa: 'Immobili Internacional', producto: 'Visita Presencial', fecha: new Date(NOW - 3600000 * 5).toISOString(), duracion: '34 min', cliente: 'immobili', tipo: 'visita' },
       score_general: 78,
       clasificacion: 'FUNCIONAL',
       probabilidad_cierre: 72,
@@ -1007,10 +1013,10 @@ Prospecto: Sí, dígame..." oninput="updateCharCount()"></textarea>
       ],
       objecion_principal: '¿Y si no consiguen comprador en 30 días?',
       senales_perdida: ['Titubeó ante pregunta de garantías: "pues... se hacen ajustes"', 'No confirmó fecha específica para las fotos — dejó "esta semana" abierto', 'No procesó mirada de preocupación entre cónyuges'],
-      siguiente_accion: 'Elizandro enviar WhatsApp hoy con dos opciones de fecha para fotografía de marketing.',
+      siguiente_accion: 'Karla enviar WhatsApp hoy con dos opciones de fecha para fotografía de marketing.',
       accion_recomendada: 'Proponer "¿el jueves o el viernes para las fotos?" antes de que el señor Moreno reconsidere.',
       patron_error: 'Ante preguntas de garantía, suaviza la respuesta en lugar de entregarla con certeza. Y cuando recibe un sí verbal, no lo aterriza en una fecha. Ambos hábitos convierten "casi cerrado" en "pendiente indefinido".',
-      momento_critico: 'Señora Moreno dijo "ya queremos quitarnos eso de encima, llevamos un año con la casa parada". Elizandro propuso el equipo de marketing pero dijo "esta semana" sin fecha concreta. Debió decir: "¿El jueves o el viernes para las fotos?"'
+      momento_critico: 'Señora Moreno dijo "ya queremos quitarnos eso de encima, llevamos un año con la casa parada". Karla propuso el equipo de marketing pero dijo "esta semana" sin fecha concreta. Debió decir: "¿El jueves o el viernes para las fotos?"'
     }
   ];
 
@@ -1188,7 +1194,7 @@ window.cargarAnalisisConCliente = function(cliente, tipo) {
     if (tipo?.id === 'llamada') {
       txEl.placeholder = 'Pega aquí la transcripción de la llamada de captación...\n\nCaptadora: Buenos días, le llamo de Immobili...\nPropietario: Sí, dígame...';
     } else {
-      txEl.placeholder = 'Pega aquí la transcripción de la visita presencial...\n\nElizandro: Buenos días, soy Elizandro de Immobili...\nPropietario: Pase, le presento la casa...';
+      txEl.placeholder = 'Pega aquí la transcripción de la visita presencial...\n\nKarla: Buenos días, soy Karla de Immobili...\nPropietario: Pase, le presento la casa...';
     }
   }
 
