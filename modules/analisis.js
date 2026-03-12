@@ -1,20 +1,30 @@
 // ============================================================
-//  AurisIQ — analisis.js
-//  Llama al Worker (Cloudflare) → Claude API.
-//  Guarda historial en localStorage.
-//  Exporta: analizar(), getHistorial(), getUsoMes()
+// AurisIQ — analisis.js
+// Llama al Worker (Cloudflare) → Claude API.
+// Guarda historial en localStorage con _meta.cliente.
+// Exporta: analizar(), getHistorial(), getUsoMes()
 // ============================================================
-
 import { SCORECARD_ACTIVO } from './scorecards.js';
 
 const WORKER_URL = 'https://optix-proxy.anwarhsg.workers.dev';
 const MAX_HISTORIAL = 50;
 const LIMITE_GRATIS = 5;
 
-// ── Estado interno ───────────────────────────────────────────
+// ── Estado interno ─────────────────────────────────────────
 let historial = JSON.parse(localStorage.getItem('aurisiq_historial') || '[]');
 let usoMes    = parseInt(localStorage.getItem('aurisiq_uso_mes') || '0');
 let mesActual = localStorage.getItem('aurisiq_mes') || '';
+
+// Migración: registros sin _meta.cliente → asignar 'enpagos' por defecto
+let migrado = false;
+historial = historial.map(h => {
+  if (h._meta && !h._meta.cliente) {
+    h._meta.cliente = 'enpagos';
+    migrado = true;
+  }
+  return h;
+});
+if (migrado) localStorage.setItem('aurisiq_historial', JSON.stringify(historial));
 
 // Reset uso mensual si cambió el mes
 const mesHoy = new Date().toISOString().slice(0, 7);
@@ -25,14 +35,16 @@ if (mesHoy !== mesActual) {
   mesActual = mesHoy;
 }
 
-// ── Getters públicos ─────────────────────────────────────────
-export function getHistorial()  { return historial; }
-export function getUsoMes()     { return usoMes; }
-export function getLimiteGratis() { return LIMITE_GRATIS; }
+// ── Getters públicos ───────────────────────────────────────
+export function getHistorial() { return historial; }
+export function getHistorialCliente(clienteId) {
+  return historial.filter(h => h._meta?.cliente === clienteId);
+}
+export function getUsoMes()      { return usoMes; }
+export function getLimiteGratis(){ return LIMITE_GRATIS; }
 
-// ── Análisis principal ───────────────────────────────────────
-export async function analizar({ empresa, producto, vendedor, duracion, transcripcion }) {
-
+// ── Análisis principal ─────────────────────────────────────
+export async function analizar({ empresa, producto, vendedor, duracion, transcripcion, clienteId }) {
   const scorecard = SCORECARD_ACTIVO;
 
   const response = await fetch(WORKER_URL, {
@@ -42,14 +54,11 @@ export async function analizar({ empresa, producto, vendedor, duracion, transcri
       model: 'claude-sonnet-4-20250514',
       max_tokens: 2000,
       system: scorecard.system_prompt,
-      messages: [
-        { role: 'user', content: scorecard.buildUserPrompt(empresa, producto, vendedor, duracion, transcripcion) }
-      ]
+      messages: [{ role: 'user', content: scorecard.buildUserPrompt(empresa, producto, vendedor, duracion, transcripcion) }]
     })
   });
 
   if (!response.ok) throw new Error('Error del servidor: ' + response.status);
-
   const data = await response.json();
   const rawText = data.content?.[0]?.text || '';
 
@@ -62,15 +71,13 @@ export async function analizar({ empresa, producto, vendedor, duracion, transcri
     throw new Error('Error al procesar la respuesta de AurisIQ');
   }
 
-  // Metadata
+  // Metadata — clienteId siempre presente
   resultado._meta = {
-    empresa,
-    producto,
-    vendedor,
-    duracion,
+    empresa, producto, vendedor, duracion,
     fecha: new Date().toISOString(),
     transcripcion,
-    scorecard_id: scorecard.id
+    scorecard_id: scorecard.id,
+    cliente: clienteId || 'enpagos'  // nunca queda vacío
   };
 
   // Guardar en historial
@@ -85,10 +92,11 @@ export async function analizar({ empresa, producto, vendedor, duracion, transcri
   return resultado;
 }
 
-// ── Helpers de vendedores ────────────────────────────────────
-export function getVendedoresFromHistorial() {
+// ── Helpers de vendedores ──────────────────────────────────
+export function getVendedoresFromHistorial(clienteId) {
+  const fuente = clienteId ? getHistorialCliente(clienteId) : historial;
   const map = {};
-  historial.forEach(h => {
+  fuente.forEach(h => {
     const n = h._meta.vendedor;
     if (!map[n]) map[n] = { nombre: n, scores: [] };
     map[n].scores.push(h.score_general);
