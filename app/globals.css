@@ -320,6 +320,15 @@ body.has-nav {
   }
 }
 
+@media (min-width: 768px) {
+  .container.c4-container,
+  .container.c2-container,
+  .container.c3-container,
+  .container.c5-container {
+    max-width: 680px;
+  }
+}
+
 /* =============================================
    Auth / Login
    ============================================= */
@@ -951,11 +960,12 @@ body.has-nav {
   border-radius: 4px;
 }
 
-/* Tip card — dark coach component from legacy */
+/* Tip card — cream-dark coach component */
 .tip-card {
-  background: var(--ink);
+  background: var(--cream-dark);
   border-radius: 10px;
-  padding: 16px;
+  padding: 14px;
+  border-left: 3px solid var(--cap);
 }
 
 .tip-lbl {
@@ -972,23 +982,15 @@ body.has-nav {
   font-family: 'Syne', sans-serif;
   font-size: 13px;
   font-weight: 700;
-  color: var(--cream);
+  color: var(--ink);
   line-height: 1.3;
   margin-bottom: 6px;
-}
-
-.tip-ctx {
-  font-size: 11px;
-  font-family: 'DM Sans', sans-serif;
-  color: rgba(245,240,232,0.55);
-  font-weight: 300;
-  line-height: 1.6;
 }
 
 .tip-frase {
   font-size: 11px;
   font-family: 'DM Sans', sans-serif;
-  color: rgba(245,240,232,0.85);
+  color: var(--ink-mid);
   border-left: 2px solid var(--cap);
   padding-left: 10px;
   margin-top: 8px;
@@ -1549,9 +1551,9 @@ body.has-nav {
 .g2-evolution {
   display: flex;
   align-items: flex-end;
-  gap: 6px;
-  height: 80px;
-  padding: 12px 0;
+  gap: 4px;
+  height: 100px;
+  padding: 8px 0;
 }
 
 .g2-evo-bar-wrap {
@@ -1561,14 +1563,15 @@ body.has-nav {
   align-items: center;
   height: 100%;
   justify-content: flex-end;
+  min-width: 0;
 }
 
 .g2-evo-bar {
   width: 100%;
-  max-width: 28px;
+  max-width: 32px;
   background: var(--gold);
   border-radius: 4px 4px 0 0;
-  min-height: 2px;
+  min-height: 3px;
   transition: height 0.3s ease;
 }
 
@@ -1578,6 +1581,8 @@ body.has-nav {
   font-weight: 700;
   color: var(--ink-light);
   margin-top: 4px;
+  text-align: center;
+  line-height: 1;
 }
 
 .g2-comparison {
