@@ -88,14 +88,8 @@ export default function MiDiaPage() {
       }
       const topErr = Object.entries(errors).sort((a, b) => b[1].count - a[1].count)[0];
       if (topErr) {
-        // Title: max 80 chars, cut at word boundary, no ellipsis
-        let title = topErr[0];
-        if (title.length > 80) {
-          title = title.slice(0, 80);
-          const lastSpace = title.lastIndexOf(" ");
-          if (lastSpace > 40) title = title.slice(0, lastSpace);
-        }
-        setTipTitle(title);
+        // Title: full patron_error text, CSS handles visual display
+        setTipTitle(topErr[0]);
         // Phrase: siguiente_accion from that analysis (never truncated)
         const srcAnalysis = all.find(a => a.id === topErr[1].analysisId);
         if (srcAnalysis?.siguiente_accion) {

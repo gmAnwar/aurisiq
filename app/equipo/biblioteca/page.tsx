@@ -179,7 +179,12 @@ export default function BibliotecaPage() {
                       <button className="g5-remove-btn" onClick={() => removePhrase(pi, phi)}>x</button>
                     </div>
                   ))}
-                  <button className="g5-add-btn" onClick={() => addPhrase(pi)}>+ Agregar frase</button>
+                  {p.phrases.length < 3 && (
+                    <button className="g5-add-btn" onClick={() => addPhrase(pi)}>+ Agregar frase ({p.phrases.length}/3)</button>
+                  )}
+                  {p.phrases.length >= 3 && (
+                    <span className="c2-hint">Máximo 3 frases por fase</span>
+                  )}
                 </div>
               ))}
             </div>
