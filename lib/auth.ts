@@ -7,6 +7,15 @@ export interface UserSession {
   name: string;
 }
 
+const SKIP_AUTH = process.env.NEXT_PUBLIC_SKIP_AUTH === "true";
+
+const MOCK_SESSION: UserSession = {
+  userId: "mock-user-001",
+  role: "super_admin",
+  organizationId: "mock-org-001",
+  name: "Elizabeth R.",
+};
+
 const ROLE_HOME: Record<string, string> = {
   captadora: "/analisis",
   gerente: "/equipo",
@@ -40,6 +49,8 @@ export function isRoleAllowed(pathname: string, role: string): boolean {
 }
 
 export async function getSession(): Promise<UserSession | null> {
+  if (SKIP_AUTH) return MOCK_SESSION;
+
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return null;
 
@@ -64,6 +75,8 @@ export async function getSession(): Promise<UserSession | null> {
  * Returns the session if authorized, or redirects and returns null.
  */
 export async function requireAuth(allowedRoles: string[]): Promise<UserSession | null> {
+  if (SKIP_AUTH) return MOCK_SESSION;
+
   const session = await getSession();
 
   if (!session) {

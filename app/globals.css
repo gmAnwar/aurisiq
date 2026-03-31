@@ -194,8 +194,22 @@ body > * { position: relative; z-index: 1; }
     top: auto;
     bottom: 0;
     justify-content: space-around;
-    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    padding: 6px 4px;
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+    gap: 0;
   }
+
+  .navbar .navbar-brand { display: none; }
+
+  .navbar .navbar-item {
+    font-size: 10px;
+    padding: 4px 6px;
+    text-align: center;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .navbar .navbar-desktop-only { display: none; }
 }
 
 /* Body padding for nav */
