@@ -17,6 +17,9 @@ export default function BibliotecaPage() {
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [scorecardId, setScorecardId] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [files, setFiles] = useState<{ name: string; created_at: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -55,10 +58,35 @@ export default function BibliotecaPage() {
         setPhases(scorecardPhases.map(sp => ({ phase_name: sp.phase_name, phrases: [] })));
       }
 
+      // Load files from storage
+      const { data: fileList } = await supabase.storage
+        .from("biblioteca")
+        .list(me.organization_id, { limit: 50, sortBy: { column: "created_at", order: "desc" } });
+      setFiles((fileList || []).map(f => ({ name: f.name, created_at: f.created_at || "" })));
+
       setLoading(false);
     }
     load();
   }, []);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !orgId) return;
+    setUploading(true);
+    setUploadMsg("");
+
+    const path = `${orgId}/${file.name}`;
+    const { error: upErr } = await supabase.storage.from("biblioteca").upload(path, file, { upsert: true });
+
+    if (upErr) {
+      setUploadMsg(`Error: ${upErr.message}`);
+    } else {
+      setUploadMsg(`"${file.name}" subido correctamente.`);
+      setFiles(prev => [{ name: file.name, created_at: new Date().toISOString() }, ...prev]);
+    }
+    setUploading(false);
+    e.target.value = "";
+  };
 
   const startEdit = () => {
     setEditPhases(phases.map(p => ({ ...p, phrases: [...p.phrases] })));
@@ -196,6 +224,31 @@ export default function BibliotecaPage() {
             </div>
           </>
         )}
+
+        {/* Biblioteca de archivos */}
+        <div className="g1-section" style={{ marginTop: 24 }}>
+          <h2 className="g1-section-title">Biblioteca de materiales</h2>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
+            <label className="c2-file-btn" style={{ cursor: uploading ? "not-allowed" : "pointer" }}>
+              {uploading ? "Subiendo..." : "Subir archivo"}
+              <input type="file" accept=".pdf,.doc,.docx,.txt,.pptx" onChange={handleFileUpload} hidden disabled={uploading} />
+            </label>
+            <span className="c2-file-hint">Guiones, materiales de entrenamiento, documentos</span>
+          </div>
+          {uploadMsg && <p className={`c2-hint ${uploadMsg.startsWith("Error") ? "c2-char-warning" : ""}`} style={{ marginBottom: 8 }}>{uploadMsg}</p>}
+          {files.length > 0 ? (
+            <div className="g7-list">
+              {files.map((f, i) => (
+                <div key={i} className="g7-list-item">
+                  <span className="g7-item-name">{f.name}</span>
+                  <span className="g7-item-meta">{f.created_at ? new Date(f.created_at).toLocaleDateString("es-MX", { day: "numeric", month: "short" }) : ""}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="g1-empty">Sin materiales subidos. Sube guiones o documentos de entrenamiento para el equipo.</p>
+          )}
+        </div>
 
         <a href="/equipo" className="c5-back-link">Volver al dashboard</a>
       </div>

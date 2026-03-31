@@ -21,6 +21,12 @@ export default function ConfigPage() {
   const [newSrcName, setNewSrcName] = useState("");
   const [newObjTarget, setNewObjTarget] = useState("");
   const [newObjName, setNewObjName] = useState("Cierres del mes");
+  const [emailEquipo, setEmailEquipo] = useState("");
+  const [emailAgencia, setEmailAgencia] = useState("");
+  const [notifNewAnalysis, setNotifNewAnalysis] = useState(true);
+  const [notifWeeklyReport, setNotifWeeklyReport] = useState(true);
+  const [notifAlert, setNotifAlert] = useState(true);
+  const [notifObjective, setNotifObjective] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -31,7 +37,7 @@ export default function ConfigPage() {
       setOrgId(session.organizationId);
       setUserId(session.userId);
 
-      const [stagesRes, catsRes, srcsRes, orgRes, objRes] = await Promise.all([
+      const [stagesRes, catsRes, srcsRes, orgRes, objRes, funnelRes] = await Promise.all([
         supabase.from("funnel_stages").select("id, name, stage_type, order_index, scorecard_id")
           .eq("organization_id", session.organizationId).order("order_index"),
         supabase.from("descalification_categories").select("id, code, label, active")
@@ -42,6 +48,8 @@ export default function ConfigPage() {
           .eq("id", session.organizationId).single(),
         supabase.from("objectives").select("id, name, type, target_value, period_type, is_active, target_user_id")
           .eq("organization_id", session.organizationId).order("created_at", { ascending: false }),
+        supabase.from("funnel_config").select("report_email_equipo, report_email_agencia")
+          .eq("organization_id", session.organizationId).limit(1).single(),
       ]);
 
       setStages(stagesRes.data || []);
@@ -49,6 +57,10 @@ export default function ConfigPage() {
       setLeadSrcs(srcsRes.data || []);
       setOrg(orgRes.data);
       setObjectives((objRes.data || []) as Objective[]);
+      if (funnelRes.data) {
+        setEmailEquipo((funnelRes.data as Record<string, string>).report_email_equipo || "");
+        setEmailAgencia((funnelRes.data as Record<string, string>).report_email_agencia || "");
+      }
       setLoading(false);
     }
     load();
@@ -116,6 +128,10 @@ export default function ConfigPage() {
   const updateOrgField = async (field: string, value: unknown) => {
     await supabase.from("organizations").update({ [field]: value }).eq("id", orgId);
     setOrg(prev => prev ? { ...prev, [field]: value } : prev);
+  };
+
+  const saveDestinatario = async (field: string, value: string) => {
+    await supabase.from("funnel_config").update({ [field]: value }).eq("organization_id", orgId);
   };
 
   if (loading) return (<div className="g1-wrapper"><div className="g1-container"><div className="skeleton-block skeleton-title" /><div className="skeleton-block skeleton-textarea" /><div className="skeleton-block skeleton-textarea" /></div></div>);
@@ -233,6 +249,70 @@ export default function ConfigPage() {
           <p className="c2-hint" style={{ marginTop: 8 }}>
             La meta diaria se calcula automáticamente: meta mensual / 22 días hábiles. Las captadoras ven "X llamadas hoy para llegar a Y cierres este mes" en su pantalla Mi Día.
           </p>
+        </div>
+
+        {/* Destinatarios */}
+        <div className="g1-section">
+          <h2 className="g1-section-title">Destinatarios de reportes</h2>
+          <div className="g7-field-row" style={{ marginBottom: 12 }}>
+            <label className="input-label">Email reporte de equipo (coaching)</label>
+            <input
+              className="input-field"
+              type="email"
+              placeholder="gerente@empresa.com"
+              value={emailEquipo}
+              onChange={e => setEmailEquipo(e.target.value)}
+              onBlur={() => saveDestinatario("report_email_equipo", emailEquipo)}
+            />
+          </div>
+          <div className="g7-field-row">
+            <label className="input-label">Email reporte de agencia</label>
+            <input
+              className="input-field"
+              type="email"
+              placeholder="contacto@agencia.com"
+              value={emailAgencia}
+              onChange={e => setEmailAgencia(e.target.value)}
+              onBlur={() => saveDestinatario("report_email_agencia", emailAgencia)}
+            />
+          </div>
+          <p className="c2-hint" style={{ marginTop: 8 }}>Los reportes se envían automáticamente a estos emails. Se guarda al salir del campo.</p>
+        </div>
+
+        {/* Notificaciones */}
+        <div className="g1-section">
+          <h2 className="g1-section-title">Notificaciones</h2>
+          <div className="g7-list">
+            <div className="g7-list-item">
+              <span className="g7-item-name">Nuevo análisis completado</span>
+              <label className="g7-toggle">
+                <input type="checkbox" checked={notifNewAnalysis} onChange={() => setNotifNewAnalysis(!notifNewAnalysis)} />
+                <span className="g7-toggle-slider" />
+              </label>
+            </div>
+            <div className="g7-list-item">
+              <span className="g7-item-name">Reporte semanal generado</span>
+              <label className="g7-toggle">
+                <input type="checkbox" checked={notifWeeklyReport} onChange={() => setNotifWeeklyReport(!notifWeeklyReport)} />
+                <span className="g7-toggle-slider" />
+              </label>
+            </div>
+            <div className="g7-list-item">
+              <span className="g7-item-name">Alerta de calidad de leads</span>
+              <label className="g7-toggle">
+                <input type="checkbox" checked={notifAlert} onChange={() => setNotifAlert(!notifAlert)} />
+                <span className="g7-toggle-slider" />
+              </label>
+            </div>
+            <div className="g7-list-item">
+              <span className="g7-item-name">Objetivo completado por captadora</span>
+              <label className="g7-toggle">
+                <input type="checkbox" checked={notifObjective} onChange={() => setNotifObjective(!notifObjective)} />
+                <span className="g7-toggle-slider" />
+              </label>
+            </div>
+          </div>
+          <p className="c2-hint" style={{ marginTop: 8 }}>Las notificaciones se enviarán por email cuando se active el sistema de Etapa 4.</p>
         </div>
 
         {/* Ticket promedio y baseline */}
