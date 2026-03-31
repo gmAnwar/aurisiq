@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
+import { getOrgTimezone, weekStart as getWeekStart } from "../../../lib/dates";
 
 interface Report {
   id: string;
@@ -36,8 +37,8 @@ export default function ReportesPage() {
       if (!session) return;
       const me = { organization_id: session.organizationId };
 
-      const now = new Date();
-      const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0, 0, 0, 0);
+      const tz = await getOrgTimezone(me.organization_id);
+      const ws = getWeekStart(tz);
 
       const [reportsRes, weekRes, teamRes] = await Promise.all([
         supabase.from("reports")
@@ -47,7 +48,7 @@ export default function ReportesPage() {
         supabase.from("analyses")
           .select("id, user_id, score_general, avanzo_a_siguiente_etapa")
           .eq("organization_id", me.organization_id).eq("status", "completado")
-          .gte("created_at", weekStart.toISOString()),
+          .gte("created_at", ws),
         supabase.from("users").select("id, name, role")
           .eq("organization_id", me.organization_id).eq("active", true),
       ]);

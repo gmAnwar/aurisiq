@@ -7,15 +7,20 @@ import { requireAuth } from "../../../lib/auth";
 interface FunnelStage { id: string; name: string; stage_type: string; order_index: number; scorecard_id: string | null; }
 interface DescalCat { id: string; code: string; label: string; active: boolean; }
 interface LeadSrc { id: string; name: string; active: boolean; }
+interface Objective { id: string; name: string; type: string; target_value: number; period_type: string; is_active: boolean; target_user_id: string | null; }
 
 export default function ConfigPage() {
   const [stages, setStages] = useState<FunnelStage[]>([]);
   const [descalCats, setDescalCats] = useState<DescalCat[]>([]);
   const [leadSrcs, setLeadSrcs] = useState<LeadSrc[]>([]);
+  const [objectives, setObjectives] = useState<Objective[]>([]);
   const [org, setOrg] = useState<Record<string, unknown> | null>(null);
   const [orgId, setOrgId] = useState("");
+  const [userId, setUserId] = useState("");
   const [newCatLabel, setNewCatLabel] = useState("");
   const [newSrcName, setNewSrcName] = useState("");
+  const [newObjTarget, setNewObjTarget] = useState("");
+  const [newObjName, setNewObjName] = useState("Cierres del mes");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -24,8 +29,9 @@ export default function ConfigPage() {
       const session = await requireAuth(["gerente", "super_admin"]);
       if (!session) return;
       setOrgId(session.organizationId);
+      setUserId(session.userId);
 
-      const [stagesRes, catsRes, srcsRes, orgRes] = await Promise.all([
+      const [stagesRes, catsRes, srcsRes, orgRes, objRes] = await Promise.all([
         supabase.from("funnel_stages").select("id, name, stage_type, order_index, scorecard_id")
           .eq("organization_id", session.organizationId).order("order_index"),
         supabase.from("descalification_categories").select("id, code, label, active")
@@ -34,12 +40,15 @@ export default function ConfigPage() {
           .eq("organization_id", session.organizationId).order("name"),
         supabase.from("organizations").select("plan, analysis_count_month, access_status, ticket_promedio, conversion_baseline")
           .eq("id", session.organizationId).single(),
+        supabase.from("objectives").select("id, name, type, target_value, period_type, is_active, target_user_id")
+          .eq("organization_id", session.organizationId).order("created_at", { ascending: false }),
       ]);
 
       setStages(stagesRes.data || []);
       setDescalCats(catsRes.data || []);
       setLeadSrcs(srcsRes.data || []);
       setOrg(orgRes.data);
+      setObjectives((objRes.data || []) as Objective[]);
       setLoading(false);
     }
     load();
@@ -72,6 +81,36 @@ export default function ConfigPage() {
       .select("id, name, active").single();
     if (data) setLeadSrcs(prev => [...prev, data]);
     setNewSrcName("");
+  };
+
+  const addObjective = async () => {
+    const target = Number(newObjTarget);
+    if (!target || target <= 0 || !newObjName.trim()) return;
+    const now = new Date();
+    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+    const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+
+    const { data } = await supabase.from("objectives").insert({
+      organization_id: orgId,
+      created_by: userId,
+      target_user_id: null,
+      type: "volume",
+      name: newObjName.trim(),
+      target_value: target,
+      period_type: "monthly",
+      period_start: periodStart,
+      period_end: periodEnd,
+      is_active: true,
+    }).select("id, name, type, target_value, period_type, is_active, target_user_id").single();
+
+    if (data) setObjectives(prev => [data as Objective, ...prev]);
+    setNewObjTarget("");
+    setNewObjName("Cierres del mes");
+  };
+
+  const toggleObjective = async (objId: string, currentActive: boolean) => {
+    await supabase.from("objectives").update({ is_active: !currentActive }).eq("id", objId);
+    setObjectives(prev => prev.map(o => o.id === objId ? { ...o, is_active: !currentActive } : o));
   };
 
   const updateOrgField = async (field: string, value: unknown) => {
@@ -149,6 +188,51 @@ export default function ConfigPage() {
             <input className="input-field" value={newSrcName} onChange={e => setNewSrcName(e.target.value)} placeholder="Nueva fuente..." />
             <button className="btn-submit" style={{ minWidth: "auto", padding: "10px 20px", marginTop: 0 }} onClick={addSource}>Agregar</button>
           </div>
+        </div>
+
+        {/* Objetivos del equipo */}
+        <div className="g1-section">
+          <h2 className="g1-section-title">Objetivos del equipo</h2>
+          {objectives.length > 0 && (
+            <div className="g7-list">
+              {objectives.map(o => (
+                <div key={o.id} className="g7-list-item">
+                  <div>
+                    <span className="g7-item-name">{o.name}</span>
+                    <span className="g7-item-code">
+                      {o.target_value} {o.type === "volume" ? "cierres" : "pts"} / {o.period_type === "monthly" ? "mes" : o.period_type}
+                      {o.target_user_id ? " (individual)" : " (equipo)"}
+                    </span>
+                  </div>
+                  <label className="g7-toggle">
+                    <input type="checkbox" checked={o.is_active} onChange={() => toggleObjective(o.id, o.is_active)} />
+                    <span className="g7-toggle-slider" />
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
+          {objectives.filter(o => o.is_active && o.type === "volume").length === 0 && (
+            <p className="g1-empty" style={{ marginBottom: 12 }}>
+              Sin objetivo de volumen activo. Las captadoras verán "Tu gerente aún no ha configurado tu objetivo" en C1.
+            </p>
+          )}
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div className="g7-field-row" style={{ flex: 1, minWidth: 150 }}>
+              <label className="input-label">Nombre del objetivo</label>
+              <input className="input-field" value={newObjName} onChange={e => setNewObjName(e.target.value)} placeholder="Ej: Cierres del mes" />
+            </div>
+            <div className="g7-field-row" style={{ width: 120 }}>
+              <label className="input-label">Meta mensual</label>
+              <input className="input-field" type="number" min="1" value={newObjTarget} onChange={e => setNewObjTarget(e.target.value)} placeholder="Ej: 20" />
+            </div>
+            <button className="btn-submit" style={{ minWidth: "auto", padding: "10px 20px", marginTop: 0, marginBottom: 6 }} onClick={addObjective}>
+              Crear objetivo
+            </button>
+          </div>
+          <p className="c2-hint" style={{ marginTop: 8 }}>
+            La meta diaria se calcula automáticamente: meta mensual / 22 días hábiles. Las captadoras ven "X llamadas hoy para llegar a Y cierres este mes" en su pantalla Mi Día.
+          </p>
         </div>
 
         {/* Ticket promedio y baseline */}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
+import { getOrgTimezone, todayStart, monthStart as getMonthStart, todayDisplay } from "../../lib/dates";
 
 interface Analysis {
   id: string;
@@ -26,6 +27,7 @@ export default function MiDiaPage() {
   const [tipFrase, setTipFrase] = useState<string | null>(null);
   const [monthlyTarget, setMonthlyTarget] = useState<number | null>(null);
   const [monthlyDone, setMonthlyDone] = useState(0);
+  const [orgTz, setOrgTz] = useState("America/Monterrey");
 
   useEffect(() => {
     async function load() {
@@ -60,12 +62,15 @@ export default function MiDiaPage() {
       for (const c of descalRes.data || []) dm[c.code] = c.label;
       setDescalMap(dm);
 
+      // Org timezone for date calculations
+      const tz = await getOrgTimezone(session.organizationId);
+      setOrgTz(tz);
+      const mStart = getMonthStart(tz);
+
       // Monthly objective
       if (objRes.data && objRes.data.length > 0) {
         setMonthlyTarget(objRes.data[0].target_value);
-        const monthStart = new Date();
-        monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
-        const thisMonthCount = all.filter(a => new Date(a.created_at) >= monthStart).length;
+        const thisMonthCount = all.filter(a => new Date(a.created_at) >= new Date(mStart)).length;
         setMonthlyDone(thisMonthCount);
       }
 
@@ -103,9 +108,9 @@ export default function MiDiaPage() {
     load();
   }, []);
 
-  const todayStr = new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" });
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const todayAnalyses = analyses.filter(a => new Date(a.created_at) >= today);
+  const todayStr = todayDisplay(orgTz);
+  const tStart = todayStart(orgTz);
+  const todayAnalyses = analyses.filter(a => new Date(a.created_at) >= new Date(tStart));
 
   // Daily target from monthly (divide by ~22 working days)
   const dailyTarget = monthlyTarget !== null ? Math.max(1, Math.ceil(monthlyTarget / 22)) : null;

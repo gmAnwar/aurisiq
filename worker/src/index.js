@@ -455,15 +455,18 @@ async function handleSubmit(body, env, ctx, origin) {
 // ─── Route: check analysis status ──────────────────────────
 
 async function handleStatus(body, env, origin) {
-  const { analysis_id } = body;
+  const { analysis_id, organization_id } = body;
   if (!analysis_id) {
     return jsonResponse({ error: 'Missing analysis_id' }, 400, origin);
+  }
+  if (!organization_id) {
+    return jsonResponse({ error: 'Missing organization_id' }, 400, origin);
   }
 
   const rows = await supabaseSelect(
     env,
     'analyses',
-    `id=eq.${analysis_id}&select=id,status,score_general,clasificacion,patron_error,siguiente_accion,conversion_discrepancy,objecion_principal,momento_critico,created_at`
+    `id=eq.${analysis_id}&organization_id=eq.${organization_id}&select=id,status,score_general,clasificacion,patron_error,siguiente_accion,conversion_discrepancy,objecion_principal,momento_critico,created_at`
   );
 
   if (!rows.length) {

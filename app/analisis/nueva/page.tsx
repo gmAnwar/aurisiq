@@ -162,7 +162,7 @@ export default function NuevaLlamadaPage() {
           const statusRes = await fetch(WORKER_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "status", analysis_id: analysisId }),
+            body: JSON.stringify({ action: "status", analysis_id: analysisId, organization_id: orgId }),
           });
           const statusData = await statusRes.json();
 

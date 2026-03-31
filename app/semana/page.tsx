@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
+import { getOrgTimezone, weekStart as getWeekStart, prevWeekStart as getPrevWeekStart } from "../../lib/dates";
 
 interface Analysis {
   id: string;
@@ -23,20 +24,20 @@ export default function MiSemanaPage() {
       const session = await requireAuth(["captadora", "super_admin"]);
       if (!session) return;
 
-      const now = new Date();
-      const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0, 0, 0, 0);
-      const prevWeekStart = new Date(weekStart); prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+      const tz = await getOrgTimezone(session.organizationId);
+      const ws = getWeekStart(tz);
+      const pws = getPrevWeekStart(tz);
 
       const [weekRes, prevRes] = await Promise.all([
         supabase.from("analyses")
           .select("id, score_general, clasificacion, created_at, objecion_principal, siguiente_accion")
           .eq("user_id", session.userId).eq("status", "completado")
-          .gte("created_at", weekStart.toISOString())
+          .gte("created_at", ws)
           .order("created_at", { ascending: false }),
         supabase.from("analyses")
           .select("id, score_general")
           .eq("user_id", session.userId).eq("status", "completado")
-          .gte("created_at", prevWeekStart.toISOString()).lt("created_at", weekStart.toISOString()),
+          .gte("created_at", pws).lt("created_at", ws),
       ]);
 
       setWeekAnalyses(weekRes.data || []);

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
+import { getOrgTimezone, todayStart as getTodayStart, weekStart as getWeekStart, prevWeekStart as getPrevWeekStart } from "../../lib/dates";
 
 interface CaptadoraCard {
   userId: string;
@@ -37,20 +38,20 @@ export default function EquipoDashboard() {
       const { data: org } = await supabase.from("organizations").select("name").eq("id", orgId).single();
       setOrgName(org?.name || "");
 
-      const now = new Date();
-      const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0, 0, 0, 0);
-      const prevWeekStart = new Date(weekStart); prevWeekStart.setDate(prevWeekStart.getDate() - 7);
-      const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+      const tz = await getOrgTimezone(orgId);
+      const ws = getWeekStart(tz);
+      const pws = getPrevWeekStart(tz);
+      const ts = getTodayStart(tz);
 
       const [teamRes, weekRes, prevRes, todayRes, objRes] = await Promise.all([
         supabase.from("users").select("id, name, role").eq("organization_id", orgId).eq("active", true),
         supabase.from("analyses").select("id, user_id, score_general, objecion_principal")
-          .eq("organization_id", orgId).eq("status", "completado").gte("created_at", weekStart.toISOString()),
+          .eq("organization_id", orgId).eq("status", "completado").gte("created_at", ws),
         supabase.from("analyses").select("user_id, score_general")
           .eq("organization_id", orgId).eq("status", "completado")
-          .gte("created_at", prevWeekStart.toISOString()).lt("created_at", weekStart.toISOString()),
+          .gte("created_at", pws).lt("created_at", ws),
         supabase.from("analyses").select("user_id")
-          .eq("organization_id", orgId).eq("status", "completado").gte("created_at", todayStart.toISOString()),
+          .eq("organization_id", orgId).eq("status", "completado").gte("created_at", ts),
         supabase.from("objectives").select("target_user_id, target_value, type, period_type")
           .eq("organization_id", orgId).eq("is_active", true).eq("type", "volume").in("period_type", ["monthly"]),
       ]);
