@@ -23,6 +23,8 @@ export default function NuevaLlamadaPage() {
   const [selectedStage, setSelectedStage] = useState("");
   const [transcription, setTranscription] = useState("");
   const [notes, setNotes] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const [fileMsg, setFileMsg] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(true);
@@ -31,6 +33,50 @@ export default function NuevaLlamadaPage() {
 
   const wordCount = transcription.trim().split(/\s+/).filter(Boolean).length;
   const MIN_WORDS = 200;
+
+  const extractTextFromFile = async (file: File) => {
+    setFileMsg("");
+    const name = file.name.toLowerCase();
+    if (name.endsWith(".txt")) {
+      const text = await file.text();
+      if (text.length > CHAR_LIMIT) {
+        setFileMsg(`El archivo tiene ${text.length.toLocaleString()} caracteres (máximo ${CHAR_LIMIT.toLocaleString()}).`);
+        return;
+      }
+      setTranscription(text);
+      setFileMsg(`Archivo "${file.name}" cargado.`);
+    } else if (name.endsWith(".doc") || name.endsWith(".docx")) {
+      // For .doc/.docx, extract raw text from the binary by stripping XML tags
+      const text = await file.text();
+      const cleaned = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      if (cleaned.length > CHAR_LIMIT) {
+        setFileMsg(`El texto extraído tiene ${cleaned.length.toLocaleString()} caracteres (máximo ${CHAR_LIMIT.toLocaleString()}).`);
+        return;
+      }
+      if (cleaned.length < 50) {
+        setFileMsg("No se pudo extraer texto del archivo. Intenta con un .txt.");
+        return;
+      }
+      setTranscription(cleaned);
+      setFileMsg(`Archivo "${file.name}" cargado.`);
+    } else {
+      setFileMsg("Formato no soportado. Usa .txt, .doc o .docx.");
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    if (status === "analyzing") return;
+    const file = e.dataTransfer.files?.[0];
+    if (file) extractTextFromFile(file);
+  };
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) extractTextFromFile(file);
+    e.target.value = "";
+  };
   const canSubmit = selectedSource !== "" && selectedStage !== "" && wordCount >= MIN_WORDS && status === "idle";
   const charCount = transcription.length;
   const CHAR_LIMIT = 15000;
@@ -233,19 +279,34 @@ export default function NuevaLlamadaPage() {
           <label htmlFor="transcription" className="input-label">
             Transcripción de la llamada *
           </label>
-          <textarea
-            id="transcription"
-            className="input-field c2-textarea"
-            placeholder="Pega aquí la transcripción completa de tu llamada..."
-            value={transcription}
-            onChange={(e) => {
-              if (e.target.value.length <= CHAR_LIMIT) {
-                setTranscription(e.target.value);
-              }
-            }}
-            disabled={status === "analyzing"}
-            rows={10}
-          />
+          <div
+            className={`c2-drop-zone ${dragging ? "c2-drop-active" : ""}`}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={handleDrop}
+          >
+            <textarea
+              id="transcription"
+              className="input-field c2-textarea"
+              placeholder="Pega aquí la transcripción o arrastra un archivo .txt / .docx..."
+              value={transcription}
+              onChange={(e) => {
+                if (e.target.value.length <= CHAR_LIMIT) {
+                  setTranscription(e.target.value);
+                }
+              }}
+              disabled={status === "analyzing"}
+              rows={10}
+            />
+          </div>
+          <div className="c2-file-row">
+            <label className="c2-file-btn">
+              Buscar archivo
+              <input type="file" accept=".txt,.doc,.docx" onChange={handleFileInput} hidden disabled={status === "analyzing"} />
+            </label>
+            <span className="c2-file-hint">.txt, .doc, .docx</span>
+            {fileMsg && <span className="c2-file-msg">{fileMsg}</span>}
+          </div>
           <div className="c2-char-count">
             <span className={wordCount < MIN_WORDS ? "c2-char-warning" : ""}>
               {wordCount} palabras{wordCount < MIN_WORDS ? ` (mínimo ${MIN_WORDS})` : ""} · {charCount.toLocaleString()} / {CHAR_LIMIT.toLocaleString()} caracteres

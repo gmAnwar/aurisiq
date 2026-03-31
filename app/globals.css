@@ -545,6 +545,57 @@ body.has-nav {
   margin-top: 4px;
 }
 
+/* C2 file drop zone */
+.c2-drop-zone {
+  position: relative;
+  border-radius: 8px;
+  transition: var(--transition);
+}
+
+.c2-drop-active {
+  outline: 2px dashed var(--cap);
+  outline-offset: -2px;
+  background: var(--cap-dim);
+}
+
+.c2-drop-active .c2-textarea { opacity: 0.5; }
+
+.c2-file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.c2-file-btn {
+  font-family: 'Syne', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--cap);
+  background: var(--cap-dim);
+  border: 1px solid rgba(200,120,64,0.25);
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.c2-file-btn:hover { background: rgba(200,120,64,0.2); }
+
+.c2-file-hint {
+  font-size: 10px;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--ink-light);
+  font-weight: 300;
+}
+
+.c2-file-msg {
+  font-size: 10px;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--green);
+  font-weight: 500;
+}
+
 .c2-analyzing {
   display: flex;
   align-items: center;
