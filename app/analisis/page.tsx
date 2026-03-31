@@ -21,7 +21,9 @@ export default function MiDiaPage() {
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("");
   const [streak, setStreak] = useState(0);
-  const [tip, setTip] = useState<string | null>(null);
+  const [tipTitle, setTipTitle] = useState<string | null>(null);
+  const [tipContext, setTipContext] = useState<string | null>(null);
+  const [tipFrase, setTipFrase] = useState<string | null>(null);
   const [monthlyTarget, setMonthlyTarget] = useState<number | null>(null);
   const [monthlyDone, setMonthlyDone] = useState(0);
 
@@ -67,7 +69,7 @@ export default function MiDiaPage() {
         setMonthlyDone(thisMonthCount);
       }
 
-      // Tip from last 7 days
+      // Tip from last 7 days — find top error pattern
       const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
       const errors: Record<string, number> = {};
       for (const a of all) {
@@ -77,7 +79,11 @@ export default function MiDiaPage() {
         }
       }
       const topErr = Object.entries(errors).sort((a, b) => b[1] - a[1])[0];
-      if (topErr) setTip(`Enfócate en mejorar: ${topErr[0]}`);
+      if (topErr) {
+        setTipTitle(`${topErr[0]} — tu área de mejora`);
+        setTipContext(`En tus últimas llamadas, este patrón apareció ${topErr[1]} ${topErr[1] === 1 ? "vez" : "veces"}. Antes de tu siguiente llamada, recuerda:`);
+        setTipFrase(`Enfócate en mejorar: ${topErr[0]}`);
+      }
 
       setLoading(false);
     }
@@ -146,10 +152,13 @@ export default function MiDiaPage() {
         </div>
       )}
 
-      {/* Tip */}
-      {tip && (
-        <div className="c1-tip">
-          <p className="c1-tip-text">{tip}</p>
+      {/* Tip del día — dark coach card */}
+      {tipTitle && (
+        <div className="tip-card">
+          <div className="tip-lbl">Tu tip del día</div>
+          <div className="tip-title">{tipTitle}</div>
+          {tipContext && <div className="tip-ctx">{tipContext}</div>}
+          {tipFrase && <div className="tip-frase">{tipFrase}</div>}
         </div>
       )}
 

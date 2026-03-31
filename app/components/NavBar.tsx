@@ -38,8 +38,15 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
   super_admin: [
     { href: "/analisis", label: "Mi d\u00eda" },
     { href: "/analisis/nueva", label: "Grabar" },
+    { href: "/semana", label: "Mi semana" },
+    { href: "/speech", label: "Mi Speech" },
     { href: "/equipo", label: "Equipo" },
-    { href: "/direccion", label: "Direcci\u00f3n" },
+    { href: "/equipo/reportes", label: "Reportes" },
+    { href: "/equipo/config", label: "Config" },
+    { href: "/direccion", label: "Resumen" },
+    { href: "/direccion/roi", label: "ROI" },
+    { href: "/direccion/cuenta", label: "Cuenta" },
+    { href: "/agencia", label: "Calidad" },
   ],
 };
 
