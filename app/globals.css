@@ -1137,6 +1137,51 @@ body.has-nav {
   display: block;
 }
 
+/* C4 best call — dark card */
+.c4-best-card {
+  background: var(--ink);
+  border-radius: 10px;
+  padding: 14px;
+  color: var(--cream);
+}
+
+.c4-best-lbl {
+  font-family: 'Syne', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--cap);
+  margin-bottom: 6px;
+}
+
+.c4-best-score {
+  font-family: 'Syne', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--cap);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.c4-best-date {
+  font-family: 'Syne', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cream);
+  margin-bottom: 6px;
+}
+
+.c4-best-quote {
+  font-size: 11px;
+  font-family: 'DM Sans', sans-serif;
+  color: rgba(245,240,232,0.5);
+  line-height: 1.5;
+  border-left: 2px solid rgba(200,168,75,0.3);
+  padding-left: 8px;
+  margin-top: 4px;
+}
+
 .c4-score-excelente { color: var(--green); }
 .c4-score-buena { color: var(--gold); }
 .c4-score-regular { color: var(--ink-light); }

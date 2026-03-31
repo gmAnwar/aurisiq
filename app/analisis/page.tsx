@@ -222,7 +222,7 @@ export default function MiDiaPage() {
           <div className="g2-evolution">
             {chartData.map((a) => (
               <div key={a.id} className="g2-evo-bar-wrap">
-                <div className="g2-evo-bar" style={{ height: `${a.score_general || 0}%`, background: "var(--terracota)" }} />
+                <div className="g2-evo-bar" style={{ height: `${a.score_general || 0}%` }} />
                 <span className="g2-evo-label">{a.score_general}</span>
               </div>
             ))}

@@ -122,21 +122,18 @@ export default function MiSemanaPage() {
         )}
       </div>
 
-      {/* Best call */}
+      {/* Best call — dark card like legacy */}
       {best && (
-        <div className="c4-best-call">
-          <p className="c4-list-title">Tu mejor llamada</p>
-          <a href={`/analisis/${best.id}`} className="c4-item" style={{ textDecoration: "none" }}>
-            <div className="c4-item-left">
-              <span className="c4-item-date">
-                {new Date(best.created_at).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "short" })}
-              </span>
-            </div>
-            <div className="c4-item-right">
-              <span className={`c4-item-score c4-score-${best.clasificacion || "regular"}`}>{best.score_general}</span>
-            </div>
-          </a>
-        </div>
+        <a href={`/analisis/${best.id}`} className="c4-best-card" style={{ textDecoration: "none", display: "block" }}>
+          <div className="c4-best-lbl">Tu mejor llamada</div>
+          <div className="c4-best-score">{best.score_general}</div>
+          <div className="c4-best-date">
+            {new Date(best.created_at).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "short" })}
+          </div>
+          {best.siguiente_accion && (
+            <div className="c4-best-quote">{best.siguiente_accion}</div>
+          )}
+        </a>
       )}
 
       {/* Most frequent objection */}
@@ -159,7 +156,7 @@ export default function MiSemanaPage() {
           <div className="g2-evolution">
             {dailyChart.map((d, i) => (
               <div key={i} className="g2-evo-bar-wrap">
-                <div className="g2-evo-bar" style={{ height: `${d.avg}%`, background: "var(--terracota)" }} />
+                <div className="g2-evo-bar" style={{ height: `${d.avg}%` }} />
                 <span className="g2-evo-label">{d.avg}</span>
                 <span className="g2-evo-label" style={{ fontSize: 10 }}>{d.day}</span>
               </div>
