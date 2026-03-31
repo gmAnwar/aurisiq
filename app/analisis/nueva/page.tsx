@@ -22,13 +22,16 @@ export default function NuevaLlamadaPage() {
   const [selectedSource, setSelectedSource] = useState("");
   const [selectedStage, setSelectedStage] = useState("");
   const [transcription, setTranscription] = useState("");
+  const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
 
-  const canSubmit = selectedSource !== "" && selectedStage !== "" && transcription.trim().length > 0 && status === "idle";
+  const wordCount = transcription.trim().split(/\s+/).filter(Boolean).length;
+  const MIN_WORDS = 200;
+  const canSubmit = selectedSource !== "" && selectedStage !== "" && wordCount >= MIN_WORDS && status === "idle";
   const charCount = transcription.length;
   const CHAR_LIMIT = 15000;
 
@@ -244,10 +247,27 @@ export default function NuevaLlamadaPage() {
             rows={10}
           />
           <div className="c2-char-count">
-            <span className={charCount > CHAR_LIMIT * 0.9 ? "c2-char-warning" : ""}>
-              {charCount.toLocaleString()} / {CHAR_LIMIT.toLocaleString()}
+            <span className={wordCount < MIN_WORDS ? "c2-char-warning" : ""}>
+              {wordCount} palabras{wordCount < MIN_WORDS ? ` (mínimo ${MIN_WORDS})` : ""} · {charCount.toLocaleString()} / {CHAR_LIMIT.toLocaleString()} caracteres
             </span>
           </div>
+        </div>
+
+        <div className="input-group">
+          <label htmlFor="notes" className="input-label">
+            Notas de contexto (opcional)
+          </label>
+          <textarea
+            id="notes"
+            className="input-field"
+            placeholder="Ej: La grabación empezó al minuto 2, prospecto ya había hablado con otra captadora..."
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            disabled={status === "analyzing"}
+            rows={3}
+            style={{ minHeight: 60, resize: "vertical" }}
+          />
+          <p className="c2-hint">Información adicional para que Claude entienda el contexto de la llamada.</p>
         </div>
 
         {status === "analyzing" && (

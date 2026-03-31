@@ -24,6 +24,7 @@ export default function AgenciaDashboardPage() {
   const [totalWeek, setTotalWeek] = useState(0);
   const [sources, setSources] = useState<SourceStat[]>([]);
   const [descalFreqs, setDescalFreqs] = useState<DescalFreq[]>([]);
+  const [activeAlerts, setActiveAlerts] = useState<{ id: string; description: string; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -37,7 +38,7 @@ export default function AgenciaDashboardPage() {
       const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0, 0, 0, 0);
       const prevWeekStart = new Date(weekStart); prevWeekStart.setDate(prevWeekStart.getDate() - 7);
 
-      const [weekRes, prevRes, sourcesRes, descalRes] = await Promise.all([
+      const [weekRes, prevRes, sourcesRes, descalRes, alertsRes] = await Promise.all([
         supabase.from("analyses")
           .select("id, categoria_descalificacion, fuente_lead_id")
           .eq("organization_id", me.organization_id).eq("status", "completado")
@@ -48,7 +49,12 @@ export default function AgenciaDashboardPage() {
           .gte("created_at", prevWeekStart.toISOString()).lt("created_at", weekStart.toISOString()),
         supabase.from("lead_sources").select("id, name").eq("organization_id", me.organization_id),
         supabase.from("descalification_categories").select("code, label").eq("organization_id", me.organization_id),
+        supabase.from("alerts").select("id, description, created_at")
+          .eq("organization_id", me.organization_id).eq("status", "activa")
+          .order("created_at", { ascending: false }).limit(5),
       ]);
+
+      setActiveAlerts(alertsRes.data || []);
 
       const week = weekRes.data || [];
       const prev = prevRes.data || [];
@@ -142,6 +148,19 @@ export default function AgenciaDashboardPage() {
           <h1 className="g1-title">Calidad de Leads</h1>
           <p className="g1-subtitle">Resumen de la semana</p>
         </div>
+
+        {/* Alert banner */}
+        {activeAlerts.length > 0 && (
+          <a href="/agencia/alertas" style={{ textDecoration: "none", display: "block", marginBottom: 14 }}>
+            <div className="a1-alert-banner">
+              <span className="a1-alert-banner-icon">⚡</span>
+              <div className="a1-alert-banner-text">
+                <strong>{activeAlerts.length} alerta{activeAlerts.length > 1 ? "s" : ""} activa{activeAlerts.length > 1 ? "s" : ""}</strong>
+                {" — "}{activeAlerts[0].description?.slice(0, 80) || "Revisar alertas"}
+              </div>
+            </div>
+          </a>
+        )}
 
         {/* Big number */}
         <div className="d2-hero">

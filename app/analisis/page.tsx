@@ -11,6 +11,7 @@ interface Analysis {
   created_at: string;
   fuente_lead_id: string | null;
   patron_error: string | null;
+  siguiente_accion: string | null;
   categoria_descalificacion: string[] | null;
 }
 
@@ -22,7 +23,6 @@ export default function MiDiaPage() {
   const [userName, setUserName] = useState("");
   const [streak, setStreak] = useState(0);
   const [tipTitle, setTipTitle] = useState<string | null>(null);
-  const [tipContext, setTipContext] = useState<string | null>(null);
   const [tipFrase, setTipFrase] = useState<string | null>(null);
   const [monthlyTarget, setMonthlyTarget] = useState<number | null>(null);
   const [monthlyDone, setMonthlyDone] = useState(0);
@@ -35,7 +35,7 @@ export default function MiDiaPage() {
 
       const [analysesRes, sourcesRes, userRes, descalRes, objRes] = await Promise.all([
         supabase.from("analyses")
-          .select("id, score_general, clasificacion, created_at, fuente_lead_id, patron_error, categoria_descalificacion")
+          .select("id, score_general, clasificacion, created_at, fuente_lead_id, patron_error, siguiente_accion, categoria_descalificacion")
           .eq("user_id", session.userId).eq("status", "completado")
           .order("created_at", { ascending: false }).limit(50),
         supabase.from("lead_sources").select("id, name").eq("organization_id", session.organizationId),
@@ -69,20 +69,28 @@ export default function MiDiaPage() {
         setMonthlyDone(thisMonthCount);
       }
 
-      // Tip from last 7 days — find top error pattern
+      // Tip from last 7 days — short title from patron_error, phrase from siguiente_accion
       const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
-      const errors: Record<string, number> = {};
+      const errors: Record<string, { count: number; analysisId: string }> = {};
       for (const a of all) {
         if (a.patron_error && new Date(a.created_at) >= weekAgo) {
           const cleaned = a.patron_error.replace(/^[-•*]\s*/, "").trim();
-          if (cleaned) errors[cleaned] = (errors[cleaned] || 0) + 1;
+          if (cleaned && !errors[cleaned]) {
+            errors[cleaned] = { count: 0, analysisId: a.id };
+          }
+          if (cleaned) errors[cleaned].count++;
         }
       }
-      const topErr = Object.entries(errors).sort((a, b) => b[1] - a[1])[0];
+      const topErr = Object.entries(errors).sort((a, b) => b[1].count - a[1].count)[0];
       if (topErr) {
-        setTipTitle(`${topErr[0]} — tu área de mejora`);
-        setTipContext(`En tus últimas llamadas, este patrón apareció ${topErr[1]} ${topErr[1] === 1 ? "vez" : "veces"}. Antes de tu siguiente llamada, recuerda:`);
-        setTipFrase(`Enfócate en mejorar: ${topErr[0]}`);
+        // Title: max 15 words from patron_error
+        const words = topErr[0].split(/\s+/).slice(0, 15).join(" ");
+        setTipTitle(words + (topErr[0].split(/\s+/).length > 15 ? "…" : ""));
+        // Phrase: siguiente_accion from that analysis
+        const srcAnalysis = all.find(a => a.id === topErr[1].analysisId);
+        if (srcAnalysis?.siguiente_accion) {
+          setTipFrase(srcAnalysis.siguiente_accion);
+        }
       }
 
       setLoading(false);
@@ -157,7 +165,6 @@ export default function MiDiaPage() {
         <div className="tip-card">
           <div className="tip-lbl">Tu tip del día</div>
           <div className="tip-title">{tipTitle}</div>
-          {tipContext && <div className="tip-ctx">{tipContext}</div>}
           {tipFrase && <div className="tip-frase">{tipFrase}</div>}
         </div>
       )}

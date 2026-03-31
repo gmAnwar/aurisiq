@@ -760,6 +760,42 @@ body.has-nav {
   border-radius: 4px;
 }
 
+/* C3 expandable sections */
+.c3-expandable {
+  margin-bottom: 8px;
+}
+
+.c3-expand-summary {
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-light);
+  cursor: pointer;
+  padding: 10px 14px;
+  background: var(--cream-dark);
+  border-radius: 8px;
+  list-style: none;
+}
+
+.c3-expand-summary::marker, .c3-expand-summary::-webkit-details-marker { display: none; }
+
+.c3-expand-summary::before {
+  content: "▸ ";
+  color: var(--gold);
+}
+
+.c3-expandable[open] .c3-expand-summary::before { content: "▾ "; }
+
+.c3-expand-content {
+  font-size: 12px;
+  font-family: 'DM Sans', sans-serif;
+  line-height: 1.6;
+  color: var(--ink-mid);
+  padding: 10px 14px;
+  border-left: 2px solid var(--gold);
+  margin: 6px 0 0 8px;
+}
+
 .c3-clas-excelente { background: var(--green-dim); color: var(--green); }
 .c3-clas-buena { background: var(--gold-dim); color: var(--gold); }
 .c3-clas-regular { background: var(--cream-dark); color: var(--ink-light); }
@@ -2137,6 +2173,28 @@ body.has-nav {
 /* =============================================
    A1 — Dashboard Calidad de Leads (Agencia)
    ============================================= */
+/* A1 alert banner */
+.a1-alert-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(61,122,82,0.08);
+  border: 1px solid rgba(200,168,75,0.2);
+  border-radius: 8px;
+}
+
+.a1-alert-banner-icon { font-size: 16px; flex-shrink: 0; }
+
+.a1-alert-banner-text {
+  font-size: 11px;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--teal);
+  line-height: 1.5;
+}
+
+.a1-alert-banner-text strong { font-weight: 600; }
+
 .a1-descal-list { display: flex; flex-direction: column; gap: 7px; }
 
 .a1-descal-row {

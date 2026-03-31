@@ -12,10 +12,19 @@ interface Report {
   content: Record<string, unknown> | null;
 }
 
+interface CaptadoraConv {
+  name: string;
+  total: number;
+  converted: number;
+  convRate: number;
+  avgScore: number;
+}
+
 export default function ReportesPage() {
   const [activeTab, setActiveTab] = useState<"equipo" | "agencia">("equipo");
   const [teamReports, setTeamReports] = useState<Report[]>([]);
   const [agencyReports, setAgencyReports] = useState<Report[]>([]);
+  const [captadoraConv, setCaptadoraConv] = useState<CaptadoraConv[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
@@ -27,15 +36,43 @@ export default function ReportesPage() {
       if (!session) return;
       const me = { organization_id: session.organizationId };
 
-      const { data: reports } = await supabase.from("reports")
-        .select("id, tipo, destinatario_tipo, created_at, content")
-        .eq("organization_id", me.organization_id)
-        .order("created_at", { ascending: false })
-        .limit(50);
+      const now = new Date();
+      const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0, 0, 0, 0);
 
-      const all = reports || [];
+      const [reportsRes, weekRes, teamRes] = await Promise.all([
+        supabase.from("reports")
+          .select("id, tipo, destinatario_tipo, created_at, content")
+          .eq("organization_id", me.organization_id)
+          .order("created_at", { ascending: false }).limit(50),
+        supabase.from("analyses")
+          .select("id, user_id, score_general, avanzo_a_siguiente_etapa")
+          .eq("organization_id", me.organization_id).eq("status", "completado")
+          .gte("created_at", weekStart.toISOString()),
+        supabase.from("users").select("id, name, role")
+          .eq("organization_id", me.organization_id).eq("active", true),
+      ]);
+
+      const all = reportsRes.data || [];
       setTeamReports(all.filter(r => ["equipo", "todos"].includes(r.destinatario_tipo)));
       setAgencyReports(all.filter(r => ["agencia", "todos"].includes(r.destinatario_tipo)));
+
+      // Conversion by captadora
+      const caps = (teamRes.data || []).filter(u => u.role === "captadora");
+      const week = weekRes.data || [];
+      const convData: CaptadoraConv[] = caps.map(c => {
+        const mine = week.filter(a => a.user_id === c.id);
+        const converted = mine.filter(a => a.avanzo_a_siguiente_etapa === "converted").length;
+        const scores = mine.filter(a => a.score_general !== null).map(a => a.score_general!);
+        return {
+          name: c.name,
+          total: mine.length,
+          converted,
+          convRate: mine.length > 0 ? Math.round((converted / mine.length) * 100) : 0,
+          avgScore: scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0,
+        };
+      }).sort((a, b) => b.convRate - a.convRate);
+      setCaptadoraConv(convData);
+
       setLoading(false);
     }
     load();
@@ -83,6 +120,27 @@ export default function ReportesPage() {
             Agencia
           </button>
         </div>
+
+        {/* Conversion by captadora (equipo tab only) */}
+        {activeTab === "equipo" && captadoraConv.length > 0 && (
+          <div className="g1-section">
+            <h2 className="g1-section-title">Conversión por captadora — semana actual</h2>
+            <div className="g1-ranking">
+              <div className="a1-source-header">
+                <span>Captadora</span><span>Leads</span><span>Conv.</span><span>Tasa</span><span>Score</span>
+              </div>
+              {captadoraConv.map((c, i) => (
+                <div key={i} className="a1-source-row">
+                  <span className="g1-rank-name">{c.name}</span>
+                  <span className="g1-rank-count">{c.total}</span>
+                  <span className="g1-rank-count">{c.converted}</span>
+                  <span className="g1-rank-score" style={{ color: c.convRate >= 50 ? "var(--green)" : c.convRate >= 25 ? "var(--gold)" : "var(--red)" }}>{c.convRate}%</span>
+                  <span className="g1-rank-score">{c.avgScore || "—"}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Send button (equipo tab only) */}
         {activeTab === "equipo" && (

@@ -12,6 +12,8 @@ export default function CuentaPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("captadora");
   const [inviteMsg, setInviteMsg] = useState("");
+  const [inviteLink, setInviteLink] = useState("");
+  const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -38,9 +40,31 @@ export default function CuentaPage() {
   const handleInvite = async () => {
     if (!inviteEmail) return;
     setInviteMsg("");
-    // In production: create invitation record + send email
-    setInviteMsg(`Invitación creada para ${inviteEmail} como ${inviteRole}. Funcionalidad de envío disponible en Etapa 2.`);
+    setInviteLink("");
+    setCopied(false);
+
+    // Create invitation record in Supabase
+    const { data: inv, error: invErr } = await supabase.from("invitations").insert({
+      email: inviteEmail,
+      role: inviteRole,
+      organization_id: org?.id || users[0]?.id ? undefined : undefined,
+    }).select("id").single();
+
+    if (invErr) {
+      setInviteMsg(`Error al crear invitación: ${invErr.message}`);
+      return;
+    }
+
+    const link = `${window.location.origin}/?invite=${inv?.id || "pending"}`;
+    setInviteLink(link);
+    setInviteMsg(`Invitación creada para ${inviteEmail} como ${inviteRole}.`);
     setInviteEmail("");
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleDeactivate = async (userId: string) => {
@@ -101,6 +125,14 @@ export default function CuentaPage() {
             <button className="btn-submit" onClick={handleInvite}>Invitar</button>
           </div>
           {inviteMsg && <div className="message-box message-success" style={{ marginTop: 12 }}><p>{inviteMsg}</p></div>}
+          {inviteLink && (
+            <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center" }}>
+              <input className="input-field" readOnly value={inviteLink} style={{ flex: 1, fontSize: 11 }} />
+              <button className="btn-submit" style={{ flex: "none", minWidth: "auto", marginTop: 0, padding: "10px 16px" }} onClick={handleCopyLink}>
+                {copied ? "Copiado" : "Copiar link"}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Billing */}

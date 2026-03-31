@@ -166,30 +166,47 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
         </div>
       )}
 
-      {/* Phase breakdown */}
+      {/* Phase breakdown — sorted worst to best */}
       {phases.length > 0 && (
         <div className="c3-section">
-          <p className="c3-section-label">Desglose por fase</p>
+          <p className="c3-section-label">Desglose por fase — de menor a mayor</p>
           <div className="c3-phases">
-            {phases.map((p, i) => {
+            {[...phases].sort((a, b) => {
+              const pctA = a.score_max > 0 ? a.score / a.score_max : 0;
+              const pctB = b.score_max > 0 ? b.score / b.score_max : 0;
+              return pctA - pctB;
+            }).map((p, i) => {
               const pct = p.score_max > 0 ? (p.score / p.score_max) * 100 : 0;
+              const color = pct >= 80 ? "var(--green)" : pct >= 60 ? "var(--gold)" : "var(--red)";
               return (
                 <div key={i} className="c3-phase-row">
                   <div className="c3-phase-header">
                     <span className="c3-phase-name">{p.phase_name}</span>
-                    <span className="c3-phase-score">{p.score}/{p.score_max}</span>
+                    <span className="c3-phase-score" style={{ color }}>{p.score}/{p.score_max}</span>
                   </div>
                   <div className="c3-phase-bar-bg">
-                    <div
-                      className="c3-phase-bar-fill"
-                      style={{ width: `${pct}%` }}
-                    />
+                    <div className="c3-phase-bar-fill" style={{ width: `${pct}%`, background: color }} />
                   </div>
                 </div>
               );
             })}
           </div>
         </div>
+      )}
+
+      {/* Expandable sections */}
+      {analysis.momento_critico && (
+        <details className="c3-expandable">
+          <summary className="c3-expand-summary">Momento crítico</summary>
+          <div className="c3-expand-content">{analysis.momento_critico}</div>
+        </details>
+      )}
+
+      {analysis.objecion_principal && (
+        <details className="c3-expandable">
+          <summary className="c3-expand-summary">Objeción principal</summary>
+          <div className="c3-expand-content">{analysis.objecion_principal}</div>
+        </details>
       )}
 
       {/* Score at the bottom — not as headline */}
