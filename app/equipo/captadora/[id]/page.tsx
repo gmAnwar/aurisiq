@@ -105,6 +105,27 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
   let opportunityPhase: string | null = null; let biggestGap = 0;
   for (const [pn, acc] of Object.entries(userPhaseAcc)) { const ur = acc.max > 0 ? acc.total / acc.max : 0; const tr = teamAvgByPhase[pn] || 0; const gap = tr - ur; if (gap > biggestGap) { biggestGap = gap; opportunityPhase = pn; } }
 
+  // Comparativa before/after — only if 5+ in each period
+  const oldAnalyses = analyses.filter(a => new Date(a.created_at) < thirtyDaysAgo);
+  const newAnalyses = analyses.filter(a => new Date(a.created_at) >= thirtyDaysAgo);
+  const showComparison = oldAnalyses.length >= 5 && newAnalyses.length >= 5;
+
+  const phaseComparison: { phase: string; before: number; after: number }[] = [];
+  if (showComparison) {
+    const oldIds = new Set(oldAnalyses.map(a => a.id));
+    const newIds = new Set(newAnalyses.map(a => a.id));
+    const phaseNames = [...new Set(phases.map(p => p.phase_name))];
+    for (const pn of phaseNames) {
+      const oldP = phases.filter(p => p.phase_name === pn && oldIds.has(p.analysis_id));
+      const newP = phases.filter(p => p.phase_name === pn && newIds.has(p.analysis_id));
+      if (oldP.length > 0 && newP.length > 0) {
+        const before = Math.round((oldP.reduce((s, p) => s + p.score, 0) / oldP.reduce((s, p) => s + p.score_max, 0)) * 100);
+        const after = Math.round((newP.reduce((s, p) => s + p.score, 0) / newP.reduce((s, p) => s + p.score_max, 0)) * 100);
+        phaseComparison.push({ phase: pn, before, after });
+      }
+    }
+  }
+
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const todayAnalyses = analyses.filter(a => new Date(a.created_at) >= todayStart);
 
@@ -169,6 +190,21 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
                 <div className="g2-evolution">
                   {analyses.slice(0, 15).reverse().map(a => (
                     <div key={a.id} className="g2-evo-bar-wrap"><div className="g2-evo-bar" style={{ height: `${a.score_general || 0}%` }} /><span className="g2-evo-label">{a.score_general}</span></div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {showComparison && phaseComparison.length > 0 && (
+              <div className="g1-section">
+                <h2 className="g1-section-title">Comparativa antes / después (últimos 30 días vs anteriores)</h2>
+                <div className="g2-comparison">
+                  {phaseComparison.map((c, i) => (
+                    <div key={i} className="g2-comp-row">
+                      <span className="g2-comp-name">{c.phase}</span>
+                      <span className="g2-comp-before">{c.before}%</span>
+                      <span className="g2-comp-arrow">→</span>
+                      <span className="g2-comp-after" style={{ color: c.after > c.before ? "var(--green)" : c.after < c.before ? "var(--red)" : "var(--ink)" }}>{c.after}%</span>
+                    </div>
                   ))}
                 </div>
               </div>

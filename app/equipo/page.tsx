@@ -25,6 +25,7 @@ export default function EquipoDashboard() {
   const [mostImproved, setMostImproved] = useState<string | null>(null);
   const [captadoras, setCaptadoras] = useState<CaptadoraCard[]>([]);
   const [objeciones, setObjeciones] = useState<ObjecionFreq[]>([]);
+  const [activeAlerts, setActiveAlerts] = useState<{ id: string; description: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [orgName, setOrgName] = useState("");
@@ -43,7 +44,7 @@ export default function EquipoDashboard() {
       const pws = getPrevWeekStart(tz);
       const ts = getTodayStart(tz);
 
-      const [teamRes, weekRes, prevRes, todayRes, objRes] = await Promise.all([
+      const [teamRes, weekRes, prevRes, todayRes, objRes, alertsRes] = await Promise.all([
         supabase.from("users").select("id, name, role").eq("organization_id", orgId).eq("active", true),
         supabase.from("analyses").select("id, user_id, score_general, objecion_principal")
           .eq("organization_id", orgId).eq("status", "completado").gte("created_at", ws),
@@ -54,7 +55,11 @@ export default function EquipoDashboard() {
           .eq("organization_id", orgId).eq("status", "completado").gte("created_at", ts),
         supabase.from("objectives").select("target_user_id, target_value, type, period_type")
           .eq("organization_id", orgId).eq("is_active", true).eq("type", "volume").in("period_type", ["monthly"]),
+        supabase.from("alerts").select("id, description")
+          .eq("organization_id", orgId).eq("status", "activa").order("created_at", { ascending: false }).limit(5),
       ]);
+
+      setActiveAlerts(alertsRes.data || []);
 
       const caps = (teamRes.data || []).filter(u => u.role === "captadora");
       const week = weekRes.data || [];
@@ -144,6 +149,17 @@ export default function EquipoDashboard() {
           <h1 className="g1-title">Dashboard — {orgName}</h1>
           <p className="g1-subtitle">Resumen del equipo esta semana</p>
         </div>
+
+        {/* Alert banner */}
+        {activeAlerts.length > 0 && (
+          <div className="a1-alert-banner" style={{ marginBottom: 14 }}>
+            <span className="a1-alert-banner-icon">⚡</span>
+            <div className="a1-alert-banner-text">
+              <strong>{activeAlerts.length} alerta{activeAlerts.length > 1 ? "s" : ""} activa{activeAlerts.length > 1 ? "s" : ""}</strong>
+              {" — "}{activeAlerts[0].description?.slice(0, 100) || "Revisar alertas"}
+            </div>
+          </div>
+        )}
 
         <div className="g1-kpis">
           <div className="g1-kpi"><span className="g1-kpi-value">{totalWeek}</span><span className="g1-kpi-label">Análisis semana</span></div>

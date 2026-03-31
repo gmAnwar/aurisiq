@@ -112,6 +112,10 @@ export default function MiDiaPage() {
   const dailyComplete = dailyTarget !== null && dailyDone >= dailyTarget;
   const dailyPct = dailyTarget !== null ? Math.min(100, Math.round((dailyDone / dailyTarget) * 100)) : 0;
 
+  // Daily score avg (only show if 2+)
+  const todayScores = todayAnalyses.filter(a => a.score_general !== null).map(a => a.score_general!);
+  const dailyAvg = todayScores.length >= 2 ? Math.round(todayScores.reduce((a, b) => a + b, 0) / todayScores.length) : null;
+
   // Last 5 calls today
   const last5 = todayAnalyses.slice(0, 5);
 
@@ -161,6 +165,22 @@ export default function MiDiaPage() {
       ) : (
         <div className="c1-activity c1-no-objective">
           <p>Tu gerente aún no ha configurado tu objetivo del mes.</p>
+        </div>
+      )}
+
+      {/* Daily stats — score avg only if 2+ */}
+      {todayAnalyses.length > 0 && (
+        <div className="c4-stats">
+          <div className="c4-stat-card">
+            <span className="c4-stat-value">{todayAnalyses.length}</span>
+            <span className="c4-stat-label">Llamadas hoy</span>
+          </div>
+          {dailyAvg !== null && (
+            <div className="c4-stat-card">
+              <span className="c4-stat-value">{dailyAvg}</span>
+              <span className="c4-stat-label">Score promedio</span>
+            </div>
+          )}
         </div>
       )}
 
