@@ -1,0 +1,31 @@
+{
+  "name": "aurisiq",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gmAnwar/aurisiq.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gmAnwar/aurisiq/issues"
+  },
+  "homepage": "https://github.com/gmAnwar/aurisiq#readme",
+  "description": "",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.101.0",
+    "next": "^16.2.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "@types/react": "^19.2.14",
+    "typescript": "^6.0.2"
+  }
+}

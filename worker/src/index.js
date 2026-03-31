@@ -1,0 +1,760 @@
+// AurisIQ Worker v1.3.0 — Cola async + status + timeout + Stripe webhooks
+// Separado de Optix. CORS restringido a app.aurisiq.io.
+
+const ALLOWED_ORIGINS = [
+  'https://app.aurisiq.io',
+  'http://localhost:3000',
+  'http://localhost:5173',
+];
+
+const TIER_LIMITS = {
+  starter: 50,
+  growth: 200,
+  pro: 500,
+  scale: 1500,
+  enterprise: null,
+  founder: 50,
+};
+
+const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
+const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
+const STALE_JOB_MINUTES = 5;
+
+// ─── Helpers ───────────────────────────────────────────────
+
+function corsHeaders(origin) {
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '86400',
+  };
+}
+
+function jsonResponse(data, status, origin) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+  });
+}
+
+// ─── Supabase client ───────────────────────────────────────
+
+async function supabaseRpc(env, fnName, params) {
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${fnName}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+    },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`RPC ${fnName} failed: ${res.status} ${err}`);
+  }
+  return res.json();
+}
+
+async function supabaseInsert(env, table, data) {
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`INSERT ${table} failed: ${res.status} ${err}`);
+  }
+  return res.json();
+}
+
+async function supabaseUpdate(env, table, matchCol, matchVal, data) {
+  const res = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/${table}?${matchCol}=eq.${matchVal}`,
+    {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify(data),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`UPDATE ${table} failed: ${res.status} ${err}`);
+  }
+  return res.json();
+}
+
+async function supabaseSelect(env, table, query) {
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+    },
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`SELECT ${table} failed: ${res.status} ${err}`);
+  }
+  return res.json();
+}
+
+async function getScorecard(env, scorecardId) {
+  const rows = await supabaseSelect(
+    env,
+    'scorecards',
+    `id=eq.${scorecardId}&select=prompt_template,phases,name,version`
+  );
+  if (!rows.length) throw new Error(`Scorecard ${scorecardId} not found`);
+  return rows[0];
+}
+
+async function getOrgPlan(env, orgId) {
+  const rows = await supabaseSelect(
+    env,
+    'organizations',
+    `id=eq.${orgId}&select=plan,access_status`
+  );
+  if (!rows.length) throw new Error(`Organization ${orgId} not found`);
+  return rows[0];
+}
+
+// ─── Claude API ────────────────────────────────────────────
+
+async function callClaude(env, systemPrompt, userMessage) {
+  const res = await fetch(CLAUDE_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': env.CLAUDE_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: CLAUDE_MODEL,
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }],
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Claude API error: ${res.status} ${err}`);
+  }
+
+  const data = await res.json();
+  return data.content[0].text;
+}
+
+// ─── Parsing ───────────────────────────────────────────────
+
+function parseClaudeOutput(rawText) {
+  const result = {
+    score_general: null,
+    clasificacion: null,
+    momento_critico: null,
+    patron_error: null,
+    objecion_principal: null,
+    siguiente_accion: null,
+    lead_status: null,
+    phases: [],
+  };
+
+  const scoreMatch = rawText.match(/SCORE GENERAL:\s*(\d+)/i);
+  if (scoreMatch) result.score_general = parseInt(scoreMatch[1], 10);
+
+  const clasMatch = rawText.match(
+    /Clasificaci[oó]n:\s*(excelente|buena|regular|deficiente)/i
+  );
+  if (clasMatch) {
+    result.clasificacion = clasMatch[1].toLowerCase();
+  } else if (result.score_general !== null) {
+    // Fallback: derive from score when Claude uses non-standard labels
+    if (result.score_general >= 85) result.clasificacion = 'excelente';
+    else if (result.score_general >= 65) result.clasificacion = 'buena';
+    else if (result.score_general >= 45) result.clasificacion = 'regular';
+    else result.clasificacion = 'deficiente';
+  }
+
+  // Phases — space only in name (no newlines)
+  const phaseRegex =
+    /([A-ZÁÉÍÓÚa-záéíóúñÑü][A-ZÁÉÍÓÚa-záéíóúñÑü ]{2,50}?)\s*\((\d+)\/(\d+)\)\s*:/g;
+  let match;
+  while ((match = phaseRegex.exec(rawText)) !== null) {
+    result.phases.push({
+      phase_name: match[1].trim(),
+      score: parseInt(match[2], 10),
+      score_max: parseInt(match[3], 10),
+    });
+  }
+
+  const patronMatch = rawText.match(
+    /PATR[OÓ]N DE ERROR PRINCIPAL\s*\n+([\s\S]*?)(?:\n---|\n*$)/i
+  );
+  if (patronMatch) result.patron_error = patronMatch[1].trim();
+
+  const objecionMatch = rawText.match(/Objeci[oó]n:\s*(.+?)(?:\n|$)/i);
+  if (objecionMatch) result.objecion_principal = objecionMatch[1].trim();
+
+  const accionMatch = rawText.match(/Acci[oó]n concreta:\s*(.+?)(?:\n|$)/i);
+  if (accionMatch) result.siguiente_accion = accionMatch[1].trim();
+
+  const momentoMatch = rawText.match(
+    /(?:MOMENTO DE QUIEBRE|MOMENTO CR[IÍ]TICO)\s*\n+([\s\S]*?)(?:\n---|\n*$)/i
+  );
+  if (momentoMatch) result.momento_critico = momentoMatch[1].trim();
+
+  const leadMatch = rawText.match(
+    /Estado del lead:\s*(converted|lost_captadora|lost_external|pending)/i
+  );
+  if (leadMatch) result.lead_status = leadMatch[1].toLowerCase();
+
+  return result;
+}
+
+function matchPhaseIds(parsedPhases, scorecardPhases) {
+  const normalize = (s) =>
+    s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+  return parsedPhases.map((parsed, idx) => {
+    const normalizedParsed = normalize(parsed.phase_name);
+    let matched = scorecardPhases.find((sp) => normalize(sp.phase_name) === normalizedParsed);
+    if (!matched) {
+      matched = scorecardPhases.find(
+        (sp) =>
+          normalizedParsed.includes(normalize(sp.phase_name)) ||
+          normalize(sp.phase_name).includes(normalizedParsed)
+      );
+    }
+    if (!matched && idx < scorecardPhases.length) {
+      matched = scorecardPhases[idx];
+    }
+    return {
+      phase_id: matched ? matched.phase_id : normalize(parsed.phase_name).replace(/\s+/g, '_'),
+      phase_name: parsed.phase_name,
+      score: parsed.score,
+      score_max: parsed.score_max,
+    };
+  });
+}
+
+function detectConversionDiscrepancy(claudeLeadStatus, userAvanzo) {
+  if (!claudeLeadStatus) return false;
+  if (userAvanzo === 'converted' && claudeLeadStatus !== 'converted') return true;
+  if (userAvanzo === 'lost_captadora' && claudeLeadStatus === 'converted') return true;
+  return false;
+}
+
+// ─── User stats ────────────────────────────────────────────
+
+async function updateUserStats(env, userId, orgId) {
+  const analyses = await supabaseSelect(
+    env,
+    'analysis_phases',
+    `user_id=eq.${userId}&order=created_at.desc&limit=50`
+  );
+
+  if (analyses.length > 0) {
+    const uniqueAnalysisIds = [...new Set(analyses.map((a) => a.analysis_id))].slice(0, 5);
+    const recentPhases = analyses.filter((a) => uniqueAnalysisIds.includes(a.analysis_id));
+
+    const phaseAvgs = {};
+    for (const p of recentPhases) {
+      if (!phaseAvgs[p.phase_id]) phaseAvgs[p.phase_id] = { total: 0, max: 0, name: p.phase_name };
+      phaseAvgs[p.phase_id].total += p.score;
+      phaseAvgs[p.phase_id].max += p.score_max;
+    }
+
+    let worstPhase = null;
+    let worstRatio = 1;
+    for (const [, avg] of Object.entries(phaseAvgs)) {
+      const ratio = avg.max > 0 ? avg.total / avg.max : 1;
+      if (ratio < worstRatio) {
+        worstRatio = ratio;
+        worstPhase = avg.name;
+      }
+    }
+
+    if (worstPhase) {
+      await supabaseUpdate(env, 'users', 'id', userId, { current_focus_phase: worstPhase });
+    }
+  }
+
+  const user = (
+    await supabaseSelect(
+      env,
+      'users',
+      `id=eq.${userId}&select=last_analysis_date,current_streak,longest_streak,organization_id`
+    )
+  )[0];
+  if (!user) return;
+
+  const funnelConfig = await supabaseSelect(
+    env,
+    'funnel_config',
+    `organization_id=eq.${orgId}&select=working_days`
+  );
+  const workingDays = funnelConfig.length > 0 ? funnelConfig[0].working_days : [1, 2, 3, 4, 5];
+
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+
+  if (user.last_analysis_date === todayStr) return;
+
+  let checkDate = new Date(today);
+  checkDate.setDate(checkDate.getDate() - 1);
+  while (!workingDays.includes(checkDate.getDay() === 0 ? 7 : checkDate.getDay())) {
+    checkDate.setDate(checkDate.getDate() - 1);
+  }
+  const lastWorkingDay = checkDate.toISOString().split('T')[0];
+
+  const newStreak =
+    user.last_analysis_date === lastWorkingDay ? (user.current_streak || 0) + 1 : 1;
+  const newLongest = Math.max(newStreak, user.longest_streak || 0);
+
+  await supabaseUpdate(env, 'users', 'id', userId, {
+    last_analysis_date: todayStr,
+    current_streak: newStreak,
+    longest_streak: newLongest,
+  });
+}
+
+// ─── Background processing (called via ctx.waitUntil) ──────
+
+async function processAnalysis(env, analysisId, body, scorecard) {
+  const { transcription, user_id, organization_id } = body;
+
+  try {
+    const rawOutput = await callClaude(env, scorecard.prompt_template, transcription);
+    const parsed = parseClaudeOutput(rawOutput);
+    const phasesWithIds = matchPhaseIds(parsed.phases, scorecard.phases || []);
+
+    if (phasesWithIds.length > 0) {
+      await supabaseInsert(
+        env,
+        'analysis_phases',
+        phasesWithIds.map((p) => ({
+          analysis_id: analysisId,
+          organization_id,
+          user_id,
+          phase_id: p.phase_id,
+          phase_name: p.phase_name,
+          score: Math.min(p.score, p.score_max),
+          score_max: p.score_max,
+        }))
+      );
+    }
+
+    const discrepancy = detectConversionDiscrepancy(
+      parsed.lead_status,
+      body.avanzo_a_siguiente_etapa || 'pending'
+    );
+
+    await supabaseUpdate(env, 'analyses', 'id', analysisId, {
+      score_general: parsed.score_general !== null ? Math.min(parsed.score_general, 100) : null,
+      clasificacion: parsed.clasificacion,
+      momento_critico: parsed.momento_critico,
+      patron_error: parsed.patron_error,
+      objecion_principal: parsed.objecion_principal,
+      siguiente_accion: parsed.siguiente_accion,
+      conversion_discrepancy: discrepancy,
+      status: 'completado',
+    });
+
+    await supabaseUpdate(env, 'analysis_jobs', 'analysis_id', analysisId, {
+      status: 'completado',
+      completed_at: new Date().toISOString(),
+    });
+
+    await updateUserStats(env, user_id, organization_id);
+  } catch (err) {
+    console.error(`Analysis ${analysisId} failed:`, err.message);
+    await supabaseUpdate(env, 'analyses', 'id', analysisId, { status: 'error' });
+    await supabaseUpdate(env, 'analysis_jobs', 'analysis_id', analysisId, {
+      status: 'error',
+      error_message: err.message,
+    });
+  }
+}
+
+// ─── Route: submit analysis (returns immediately) ──────────
+
+async function handleSubmit(body, env, ctx, origin) {
+  const required = ['transcription', 'scorecard_id', 'user_id', 'organization_id'];
+  for (const field of required) {
+    if (!body[field]) {
+      return jsonResponse({ error: `Missing required field: ${field}` }, 400, origin);
+    }
+  }
+
+  if (body.transcription.length > 15000) {
+    return jsonResponse({ error: 'Transcription exceeds 15,000 character limit' }, 400, origin);
+  }
+
+  const { scorecard_id, organization_id } = body;
+
+  const org = await getOrgPlan(env, organization_id);
+  if (org.access_status === 'read_only') {
+    return jsonResponse({ error: 'Organization is in read-only mode' }, 403, origin);
+  }
+
+  const tierLimit = TIER_LIMITS[org.plan] !== undefined ? TIER_LIMITS[org.plan] : null;
+  const quotaOk = await supabaseRpc(env, 'check_and_increment_analysis_count', {
+    org_id: organization_id,
+    tier_limit: tierLimit,
+  });
+
+  if (!quotaOk) {
+    return jsonResponse({ error: 'Monthly analysis quota exceeded' }, 429, origin);
+  }
+
+  const scorecard = await getScorecard(env, scorecard_id);
+
+  const [analysis] = await supabaseInsert(env, 'analyses', {
+    organization_id,
+    user_id: body.user_id,
+    scorecard_id,
+    funnel_stage_id: body.funnel_stage_id || null,
+    fuente_lead_id: body.fuente_lead_id || null,
+    prospect_identifier: body.prospect_identifier || null,
+    avanzo_a_siguiente_etapa: body.avanzo_a_siguiente_etapa || 'pending',
+    categoria_descalificacion: body.categoria_descalificacion || null,
+    status: 'procesando',
+  });
+
+  await supabaseInsert(env, 'analysis_jobs', {
+    analysis_id: analysis.id,
+    organization_id,
+    user_id: body.user_id,
+    status: 'procesando',
+    processing_started_at: new Date().toISOString(),
+    transcription_text: body.transcription,
+  });
+
+  // Fire-and-forget: process in background
+  ctx.waitUntil(processAnalysis(env, analysis.id, body, scorecard));
+
+  return jsonResponse(
+    { analysis_id: analysis.id, status: 'procesando' },
+    202,
+    origin
+  );
+}
+
+// ─── Route: check analysis status ──────────────────────────
+
+async function handleStatus(body, env, origin) {
+  const { analysis_id } = body;
+  if (!analysis_id) {
+    return jsonResponse({ error: 'Missing analysis_id' }, 400, origin);
+  }
+
+  const rows = await supabaseSelect(
+    env,
+    'analyses',
+    `id=eq.${analysis_id}&select=id,status,score_general,clasificacion,patron_error,siguiente_accion,conversion_discrepancy,objecion_principal,momento_critico,created_at`
+  );
+
+  if (!rows.length) {
+    return jsonResponse({ error: 'Analysis not found' }, 404, origin);
+  }
+
+  const analysis = rows[0];
+  const result = { analysis_id: analysis.id, status: analysis.status };
+
+  if (analysis.status === 'completado') {
+    const phases = await supabaseSelect(
+      env,
+      'analysis_phases',
+      `analysis_id=eq.${analysis_id}&select=phase_id,phase_name,score,score_max&order=created_at.asc`
+    );
+
+    Object.assign(result, {
+      score_general: analysis.score_general,
+      clasificacion: analysis.clasificacion,
+      phases,
+      patron_error: analysis.patron_error,
+      objecion_principal: analysis.objecion_principal,
+      momento_critico: analysis.momento_critico,
+      siguiente_accion: analysis.siguiente_accion,
+      conversion_discrepancy: analysis.conversion_discrepancy,
+    });
+  }
+
+  if (analysis.status === 'error') {
+    const jobs = await supabaseSelect(
+      env,
+      'analysis_jobs',
+      `analysis_id=eq.${analysis_id}&select=error_message`
+    );
+    if (jobs.length) result.error_message = jobs[0].error_message;
+  }
+
+  return jsonResponse(result, 200, origin);
+}
+
+// ─── Route: quota info ─────────────────────────────────────
+
+async function handleQuota(body, env, origin) {
+  const { organization_id } = body;
+  if (!organization_id) {
+    return jsonResponse({ error: 'Missing organization_id' }, 400, origin);
+  }
+
+  const quota = await supabaseRpc(env, 'get_org_quota', { p_org_id: organization_id });
+  if (!quota) {
+    return jsonResponse({ error: 'Organization not found' }, 404, origin);
+  }
+
+  return jsonResponse(quota, 200, origin);
+}
+
+// ─── Scheduled handlers ────────────────────────────────────
+
+async function handleTimeoutRecovery(env) {
+  const cutoff = new Date(Date.now() - STALE_JOB_MINUTES * 60 * 1000).toISOString();
+
+  const staleJobs = await supabaseSelect(
+    env,
+    'analysis_jobs',
+    `status=eq.procesando&processing_started_at=lt.${cutoff}&select=analysis_id`
+  );
+
+  let recovered = 0;
+  for (const job of staleJobs) {
+    await supabaseUpdate(env, 'analysis_jobs', 'analysis_id', job.analysis_id, {
+      status: 'error',
+      error_message: `Timeout: processing exceeded ${STALE_JOB_MINUTES} minutes`,
+    });
+    await supabaseUpdate(env, 'analyses', 'id', job.analysis_id, {
+      status: 'error',
+    });
+    recovered++;
+  }
+
+  if (recovered > 0) {
+    console.log(`Timeout recovery: marked ${recovered} stale job(s) as error`);
+  }
+}
+
+async function handleMonthlyReset(env) {
+  const affected = await supabaseRpc(env, 'reset_monthly_analysis_counts', {});
+  console.log(`Monthly reset: ${affected} org(s) reset to 0`);
+}
+
+async function handleStarterExpiration(env) {
+  const affected = await supabaseRpc(env, 'expire_starter_orgs', {});
+  if (affected > 0) {
+    console.log(`Starter expiration: ${affected} org(s) set to read_only`);
+  }
+}
+
+async function handleGraceExpiration(env) {
+  const affected = await supabaseRpc(env, 'expire_grace_periods', {});
+  if (affected > 0) {
+    console.log(`Grace expiration: ${affected} org(s) set to read_only`);
+  }
+}
+
+async function handleScheduled(env, cron) {
+  // All crons run every 5 min; filter by time for daily/monthly tasks
+  await handleTimeoutRecovery(env);
+  await handleGraceExpiration(env);
+
+  const now = new Date();
+
+  // Daily at midnight-ish (first cron run of the day: hour 0, minute 0-4)
+  if (now.getUTCHours() === 0 && now.getUTCMinutes() < 5) {
+    await handleStarterExpiration(env);
+  }
+
+  // Monthly on day 1, midnight-ish
+  if (now.getUTCDate() === 1 && now.getUTCHours() === 0 && now.getUTCMinutes() < 5) {
+    await handleMonthlyReset(env);
+  }
+}
+
+// ─── Stripe webhook ────────────────────────────────────────
+
+const PRICE_TO_PLAN = {
+  'price_1TGZzFEhAsKsSoSLuXZV8p7q': 'growth',
+  'price_1TGZzGEhAsKsSoSLuO2TlYOb': 'pro',
+  'price_1TGZzIEhAsKsSoSLQvZ5k5hJ': 'scale',
+  'price_1TGZzJEhAsKsSoSLEhwK8hcd': 'enterprise',
+};
+
+async function verifyStripeSignature(request, secret) {
+  const body = await request.text();
+  const sig = request.headers.get('stripe-signature');
+  if (!sig) throw new Error('Missing stripe-signature header');
+
+  const parts = {};
+  for (const item of sig.split(',')) {
+    const [key, val] = item.split('=');
+    parts[key.trim()] = val;
+  }
+
+  const timestamp = parts.t;
+  const expectedSig = parts.v1;
+  if (!timestamp || !expectedSig) throw new Error('Invalid stripe-signature format');
+
+  // Reject events older than 5 minutes
+  const age = Math.abs(Date.now() / 1000 - parseInt(timestamp, 10));
+  if (age > 300) throw new Error('Stripe event too old');
+
+  const payload = `${timestamp}.${body}`;
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+  const computed = Array.from(new Uint8Array(signature))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  if (computed !== expectedSig) throw new Error('Invalid stripe signature');
+
+  return JSON.parse(body);
+}
+
+async function stripeGet(env, path) {
+  const res = await fetch(`https://api.stripe.com/v1${path}`, {
+    headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` },
+  });
+  if (!res.ok) throw new Error(`Stripe API error: ${res.status}`);
+  return res.json();
+}
+
+async function handleStripeWebhook(request, env) {
+  const event = await verifyStripeSignature(request, env.STRIPE_WEBHOOK_SECRET);
+
+  // Idempotency: skip if already processed
+  const existing = await supabaseSelect(env, 'stripe_events', `id=eq.${event.id}&select=id`);
+  if (existing.length > 0) {
+    return new Response(JSON.stringify({ received: true, duplicate: true }), { status: 200 });
+  }
+
+  // Log event for idempotency
+  await supabaseInsert(env, 'stripe_events', { id: event.id, type: event.type });
+
+  switch (event.type) {
+    case 'checkout.session.completed': {
+      const session = event.data.object;
+      const customerId = session.customer;
+
+      // Get subscription to find the price/plan
+      let plan = session.metadata?.aurisiq_plan;
+      if (!plan && session.subscription) {
+        const sub = await stripeGet(env, `/subscriptions/${session.subscription}`);
+        const priceId = sub.items?.data?.[0]?.price?.id;
+        plan = PRICE_TO_PLAN[priceId] || sub.items?.data?.[0]?.price?.metadata?.aurisiq_plan;
+      }
+
+      if (!plan) {
+        console.error('checkout.session.completed: could not determine plan');
+        break;
+      }
+
+      // Find org by metadata or client_reference_id
+      const orgId = session.client_reference_id || session.metadata?.organization_id;
+
+      await supabaseRpc(env, 'upgrade_org_plan', {
+        p_stripe_customer_id: customerId,
+        p_plan: plan,
+        p_org_id: orgId || null,
+      });
+
+      console.log(`Checkout completed: customer=${customerId} plan=${plan} org=${orgId}`);
+      break;
+    }
+
+    case 'invoice.payment_failed': {
+      const invoice = event.data.object;
+      const customerId = invoice.customer;
+      await supabaseRpc(env, 'start_grace_period', { p_stripe_customer_id: customerId });
+      console.log(`Payment failed: customer=${customerId} → grace period started`);
+      break;
+    }
+
+    case 'invoice.paid': {
+      const invoice = event.data.object;
+      const customerId = invoice.customer;
+      await supabaseRpc(env, 'resolve_grace_period', { p_stripe_customer_id: customerId });
+      console.log(`Invoice paid: customer=${customerId} → grace resolved`);
+      break;
+    }
+
+    default:
+      console.log(`Unhandled Stripe event: ${event.type}`);
+  }
+
+  return new Response(JSON.stringify({ received: true }), { status: 200 });
+}
+
+// ─── Entry points ──────────────────────────────────────────
+
+export default {
+  async fetch(request, env, ctx) {
+    const origin = request.headers.get('Origin') || '';
+
+    // CORS preflight
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    }
+
+    if (request.method !== 'POST') {
+      return jsonResponse({ error: 'Method not allowed' }, 405, origin);
+    }
+
+    // Stripe webhook: detect by signature header
+    if (request.headers.get('stripe-signature')) {
+      try {
+        return await handleStripeWebhook(request, env);
+      } catch (err) {
+        console.error('Stripe webhook error:', err.message);
+        return new Response(JSON.stringify({ error: err.message }), { status: 400 });
+      }
+    }
+
+    try {
+      const body = await request.json();
+
+      if (body.action === 'version') {
+        return jsonResponse({ version: '1.3.0', service: 'aurisiq-worker' }, 200, origin);
+      }
+
+      if (body.action === 'status') {
+        return await handleStatus(body, env, origin);
+      }
+
+      if (body.action === 'quota') {
+        return await handleQuota(body, env, origin);
+      }
+
+      // Default: submit analysis
+      return await handleSubmit(body, env, ctx, origin);
+    } catch (err) {
+      console.error('Worker error:', err.message);
+      return jsonResponse({ error: err.message }, 500, origin);
+    }
+  },
+
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(handleScheduled(env, event.cron));
+  },
+};

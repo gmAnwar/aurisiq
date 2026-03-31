@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>aurisIQ — 4 Vistas por Rol v3 · 25 Mar 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+/* =====================================================
+   RESET Y BASE — paleta oficial aurisIQ únicamente
+   Crema + Dorado + Verde oscuro
+   PROHIBIDO: morado, rosa genérico, azul marino puro
+   Roles tienen sus propios acentos derivados de la paleta
+===================================================== */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  /* Paleta base */
+  --cream:#f5f0e8;--cream-dark:#ede6d8;--cream-mid:#e8e0cf;
+  --ink:#1a1410;--ink-mid:#3a2e25;--ink-light:#6b5d50;
+  /* Acentos principales */
+  --gold:#c8a84b;--gold-light:#e4cc88;--gold-dim:rgba(200,168,75,0.15);
+  --green:#3d7a52;--green-dim:rgba(61,122,82,0.1);
+  --red:#b84040;--red-dim:rgba(184,64,64,0.1);
+  --orange:#b86830;
+  --teal:#2a7a7a;--teal-dim:rgba(42,122,122,0.1);
+  /* Acentos por rol (derivados de la paleta, no colores ajenos) */
+  --cap:#c87840;--cap-dim:rgba(200,120,64,0.15);--cap-nav:#3a2e25;--cap-nb:#1a1410;
+  --ger:#c8a84b;--ger-dim:rgba(200,168,75,0.12);--ger-nav:#3a2e25;--ger-nb:#1a1410;
+  --dir:#c8a84b;--dir-dim:rgba(200,168,75,0.15);--dir-nav:#3a2e25;--dir-nb:#1a1410;
+  --agt:#c8a84b;--agt-dim:rgba(200,168,75,0.15);--agt-nav:#3a2e25;--agt-nb:#1a1410;
+  /* Borde y sombra */
+  --border:rgba(26,20,16,0.1);--shadow:0 1px 6px rgba(26,20,16,0.07)
+}
+/* TIPOGRAFÍA: SOLO Syne y DM Sans — nunca otro font-family */
+body{font-family:'DM Sans',sans-serif;background:#110d0a;color:var(--ink);padding:40px 20px 80px}
+h1,h2,h3,.syne{font-family:'Syne',sans-serif}
+
+/* =====================================================
+   LAYOUT GENERAL
+===================================================== */
+.doc-header{max-width:1080px;margin:0 auto 52px;text-align:center}
+.doc-header h1{font-family:'Syne',sans-serif;font-size:50px;font-weight:800;letter-spacing:-2px;color:var(--gold);line-height:1;margin-bottom:6px}
+.doc-header .sub{font-size:14px;color:rgba(245,240,232,0.45);margin-top:5px;font-family:'DM Sans',sans-serif;font-weight:300}
+
+.screens{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:44px}
+.screen{background:var(--cream);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5),0 0 0 1px rgba(255,255,255,0.04)}
+
+/* Separadores de rol */
+.rol-sep{max-width:1080px;margin:0 auto 20px;display:flex;align-items:center;gap:14px}
+.rol-line{flex:1;height:1px}
+.rol-badge{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:5px 16px;border-radius:20px;white-space:nowrap}
+.rol-badge.cap{background:var(--cap-dim);color:var(--cap);border:1px solid rgba(200,168,75,0.3)}
+.rol-badge.ger{background:var(--ger-dim);color:var(--ger);border:1px solid rgba(200,168,75,0.3)}
+.rol-badge.dir{background:var(--dir-dim);color:var(--dir);border:1px solid rgba(200,168,75,0.3)}
+.rol-badge.agt{background:var(--agt-dim);color:var(--agt);border:1px solid rgba(200,168,75,0.3)}
+.rol-line.cap{background:rgba(200,168,75,0.2)}
+.rol-line.ger{background:rgba(200,168,75,0.2)}
+.rol-line.dir{background:rgba(200,168,75,0.2)}
+.rol-line.agt{background:rgba(200,168,75,0.2)}
+
+/* Meta bar */
+.smeta{padding:8px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.smeta.cap{background:var(--cap-nb)}
+.smeta.ger{background:var(--ger-nb)}
+.smeta.dir{background:var(--dir-nb)}
+.smeta.agt{background:var(--agt-nb)}
+.smeta-l{display:flex;align-items:center;gap:8px}
+.snum{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;padding:3px 9px;border-radius:4px}
+.snum.cap{color:var(--cap);background:var(--cap-dim)}
+.snum.ger{color:var(--ger);background:var(--ger-dim)}
+.snum.dir{color:var(--dir);background:var(--dir-dim)}
+.snum.agt{color:var(--agt);background:var(--agt-dim)}
+.sname{font-family:'Syne',sans-serif;font-size:12px;font-weight:600;color:rgba(245,240,232,0.85)}
+.snote{font-size:10px;color:rgba(245,240,232,0.28);font-weight:300;font-family:'DM Sans',sans-serif}
+.fl{font-family:'DM Sans',sans-serif;font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:4px;display:inline-block}
+.fl.cap{background:var(--cap-dim);color:var(--cap)}
+.fl.ger{background:var(--ger-dim);color:var(--ger)}
+.fl.dir{background:var(--dir-dim);color:var(--gold)}
+.fl.agt{background:var(--agt-dim);color:var(--gold)}
+.fl.f2{background:var(--gold-dim);color:var(--gold)}
+.fl.f3{background:rgba(255,255,255,0.05);color:rgba(245,240,232,0.3)}
+
+/* Navegación por rol */
+.nav{display:flex;align-items:center;height:50px;padding:0 18px;gap:2px;border-bottom:1px solid rgba(255,255,255,0.06)}
+.nav.cap{background:var(--cap-nav)}
+.nav.ger{background:var(--ger-nav)}
+.nav.dir{background:var(--dir-nav)}
+.nav.agt{background:var(--agt-nav)}
+/* Logo: aurisIQ con capitalización correcta */
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:17px;letter-spacing:-0.5px;margin-right:22px}
+.logo.cap{color:var(--cap)}.logo.ger{color:var(--ger)}.logo.dir{color:var(--gold)}.logo.agt{color:var(--gold)}
+.logo em{opacity:0.4;font-style:normal}
+.nl{font-size:12px;font-weight:400;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.38);padding:5px 11px;border-radius:7px}
+.nl.on.cap{background:var(--cap-dim);color:var(--cap);font-weight:500}
+.nl.on.ger{background:var(--ger-dim);color:var(--ger);font-weight:500}
+.nl.on.dir{background:var(--dir-dim);color:var(--dir);font-weight:500}
+.nl.on.agt{background:var(--agt-dim);color:var(--agt);font-weight:500}
+.nav-r{margin-left:auto;display:flex;align-items:center;gap:8px}
+.nav-ws{font-size:11px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.3);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);padding:4px 11px;border-radius:18px}
+.nav-btn{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;padding:6px 14px;border-radius:7px;border:none;cursor:pointer}
+.nav-btn.cap{background:var(--cap);color:white}
+.nav-btn.ger{background:var(--ger);color:var(--ink)}
+.nav-btn.dir{background:var(--dir);color:white}
+.nav-btn.agt{background:var(--agt);color:white}
+
+/* Utilidades comunes */
+.badge{display:inline-block;font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:4px}
+.badge.green{background:var(--green-dim);color:var(--green)}
+.badge.gold{background:var(--gold-dim);color:var(--gold)}
+.badge.red{background:var(--red-dim);color:var(--red)}
+.badge.teal{background:var(--teal-dim);color:var(--teal)}
+.panel{background:white;border-radius:10px;padding:14px;box-shadow:var(--shadow)}
+.ptitle{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.ptitle-note{font-family:'DM Sans',sans-serif;font-size:9px;font-weight:300;color:var(--ink-light)}
+.pbar{width:100%;height:5px;background:var(--cream-dark);border-radius:3px;overflow:hidden}
+.pfill{height:100%;border-radius:3px}
+.cnote{display:flex;align-items:flex-start;gap:8px;border-radius:8px;padding:10px 14px;margin:8px 16px 0}
+.cnote.cap{background:rgba(200,120,64,0.07);border:1px solid rgba(200,120,64,0.25)}
+.cnote.ger{background:rgba(200,168,75,0.08);border:1px solid rgba(200,168,75,0.2)}
+.cnote.dir{background:rgba(200,168,75,0.08);border:1px solid rgba(200,168,75,0.2)}
+.cnote.agt{background:rgba(61,122,82,0.08);border:1px solid rgba(200,168,75,0.2)}
+.cnote.blue{background:rgba(61,95,168,0.06);border:1px solid rgba(61,95,168,0.2)}
+.cnote-t{font-size:11px;font-family:'DM Sans',sans-serif;font-weight:400;line-height:1.5}
+.cnote-t strong{font-weight:600}
+.wrap{padding:20px}
+.sec-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--ink);letter-spacing:-0.3px;margin-bottom:2px}
+.sec-sub{font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink-light);font-weight:300;margin-bottom:16px}
+
+/* =====================================================
+   VISTA CAPTADORA — COMPONENTES
+===================================================== */
+.next-card{background:var(--cream-dark);border-radius:10px;padding:14px;margin-bottom:12px;border-left:3px solid var(--cap)}
+.nc-label{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--cap);margin-bottom:6px}
+.nc-name{font-family:'Syne',sans-serif;font-size:14px;font-weight:600;color:var(--ink);margin-bottom:3px}
+.nc-ctx{font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink-light);font-weight:300;line-height:1.6;margin-bottom:8px}
+.nc-btn{background:var(--cap);color:white;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;padding:9px 16px;border-radius:8px;border:none;cursor:pointer}
+.tip-card{background:var(--ink);border-radius:10px;padding:16px}
+.tip-lbl{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--cap);margin-bottom:6px}
+.tip-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--cream);line-height:1.3;margin-bottom:6px}
+.tip-frase{font-size:11px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.85);border-left:2px solid var(--cap);padding-left:10px;margin-top:8px;line-height:1.6}
+.week-stat{margin-bottom:8px}
+.ws-l{font-size:9px;font-family:'Syne',sans-serif;font-weight:700;color:var(--ink-light);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:2px}
+.ws-v{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--ink);line-height:1}
+/* Resultado captadora */
+.logro{background:var(--green-dim);border:1px solid rgba(61,122,82,0.25);border-radius:12px;padding:16px;margin-bottom:12px;text-align:center}
+.logro-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--green);margin-bottom:4px}
+.frase-gan{background:white;border-radius:8px;padding:10px 14px;margin-top:8px;border-left:3px solid var(--green)}
+.fg-l{font-size:9px;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--green);margin-bottom:3px}
+.fg-t{font-size:12px;font-family:'DM Sans',sans-serif;color:var(--ink);line-height:1.6}
+.mejora{background:var(--cream-dark);border-radius:10px;padding:14px;margin-bottom:12px;border-left:3px solid var(--gold)}
+.mej-l{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:5px}
+.mej-tip{font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink-light);line-height:1.5;background:rgba(200,168,75,0.08);padding:6px 10px;border-radius:6px;margin-top:5px}
+.chk-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(26,20,16,0.04)}
+.chk-dot{width:14px;height:14px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:8px;flex-shrink:0}
+.chk-dot.ok{background:var(--green-dim);color:var(--green)}
+.chk-dot.warn{background:var(--gold-dim);color:var(--gold)}
+.score-final{display:flex;align-items:center;gap:12px;background:var(--cream-dark);border-radius:10px;padding:12px 14px}
+.sf-n{font-family:'Syne',sans-serif;font-size:28px;font-weight:700;color:var(--ink)}
+.sf-bar{flex:1;height:8px;background:white;border-radius:4px;overflow:hidden}
+.sf-fill{height:100%;border-radius:4px}
+/* Speech */
+.speech-phase{background:white;border-radius:10px;padding:14px;box-shadow:var(--shadow);margin-bottom:10px}
+.sp-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border,rgba(26,20,16,0.1))}
+.sp-num{width:24px;height:24px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--ink);flex-shrink:0}
+.sp-name{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--ink)}
+.sp-frase{font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink-mid);line-height:1.7;margin-bottom:6px}
+.sp-src{font-size:9px;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink-light)}
+
+/* =====================================================
+   EAR COACHING
+===================================================== */
+.ear-split{display:grid;grid-template-columns:1fr 1fr;min-height:520px}
+.ear-l{background:var(--ink);padding:22px;border-right:1px solid rgba(255,255,255,0.06)}
+.ear-r{background:#0d1810;padding:22px}
+.ear-stitle{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px}
+.ear-stitle.s{color:rgba(245,240,232,0.4)}.ear-stitle.e{color:rgba(200,168,75,0.6)}
+.transcript-box{background:rgba(255,255,255,0.03);border-radius:8px;padding:12px;margin-bottom:14px;height:130px;overflow:hidden}
+.tl{font-size:11px;font-family:'DM Sans',sans-serif;line-height:1.7;margin-bottom:3px}
+.tl.cap{color:rgba(245,240,232,0.6)}.tl.pro{color:rgba(245,240,232,0.35)}
+.tl-cur{display:inline-block;width:2px;height:12px;background:var(--cap);animation:blink 1s infinite;vertical-align:middle;margin-left:2px}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.ph-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.ph-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.ph-dot.done{background:var(--green)}.ph-dot.active{background:var(--cap);box-shadow:0 0 6px rgba(200,168,75,0.3)}.ph-dot.pend{background:rgba(255,255,255,0.1)}
+.ph-name{font-size:11px;font-family:'DM Sans',sans-serif;flex:1}
+.ph-name.done{color:rgba(245,240,232,0.35);text-decoration:line-through}.ph-name.active{color:var(--cream);font-weight:500}.ph-name.pend{color:rgba(245,240,232,0.2)}
+.flashcard{border-radius:10px;padding:12px 14px;margin-bottom:8px}
+.flashcard.alert{background:rgba(200,120,64,0.12);border:1px solid rgba(200,120,64,0.35)}
+.flashcard.tip{background:rgba(200,168,75,0.1);border:1px solid rgba(200,168,75,0.3)}
+.fc-tag{font-family:'Syne',sans-serif;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
+.flashcard.alert .fc-tag{color:var(--cap)}.flashcard.tip .fc-tag{color:var(--gold)}
+.fc-text{font-size:12px;font-family:'DM Sans',sans-serif;color:var(--cream);line-height:1.6}
+.fc-frase{font-size:11px;font-family:'DM Sans',sans-serif;font-weight:500;margin-top:6px;border-left:2px solid rgba(200,168,75,0.3);padding-left:8px}
+.flashcard.alert .fc-frase{color:var(--cap)}.flashcard.tip .fc-frase{color:var(--gold)}
+.ear-device{display:flex;flex-direction:column;align-items:center;margin-bottom:20px}
+.ear-icon{width:56px;height:56px;border-radius:50%;background:rgba(200,168,75,0.08);border:1px solid rgba(200,168,75,0.2);display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:8px}
+.ear-status{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(200,168,75,0.7)}
+.ear-item{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;border-radius:8px;margin-bottom:6px}
+.ear-item.sent{background:rgba(61,122,82,0.08);border:1px solid rgba(200,168,75,0.08);opacity:0.5}
+.ear-item.active{background:rgba(61,122,82,0.1);border:1px solid rgba(200,168,75,0.3)}
+.ear-item.pending{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);opacity:0.4}
+.ear-text{font-size:11px;font-family:'DM Sans',sans-serif;line-height:1.5}
+.ear-item.sent .ear-text{color:rgba(245,240,232,0.35)}.ear-item.active .ear-text{color:var(--cream)}.ear-item.pending .ear-text{color:rgba(245,240,232,0.3)}
+.ear-meta{font-size:9px;font-family:'Syne',sans-serif;font-weight:700;margin-top:2px}
+.ear-item.sent .ear-meta{color:rgba(200,168,75,0.4)}.ear-item.active .ear-meta{color:rgba(200,168,75,0.8)}.ear-item.pending .ear-meta{color:rgba(245,240,232,0.2)}
+.ear-latency{background:rgba(255,255,255,0.04);border-radius:7px;padding:8px 12px;margin-top:8px}
+.el-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.el-l{font-size:10px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.4);font-weight:300}
+.el-v{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:rgba(200,168,75,0.7)}
+.rec-state{background:rgba(255,255,255,0.03);border-radius:7px;padding:9px 12px;margin-top:8px}
+.rs-title{font-family:'Syne',sans-serif;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.3);margin-bottom:8px}
+.req-row{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.req-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.req-dot.ok{background:rgba(200,168,75,0.6)}.req-dot.pend{background:rgba(255,255,255,0.15)}
+.req-t{font-size:10px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.5);font-weight:300}
+
+/* =====================================================
+   GERENTE — COMPONENTES
+===================================================== */
+.rtabs{display:flex;gap:3px;background:var(--cream-dark);padding:3px;border-radius:8px;margin-bottom:14px}
+.rtab{font-size:11px;font-weight:500;font-family:'DM Sans',sans-serif;padding:5px 14px;border-radius:6px;color:var(--ink-light);cursor:pointer}
+.rtab.on{background:white;color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
+.rtab.tl{background:var(--teal-dim);color:var(--teal);font-weight:600}
+.rc{background:white;border-radius:10px;padding:14px;box-shadow:var(--shadow)}
+.rc-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(26,20,16,0.1)}
+.rc-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--ink)}
+.rc-date{font-size:10px;font-family:'DM Sans',sans-serif;color:var(--ink-light);font-weight:300}
+.rc-freq{font-family:'Syne',sans-serif;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:4px}
+.rc-freq.sem{background:var(--teal-dim);color:var(--teal)}
+.rc-freq.men{background:rgba(61,95,168,0.1);color:#3d5fa8}
+.rmt{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(26,20,16,0.04)}
+.rmn{font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink-light);font-weight:300;flex:1}
+.rmv{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--ink)}
+.robs{background:var(--teal-dim);border:1px solid rgba(42,122,122,0.2);border-radius:7px;padding:9px 12px;margin-top:10px}
+.robs-l{font-family:'Syne',sans-serif;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--teal);margin-bottom:3px}
+.robs-t{font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink-mid);line-height:1.5}
+.rbtns{display:flex;gap:6px;margin-top:10px}
+.rbn{font-size:10px;font-weight:600;font-family:'Syne',sans-serif;padding:6px 12px;border-radius:6px;border:none;cursor:pointer}
+.rbn.p{background:var(--teal);color:white}
+.rbn.s{background:var(--cream-dark);color:var(--ink-light);border:1px solid rgba(26,20,16,0.1)}
+/* Tabla de conversión */
+.cv-tbl{width:100%;border-collapse:collapse}
+.cv-tbl th{font-size:8px;font-weight:700;font-family:'Syne',sans-serif;letter-spacing:1px;text-transform:uppercase;color:var(--ink-light);text-align:left;padding:0 8px 8px;border-bottom:1px solid rgba(26,20,16,0.1)}
+.cv-tbl td{padding:8px;font-size:11px;font-family:'DM Sans',sans-serif;border-bottom:1px solid rgba(26,20,16,0.04);vertical-align:middle}
+.cv-av{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:var(--ink);flex-shrink:0}
+.cv-bar{flex:1;height:5px;background:var(--cream-dark);border-radius:3px;overflow:hidden;min-width:50px}
+.cv-fill{height:100%;border-radius:3px}
+/* Historial */
+.hist-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--cream-dark);border-radius:9px;margin-bottom:7px}
+.hi-date{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--ink-light);width:70px;flex-shrink:0}
+.hi-type{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:3px 8px;border-radius:4px;flex-shrink:0}
+.hi-type.sem{background:var(--teal-dim);color:var(--teal)}
+.hi-type.men{background:rgba(61,95,168,0.1);color:#3d5fa8}
+.hi-desc{font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink-light);font-weight:300;flex:1}
+.hi-status{font-size:9px;font-family:'Syne',sans-serif;font-weight:700}
+.hi-status.leido{color:var(--green)}.hi-status.no{color:var(--orange)}
+.hi-btns{display:flex;gap:5px}
+.hi-btn{font-size:9px;font-family:'Syne',sans-serif;font-weight:700;padding:3px 9px;border-radius:5px;border:none;cursor:pointer}
+.hi-btn.ver{background:var(--teal-dim);color:var(--teal);border:1px solid rgba(42,122,122,0.2)}
+.hi-btn.env{background:var(--cream-mid);color:var(--ink-light);border:1px solid rgba(26,20,16,0.1)}
+
+/* =====================================================
+   DIRECCIÓN — COMPONENTES
+===================================================== */
+.embudo-panel{background:var(--ink);border-radius:12px;padding:20px;margin-bottom:14px}
+.emb-steps{display:flex;align-items:flex-end;gap:8px;margin-bottom:14px}
+.emb-step{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px}
+.emb-bar{width:100%;border-radius:4px}
+.emb-val{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--cream);text-align:center}
+.emb-label{font-size:9px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.35);text-align:center}
+.emb-pct{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;text-align:center}
+.emb-arr{color:rgba(245,240,232,0.15);font-size:14px;margin-bottom:20px;flex-shrink:0}
+.roi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.roi-card{background:white;border-radius:10px;padding:14px;box-shadow:var(--shadow);text-align:center}
+.roi-l{font-size:9px;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--ink-light);margin-bottom:6px}
+.roi-v{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;line-height:1;margin-bottom:3px}
+.roi-s{font-size:10px;font-family:'DM Sans',sans-serif;color:var(--ink-light);font-weight:300}
+.comp-card{background:white;border-radius:10px;padding:14px;box-shadow:var(--shadow)}
+.cmp-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.cmp-p{font-size:10px;font-family:'DM Sans',sans-serif;color:var(--ink-light);font-weight:300;width:50px;flex-shrink:0}
+.cmp-bar{flex:1;height:6px;background:var(--cream-dark);border-radius:3px;overflow:hidden}
+.cmp-fill{height:100%;border-radius:3px}
+.cmp-v{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;width:30px;text-align:right;flex-shrink:0}
+/* ROI pantalla */
+.roi-big{background:var(--ink);border-radius:12px;padding:22px;margin-bottom:14px}
+.roi-metric-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.roi-metric{background:rgba(255,255,255,0.04);border-radius:10px;padding:14px 16px}
+.roi-metric-l{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.35);margin-bottom:6px}
+.roi-metric-v{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:var(--cream);line-height:1;margin-bottom:3px}
+.roi-metric-d{font-size:11px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.4);font-weight:300}
+/* Reportes dirección */
+.dir-rpt-card{background:white;border-radius:10px;padding:16px;box-shadow:var(--shadow);margin-bottom:12px}
+.drc-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(26,20,16,0.1)}
+.drc-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--ink)}
+.drc-sub{font-size:10px;font-family:'DM Sans',sans-serif;color:var(--ink-light);font-weight:300;margin-top:2px}
+/* Cuenta */
+.user-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--cream-dark);border-radius:9px;margin-bottom:7px}
+.u-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--ink);flex-shrink:0}
+.u-name{font-family:'Syne',sans-serif;font-size:12px;font-weight:600;color:var(--ink)}
+.u-rol{font-size:10px;font-family:'DM Sans',sans-serif;color:var(--ink-light);font-weight:300;margin-top:1px}
+.u-actions{margin-left:auto;display:flex;gap:5px}
+.u-btn{font-size:9px;font-family:'Syne',sans-serif;font-weight:700;padding:3px 9px;border-radius:5px;border:1px solid rgba(26,20,16,0.1);background:white;color:var(--ink-light);cursor:pointer}
+
+/* =====================================================
+   AGENCIA — COMPONENTES
+===================================================== */
+.dbar-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.dbar-l{font-size:10px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.65);font-weight:300;width:200px;flex-shrink:0}
+.dbar{flex:1;height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden}
+.dbar-fill{height:100%;border-radius:3px}
+.dbar-pct{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:rgba(245,240,232,0.7);width:28px;text-align:right;flex-shrink:0}
+.dbar-frase{font-size:9px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.3);margin-bottom:10px}
+.rec-item{padding:8px 10px;border-radius:7px;margin-bottom:6px;font-size:11px;font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.5;color:var(--ink-light);border-left:2px solid rgba(26,20,16,0.1)}
+.rec-item.u{background:var(--teal-dim);border-left-color:var(--teal);color:var(--ink-mid)}
+.rec-item.m{background:rgba(61,95,168,0.06);border-left-color:#3d5fa8}
+.rec-lbl{font-family:'Syne',sans-serif;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;display:block}
+.rec-lbl.tl{color:var(--teal)}.rec-lbl.bl{color:#3d5fa8}
+/* Reporte PDF view */
+.pdf-section{background:white;border-radius:10px;padding:16px;box-shadow:var(--shadow);margin-bottom:12px}
+.pdf-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid rgba(26,20,16,0.1)}
+.pdf-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--ink)}
+.pdf-sub{font-size:10px;font-family:'DM Sans',sans-serif;color:var(--ink-light);font-weight:300;margin-top:2px}
+.pdf-logo{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--gold)}
+.pdf-logo em{opacity:0.4;font-style:normal}
+/* Alertas */
+.alert-row{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--cream-dark);border-radius:10px;margin-bottom:8px}
+.alert-row.active{background:rgba(61,122,82,0.08);border:1px solid rgba(200,168,75,0.2)}
+.alert-row.done{opacity:0.5}
+.ar-icon{font-size:16px;flex-shrink:0;margin-top:2px}
+.ar-body{flex:1}
+.ar-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:3px}
+.ar-text{font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink-light);font-weight:300;line-height:1.5}
+.ar-meta{font-size:9px;font-family:'DM Sans',sans-serif;color:var(--ink-light);font-weight:300;margin-top:4px;opacity:0.7}
+.ar-actions{display:flex;flex-direction:column;gap:5px;flex-shrink:0}
+.ar-btn{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;padding:4px 10px;border-radius:5px;border:none;cursor:pointer;white-space:nowrap}
+.ar-btn.mark{background:var(--teal-dim);color:var(--teal);border:1px solid rgba(42,122,122,0.2)}
+.ar-btn.view{background:var(--cream-dark);color:var(--ink-light);border:1px solid rgba(26,20,16,0.1)}
+/* Reporte agencia */
+.agt-rpt{background:var(--ink);border-radius:10px;padding:16px;margin-bottom:12px}
+.agt-rpt-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.agt-rpt-t{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--cream)}
+.agt-rpt-d{font-size:10px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.4);font-weight:300;margin-top:2px}
+.agt-kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.agt-kpi{background:rgba(255,255,255,0.04);border-radius:8px;padding:10px 12px}
+.agt-kpi-l{font-size:8px;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.35);margin-bottom:4px}
+.agt-kpi-v{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--cream);line-height:1}
+.agt-kpi-d{font-size:10px;font-family:'DM Sans',sans-serif;margin-top:2px}
+.agt-kpi-d.up{color:#6dba8c}.agt-kpi-d.dn{color:#e88080}
+
+/* Kpis genéricos */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.kpi-card{background:white;border-radius:10px;padding:13px;box-shadow:var(--shadow)}
+.kpi-l{font-size:9px;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--ink-light);margin-bottom:4px}
+.kpi-v{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:var(--ink);line-height:1;margin-bottom:2px}
+.kpi-d{font-size:10px;font-family:'DM Sans',sans-serif;font-weight:500}
+.kpi-d.up{color:var(--green)}.kpi-d.dn{color:var(--red)}.kpi-d.n{color:var(--ink-light)}.kpi-d.tl{color:var(--teal)}
+.kpi-card.hl{border:1px solid rgba(42,122,122,0.3);background:rgba(42,122,122,0.04)}
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <h1>auris<em style="font-style:normal;opacity:0.45">IQ</em></h1>
+  <div class="sub">4 vistas por rol · Captadora · Gerente · Dirección · Agencia · v3 · 25 Mar 2026<br>
+  Paleta oficial: crema + dorado + verde oscuro · Tipografía: Syne + DM Sans únicamente</div>
+</div>
+
+<div class="screens">
+
+<!-- ==================================================
+     VISTA 1 — CAPTADORA
+================================================== -->
+<div class="rol-sep">
+  <div class="rol-line cap"></div>
+  <div class="rol-badge cap">👩 Vista 1 — Captadora</div>
+  <div class="rol-line cap"></div>
+</div>
+
+<!-- C1 MI DÍA -->
+<div class="screen">
+  <div class="smeta cap">
+    <div class="smeta-l"><span class="snum cap">C1</span><span class="sname">Mi Día</span><span class="fl cap">Captadora</span></div>
+    <span class="snote">Preparación pre-llamada · próximo prospecto · tip del día · mini resumen de semana</span>
+  </div>
+  <div class="nav cap">
+    <div class="logo cap">auris<em>IQ</em></div>
+    <div class="nl on cap">Mi día</div>
+    <div class="nl">Grabar</div>
+    <div class="nl">Asistencia</div>
+    <div class="nl">Mi resultado</div>
+    <div class="nl">Mi semana</div>
+    <div class="nl">Mi Speech</div>
+    <div class="nav-r"><div class="nav-ws">Elizabeth R.</div><button class="nav-btn cap">🎙 Grabar llamada</button></div>
+  </div>
+  <div class="cnote cap">
+    <span style="font-size:13px;flex-shrink:0;margin-top:1px">💡</span>
+    <div class="cnote-t" style="color:var(--cap)"><strong>Pantalla nueva.</strong> El mundo de Elizabeth — sin rankings del equipo ni comparativas. Solo el próximo prospecto, el tip del día basado en su patrón de error, y su mini-resumen de semana.</div>
+  </div>
+  <div class="wrap">
+    <div class="sec-title">Martes 24 Mar · 4 prospectos pendientes</div>
+    <div class="sec-sub" style="margin-bottom:16px">Immobili Internacional</div>
+    <div class="next-card">
+      <div class="nc-label">Próximo prospecto a llamar</div>
+      <div class="nc-name">Sr. Martinez — Del Valle, CDMX</div>
+      <div class="nc-ctx">Última llamada hace 5 días · Score 87 pts · Acordaron hablar después de validar el Infonavit.<br>Objeción: precio esperado $650K vs avalúo $580K — brecha 12%.</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+        <span class="badge green">Lead calificado</span>
+        <span class="badge gold">Visita pendiente</span>
+        <span class="badge teal">Meta Infonavit</span>
+      </div>
+      <button class="nc-btn">🎙 Grabar llamada con Sr. Martinez</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="tip-card">
+        <div class="tip-lbl">Tu tip del día</div>
+        <div class="tip-title">Lectura del propietario — tu área de mejora</div>
+        <div style="font-size:11px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.55);font-weight:300;line-height:1.6">En tus últimas 5 llamadas, esta fase tuvo el score más bajo. Antes de hablar de precio, pregunta:</div>
+        <div class="tip-frase">"¿Cuánto tiempo lleva pensando en vender? ¿Qué lo haría decidirse hoy?"</div>
+      </div>
+      <div class="panel">
+        <div class="ws-l" style="margin-bottom:10px">Tu semana</div>
+        <div class="week-stat"><div class="ws-l">Llamadas</div><div class="ws-v">12</div></div>
+        <div class="week-stat"><div class="ws-l">Score promedio</div><div class="ws-v" style="color:var(--green)">79</div><div style="font-size:10px;color:var(--green);font-weight:500;margin-top:1px">+5 vs sem. ant. ↑</div></div>
+        <div class="week-stat"><div class="ws-l">Visitas cerradas</div><div class="ws-v" style="font-size:16px">4 de 12</div></div>
+        <div style="padding:7px 10px;background:var(--cap-dim);border-radius:7px;border-left:2px solid var(--cap);font-size:10px;font-family:'DM Sans',sans-serif;color:var(--cap);margin-top:6px;line-height:1.5">Tu mejor llamada fue la de Sra. Torres — <strong>91 pts</strong>.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- C2 GRABAR LLAMADA -->
+<div class="screen">
+  <div class="smeta cap">
+    <div class="smeta-l"><span class="snum cap">C2</span><span class="sname">Grabar Llamada</span><span class="fl cap">Captadora</span><span class="fl f2">Flujo nuevo</span></div>
+    <span class="snote">Graba desde la app · AssemblyAI transcribe automático · cero pasos manuales</span>
+  </div>
+  <div class="nav cap">
+    <div class="logo cap">auris<em>IQ</em></div>
+    <div class="nl">Mi día</div><div class="nl on cap">Grabar</div><div class="nl">Asistencia</div><div class="nl">Mi resultado</div><div class="nl">Mi semana</div>
+    <div class="nav-r"><div class="nav-ws">Elizabeth R.</div></div>
+  </div>
+  <div style="padding:20px;display:flex;flex-direction:column;align-items:center;min-height:400px;justify-content:center;background:var(--ink)">
+    <div style="text-align:center;margin-bottom:32px">
+      <div style="font-size:10px;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(245,240,232,0.35);margin-bottom:6px">Llamando a</div>
+      <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--cream)">Sr. Martinez — 55 1234 5678</div>
+      <div style="font-size:11px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.45);font-weight:300;margin-top:4px">Del Valle · Infonavit libre · Score etapa 1: 87 pts</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;background:rgba(200,120,64,0.12);border:1px solid rgba(200,120,64,0.3);border-radius:12px;padding:12px 20px;margin-bottom:16px">
+      <div style="width:10px;height:10px;border-radius:50%;background:var(--cap);animation:blink 1s infinite"></div>
+      <div><div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:var(--cap);letter-spacing:2px">04:32</div><div style="font-size:11px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.5)">Grabando llamada</div></div>
+    </div>
+    <div style="font-size:11px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.35);text-align:center;margin-bottom:20px;line-height:1.5">Habla normalmente. La grabación corre en segundo plano.</div>
+    <button style="background:var(--cap);color:white;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;padding:12px 28px;border-radius:10px;border:none;cursor:pointer">⏹ Terminar y analizar</button>
+    <div style="font-size:10px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.2);margin-top:10px">o sube un audio grabado externamente</div>
+  </div>
+</div>
+
+<!-- C_EAR ASISTENCIA EN LLAMADA -->
+<div class="screen">
+  <div class="smeta cap">
+    <div class="smeta-l"><span class="snum cap">C_EAR</span><span class="sname">Asistencia en Llamada</span><span class="fl f2">Fase 2 — pantalla</span><span class="fl f3">Fase 3 — earpiece</span></div>
+    <span class="snote">Dos modalidades reales: flashcards en pantalla · audio por earpiece Bluetooth</span>
+  </div>
+  <div class="nav cap">
+    <div class="logo cap">auris<em>IQ</em></div>
+    <div class="nl">Mi día</div><div class="nl">Grabar</div><div class="nl on cap">Asistencia</div><div class="nl">Mi resultado</div><div class="nl">Mi semana</div>
+    <div class="nav-r"><div class="nav-ws">Elizabeth R.</div></div>
+  </div>
+  <div class="cnote blue" style="margin-bottom:0">
+    <span style="font-size:13px;flex-shrink:0;margin-top:1px">🔬</span>
+    <div class="cnote-t" style="color:#3d5fa8"><strong>Tecnología real existente.</strong> Aircover, Trellus, y Dialpad ya entregan live coaching en pantalla en 2025. El earpiece Bluetooth requiere TTS en tiempo real con latencia menor a 2s — existe, es Fase 3.</div>
+  </div>
+  <div style="padding:8px 18px 0;background:var(--cream-dark);border-bottom:1px solid rgba(26,20,16,0.1);display:flex;align-items:center;gap:8px;height:40px">
+    <div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--ink-light)">Modalidad:</div>
+    <div style="display:flex;gap:5px">
+      <div style="background:var(--ink);color:var(--cream);font-family:'Syne',sans-serif;font-size:10px;font-weight:700;padding:4px 12px;border-radius:20px;cursor:pointer">📱 Pantalla</div>
+      <div style="background:rgba(200,120,64,0.08);border:1px solid rgba(200,120,64,0.3);color:var(--cap);font-family:'Syne',sans-serif;font-size:10px;font-weight:700;padding:4px 12px;border-radius:20px;cursor:pointer">🎧 Earpiece BT</div>
+    </div>
+    <div style="margin-left:auto;font-size:10px;font-family:'DM Sans',sans-serif;color:var(--ink-light)">Sr. Martinez · 07:14 ⏱</div>
+  </div>
+  <div class="ear-split">
+    <div class="ear-l">
+      <div class="ear-stitle s">📱 Modo Pantalla — flashcards en vivo</div>
+      <div style="font-family:'Syne',sans-serif;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.25);margin-bottom:6px">Transcripción en tiempo real</div>
+      <div class="transcript-box">
+        <div class="tl cap">Captadora: "Y la propiedad está a su nombre, ¿verdad?"</div>
+        <div class="tl pro">Prospecto: "Sí, sí, está a mi nombre."</div>
+        <div class="tl cap">Captadora: "Perfecto. ¿Y tiene crédito Infonavit activo?"</div>
+        <div class="tl pro">Prospecto: "Sí, está libre. Ya lo revisé."</div>
+        <div class="tl cap">Captadora: "Excelente. Ahora, ¿cuánto tiempo lleva <span class="tl-cur"></span>"</div>
+      </div>
+      <div style="font-family:'Syne',sans-serif;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.25);margin-bottom:8px">Fases del proceso</div>
+      <div class="ph-row"><div class="ph-dot done"></div><div class="ph-name done">Apertura y marco</div><div style="font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:rgba(61,122,82,0.6)">✓</div></div>
+      <div class="ph-row"><div class="ph-dot active"></div><div class="ph-name active">Calificación Infonavit</div><div style="font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:var(--cap)">en curso</div></div>
+      <div class="ph-row"><div class="ph-dot pend"></div><div class="ph-name pend">Expectativa de precio</div></div>
+      <div class="ph-row"><div class="ph-dot pend"></div><div class="ph-name pend">Lectura del propietario</div></div>
+      <div class="ph-row" style="margin-bottom:12px"><div class="ph-dot pend"></div><div class="ph-name pend">Avance a visita</div></div>
+      <div style="font-family:'Syne',sans-serif;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.25);margin-bottom:8px">Sugerencia activa</div>
+      <div class="flashcard alert">
+        <div class="fc-tag">⚡ Ahora — calificación</div>
+        <div class="fc-text">Infonavit confirmado. Antes de avanzar, confirma gravámenes.</div>
+        <div class="fc-frase">"¿Y la propiedad está libre de hipotecas o créditos activos?"</div>
+      </div>
+      <div class="flashcard tip">
+        <div class="fc-tag">💡 Preparación — precio</div>
+        <div class="fc-text">Su precio esperado es ~$650K. Avalúo $580K. Prepara reencuadre.</div>
+        <div class="fc-frase">"Le voy a dar el precio real del mercado, no el que esperamos."</div>
+      </div>
+    </div>
+    <div class="ear-r">
+      <div class="ear-stitle e">🎧 Modo Earpiece Bluetooth</div>
+      <div class="ear-device">
+        <div class="ear-icon">🎧</div>
+        <div class="ear-status">Conectado · AirPods Pro</div>
+        <div style="font-size:10px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.3);text-align:center;margin-top:3px;font-weight:300">Tips como voz discreta<br>El prospecto no escucha nada</div>
+      </div>
+      <div style="font-family:'Syne',sans-serif;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(200,168,75,0.4);margin-bottom:8px">Cola de mensajes de voz</div>
+      <div class="ear-item sent"><span style="font-size:12px">🔊</span><div><div class="ear-text">"Apertura completa. Pasando a calificación."</div><div class="ear-meta">enviado · min 2:10</div></div></div>
+      <div class="ear-item sent"><span style="font-size:12px">🔊</span><div><div class="ear-text">"Propiedad a su nombre confirmada. Pregunta Infonavit."</div><div class="ear-meta">enviado · min 4:45</div></div></div>
+      <div class="ear-item active"><span style="font-size:12px">🔊</span><div><div class="ear-text">"Infonavit libre. Confirma gravámenes antes de precio."</div><div class="ear-meta">▶ reproduciendo · min 7:14</div></div></div>
+      <div class="ear-item pending"><span style="font-size:12px">⏳</span><div><div class="ear-text">"Precio esperado $650K, avalúo $580K. Prepara reencuadre."</div><div class="ear-meta">en cola · cuando detecte fase precio</div></div></div>
+      <div class="ear-latency">
+        <div style="font-family:'Syne',sans-serif;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.3);margin-bottom:6px">Latencia del sistema</div>
+        <div class="el-row"><div class="el-l">Transcripción → texto</div><div class="el-v">~0.8s</div></div>
+        <div class="el-row"><div class="el-l">Texto → sugerencia Claude</div><div class="el-v">~0.6s</div></div>
+        <div class="el-row"><div class="el-l">Sugerencia → audio TTS</div><div class="el-v">~0.4s</div></div>
+        <div class="el-row" style="padding-top:6px;border-top:1px solid rgba(255,255,255,0.06);margin-top:4px"><div class="el-l" style="font-family:'DM Sans',sans-serif;font-weight:500;color:rgba(245,240,232,0.6)">Total end-to-end</div><div class="el-v" style="font-size:12px">~1.8s</div></div>
+      </div>
+      <div class="rec-state">
+        <div class="rs-title">Requisitos técnicos — Fase 3</div>
+        <div class="req-row"><div class="req-dot ok"></div><div class="req-t">AssemblyAI streaming (diferente al batch de Fase 2)</div></div>
+        <div class="req-row"><div class="req-dot ok"></div><div class="req-t">Text-to-Speech API latencia &lt;400ms (ElevenLabs)</div></div>
+        <div class="req-row"><div class="req-dot pend"></div><div class="req-t">Bluetooth Audio API en móvil — requiere app nativa</div></div>
+        <div class="req-row"><div class="req-dot pend"></div><div class="req-t">Lógica de detección de fase por contexto semántico</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- C3 MI RESULTADO -->
+<div class="screen">
+  <div class="smeta cap">
+    <div class="smeta-l"><span class="snum cap">C3</span><span class="sname">Mi Resultado</span><span class="fl cap">Captadora</span></div>
+    <span class="snote">Logro primero · mejora después · score al final · checklist pre-llenado por Claude</span>
+  </div>
+  <div class="nav cap">
+    <div class="logo cap">auris<em>IQ</em></div>
+    <div class="nl">Mi día</div><div class="nl">Grabar</div><div class="nl">Asistencia</div><div class="nl on cap">Mi resultado</div><div class="nl">Mi semana</div>
+    <div class="nav-r"><div class="nav-ws">Elizabeth R.</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;min-height:400px">
+    <div class="wrap" style="border-right:1px solid rgba(26,20,16,0.1)">
+      <div class="logro">
+        <div style="font-size:28px;margin-bottom:6px">🎯</div>
+        <div class="logro-title">¡Cerraste la visita!</div>
+        <div style="font-size:12px;font-family:'DM Sans',sans-serif;color:var(--ink-light);font-weight:300;line-height:1.5">Visita agendada viernes 28 Mar a las 5 PM</div>
+        <div class="frase-gan"><div class="fg-l">Frase que funcionó — min 3:21</div><div class="fg-t">"No le cobro por vender su casa, le cobro por no perder 6 meses intentándolo solo."</div></div>
+      </div>
+      <div class="mejora">
+        <div class="mej-l">Para la siguiente llamada</div>
+        <div style="font-size:12px;font-family:'DM Sans',sans-serif;color:var(--ink-mid);line-height:1.6">Confirma gravámenes antes de hablar de precio. No lo mencionaste en esta llamada.</div>
+        <div class="mej-tip">"Para darle el precio real, ¿la propiedad está libre de hipotecas activas?"</div>
+      </div>
+      <div class="panel">
+        <div class="ptitle">Confirma el checklist <span class="ptitle-note">Claude lo llenó · 2 toques</span></div>
+        <div class="chk-row"><div class="chk-dot ok">✓</div><div style="font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink);flex:1">Propiedad a su nombre</div><div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--green)">Sí</div></div>
+        <div class="chk-row"><div class="chk-dot ok">✓</div><div style="font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink);flex:1">Infonavit libre</div><div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--green)">Sí</div></div>
+        <div class="chk-row"><div class="chk-dot warn">?</div><div style="font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink);flex:1">Libre de gravámenes</div><div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--gold)">No mencionó ⚠️</div></div>
+        <div class="chk-row" style="border:none"><div class="chk-dot ok">✓</div><div style="font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink);flex:1">En zona cobertura</div><div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--green)">Del Valle ✓</div></div>
+        <button style="width:100%;background:var(--cap);color:white;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;padding:9px;border-radius:7px;border:none;cursor:pointer;margin-top:10px">Confirmar y guardar</button>
+      </div>
+    </div>
+    <div class="wrap">
+      <div style="font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:var(--ink-light);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Tu score de esta llamada</div>
+      <div class="score-final" style="margin-bottom:14px">
+        <div><div class="sf-n">87</div><div style="font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink-light)">de 100</div></div>
+        <div class="sf-bar"><div class="sf-fill" style="width:87%;background:linear-gradient(90deg,var(--gold),var(--gold-light))"></div></div>
+        <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--green)">Alto rendimiento</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:8px"><div style="font-size:10px;font-family:'DM Sans',sans-serif;color:var(--ink-light);width:110px;flex-shrink:0">Apertura</div><div class="pbar" style="flex:1"><div class="pfill" style="width:90%;background:var(--green)"></div></div><div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--green);width:24px;text-align:right">9</div></div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="font-size:10px;font-family:'DM Sans',sans-serif;color:var(--ink-light);width:110px;flex-shrink:0">Calificación</div><div class="pbar" style="flex:1"><div class="pfill" style="width:91%;background:var(--green)"></div></div><div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--green);width:24px;text-align:right">32</div></div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="font-size:10px;font-family:'DM Sans',sans-serif;color:var(--ink-light);width:110px;flex-shrink:0">Precio</div><div class="pbar" style="flex:1"><div class="pfill" style="width:87%;background:var(--gold)"></div></div><div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--gold);width:24px;text-align:right">26</div></div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="font-size:10px;font-family:'DM Sans',sans-serif;color:var(--ink-light);width:110px;flex-shrink:0">Cierre visita</div><div class="pbar" style="flex:1"><div class="pfill" style="width:87%;background:var(--gold)"></div></div><div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--gold);width:24px;text-align:right">13</div></div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="font-size:10px;font-family:'DM Sans',sans-serif;color:var(--ink-light);width:110px;flex-shrink:0">Lectura prop.</div><div class="pbar" style="flex:1"><div class="pfill" style="width:70%;background:var(--orange)"></div></div><div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--orange);width:24px;text-align:right">7</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- C4 MI SEMANA -->
+<div class="screen">
+  <div class="smeta cap">
+    <div class="smeta-l"><span class="snum cap">C4</span><span class="sname">Mi Semana</span><span class="fl cap">Captadora</span></div>
+    <span class="snote">Resumen personal · sin comparativas del equipo · coach, no vigilancia</span>
+  </div>
+  <div class="nav cap">
+    <div class="logo cap">auris<em>IQ</em></div>
+    <div class="nl">Mi día</div><div class="nl">Grabar</div><div class="nl">Mi resultado</div><div class="nl on cap">Mi semana</div><div class="nl">Mi Speech</div>
+    <div class="nav-r"><div class="nav-ws">Elizabeth R.</div></div>
+  </div>
+  <div class="wrap">
+    <div class="sec-title">Tu semana, Elizabeth</div>
+    <div class="sec-sub">17–24 Mar 2026 · Sin comparativas con el equipo</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+      <div class="panel"><div class="kpi-l">Llamadas</div><div class="kpi-v">12</div><div class="kpi-d n">esta semana</div></div>
+      <div class="panel"><div class="kpi-l">Score promedio</div><div class="kpi-v" style="color:var(--green)">79</div><div class="kpi-d up">+5 vs sem. ant. ↑</div></div>
+      <div class="panel"><div class="kpi-l">Visitas cerradas</div><div class="kpi-v">4</div><div class="kpi-d up">+1 vs sem. ant. ↑</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="background:var(--ink);border-radius:10px;padding:14px">
+        <div style="font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--cap);margin-bottom:6px">Tu mejor llamada</div>
+        <div style="font-family:'Syne',sans-serif;font-size:28px;font-weight:700;color:var(--cap);line-height:1;margin-bottom:4px">91</div>
+        <div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:600;color:var(--cream);margin-bottom:3px">Sra. Torres — 22 Mar · 14 min</div>
+        <div style="font-size:10px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.4);margin-bottom:6px">Manejaste la objeción de precio con el reencuadre.</div>
+        <div style="font-size:11px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.5);line-height:1.5;border-left:2px solid rgba(200,168,75,0.3);padding-left:8px">"No le cobro por vender, le cobro por no perder 6 meses intentándolo sola."</div>
+        <div style="margin-top:8px;padding:6px 8px;background:var(--cap-dim);border-radius:5px;font-size:10px;font-family:'DM Sans',sans-serif;color:var(--cap)">Esta frase ya está en el Speech Ideal 🎯</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="panel">
+          <div class="ptitle">Objeción más frecuente</div>
+          <div style="font-size:12px;font-weight:500;font-family:'DM Sans',sans-serif;color:var(--ink);margin-bottom:6px">"Ya tengo agente / no quiero pagar comisión"</div>
+          <div style="font-size:10px;font-family:'DM Sans',sans-serif;color:var(--ink-light);margin-bottom:8px">5 de 12 llamadas esta semana.</div>
+          <div style="font-size:9px;font-family:'Syne',sans-serif;font-weight:700;color:var(--green);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px">Frase que funcionó</div>
+          <div style="font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink-light);line-height:1.5;border-left:2px solid var(--green);padding-left:8px">"No le cobro por vender su casa, le cobro por no perder 6 meses intentándolo solo."</div>
+        </div>
+        <div class="panel">
+          <div class="ptitle">Tu mejora esta semana</div>
+          <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px"><div style="width:24px;height:24px;border-radius:50%;background:var(--green-dim);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">↑</div><div><div style="font-size:11px;font-family:'DM Sans',sans-serif;font-weight:500;color:var(--ink);margin-bottom:2px">Apertura: +1.2 puntos</div><div style="font-size:10px;font-family:'DM Sans',sans-serif;color:var(--ink-light);line-height:1.5">Estás usando el marco de compradores activos. Sigue así.</div></div></div>
+          <div style="display:flex;align-items:flex-start;gap:8px"><div style="width:24px;height:24px;border-radius:50%;background:var(--gold-dim);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">→</div><div><div style="font-size:11px;font-family:'DM Sans',sans-serif;font-weight:500;color:var(--ink);margin-bottom:2px">Lectura propietario: igual que sem. pasada</div><div style="font-size:10px;font-family:'DM Sans',sans-serif;color:var(--ink-light);line-height:1.5">Tu oportunidad para la próxima semana.</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- C5 MI SPEECH -->
+<div class="screen">
+  <div class="smeta cap">
+    <div class="smeta-l"><span class="snum cap">C5</span><span class="sname">Mi Speech</span><span class="fl cap">Captadora</span></div>
+    <span class="snote">Guía de bolsillo · máximo 3 frases por fase · consulta rápida antes de llamar</span>
+  </div>
+  <div class="nav cap">
+    <div class="logo cap">auris<em>IQ</em></div>
+    <div class="nl">Mi día</div><div class="nl">Grabar</div><div class="nl">Mi semana</div><div class="nl on cap">Mi Speech</div>
+    <div class="nav-r"><div class="nav-ws">Elizabeth R.</div></div>
+  </div>
+  <div class="cnote cap">
+    <span style="font-size:13px;flex-shrink:0;margin-top:1px">📋</span>
+    <div class="cnote-t" style="color:var(--cap)"><strong>Versión compacta del Speech Ideal</strong> — diseñada para consulta rápida antes de una llamada. Máximo 3 frases por fase. El gerente gestiona el contenido completo en su Biblioteca.</div>
+  </div>
+  <div class="wrap">
+    <div class="sec-title">Mi Speech — Llamada de Captación</div>
+    <div class="sec-sub">Generado desde las mejores llamadas del equipo · Actualizado 20 Mar</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="speech-phase">
+        <div class="sp-header"><div class="sp-num">1</div><div class="sp-name">Apertura y marco de valor</div></div>
+        <div class="sp-frase">"Buenos días, ¿con el Sr./Sra. [nombre]? Soy Elizabeth de Immobili — ¿tiene un momento? Le llamo porque vi que tiene una propiedad en [colonia] y quiero ver si podemos ayudarle a venderla más rápido de lo que espera."</div>
+        <div class="sp-src">📍 Extraído de: Elizabeth R. · 22 Mar · Score 91</div>
+      </div>
+      <div class="speech-phase">
+        <div class="sp-header"><div class="sp-num">2</div><div class="sp-name">Calificación Infonavit</div></div>
+        <div class="sp-frase">"Para ver si podemos ayudarle, necesito preguntarle tres cositas rápidas. ¿La propiedad está a su nombre? ¿Tiene crédito Infonavit activo y libre de adeudos? ¿Y no tiene ningún proceso legal activo sobre ella?"</div>
+        <div class="sp-src">📍 Extraído de: Karla S. · 18 Mar · Score 84</div>
+      </div>
+      <div class="speech-phase">
+        <div class="sp-header"><div class="sp-num">3</div><div class="sp-name">Manejo de objeción: ya tengo agente</div></div>
+        <div class="sp-frase">"Entiendo perfectamente. La diferencia es que nosotros no le cobramos por vender su casa — le cobramos por no perder 6 meses intentándolo solo. ¿Cuánto tiempo lleva intentando vender?"</div>
+        <div class="sp-src">📍 Extraído de: Elizabeth R. · 22 Mar · Score 91</div>
+      </div>
+      <div class="speech-phase">
+        <div class="sp-header"><div class="sp-num">4</div><div class="sp-name">Avance a visita</div></div>
+        <div class="sp-frase">"Perfecto, todo está muy bien. ¿Qué le parece si le mando a uno de nuestros asesores para ver la propiedad y darle un precio más exacto? No le compromete a nada — es solo para tener el número correcto."</div>
+        <div class="sp-src">📍 Extraído de: Karla S. · 15 Mar · Score 88</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================================================
+     VISTA 2 — GERENTE
+================================================== -->
+<div class="rol-sep">
+  <div class="rol-line ger"></div>
+  <div class="rol-badge ger">👔 Vista 2 — Gerente</div>
+  <div class="rol-line ger"></div>
+</div>
+
+<!-- G6 REPORTES — con historial completo -->
+<div class="screen">
+  <div class="smeta ger">
+    <div class="smeta-l"><span class="snum ger">G6</span><span class="sname">Reportes</span><span class="fl ger">Gerente</span></div>
+    <span class="snote">Coaching + agencia · historial completo · reenviar · conversión por captadora</span>
+  </div>
+  <div class="nav ger">
+    <div class="logo ger">auris<em>IQ</em></div>
+    <div class="nl">Equipo</div><div class="nl">Expedientes</div><div class="nl">Biblioteca</div><div class="nl on ger">Reportes</div><div class="nl">Config</div>
+    <div class="nav-r"><div class="nav-ws">Immobili Internacional</div><button class="nav-btn ger">+ Analizar</button></div>
+  </div>
+  <div class="cnote ger">
+    <span style="font-size:13px;flex-shrink:0;margin-top:1px">📋</span>
+    <div class="cnote-t"><strong>Acceso completo a todos los reportes.</strong> El gerente ve coaching del equipo y reportes de agencia desde una sola pantalla. Si no vio el email del lunes, entra aquí.</div>
+  </div>
+  <div class="wrap">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:14px">
+      <div><div class="sec-title">Reportes</div><div class="sec-sub" style="margin-bottom:0">14 reportes enviados desde Mar 2026</div></div>
+      <button style="background:var(--teal);color:white;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;padding:8px 16px;border-radius:8px;border:none;cursor:pointer">Enviar ahora</button>
+    </div>
+    <!-- aviso email no abierto -->
+    <div style="background:var(--gold-dim);border:1px solid rgba(200,168,75,0.3);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <span style="font-size:16px">📬</span>
+      <div style="font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink-mid);flex:1"><strong style="font-weight:600">Reporte del lunes 23 Mar no fue abierto.</strong> Puedes verlo aquí o reenviarlo.</div>
+      <button style="background:var(--gold);color:var(--ink);font-family:'Syne',sans-serif;font-size:10px;font-weight:700;padding:6px 12px;border-radius:6px;border:none;cursor:pointer;flex-shrink:0">Ver reporte</button>
+    </div>
+    <div class="rtabs">
+      <div class="rtab on">Mis reportes (coaching)</div>
+      <div class="rtab tl">Reportes de agencia</div>
+      <div class="rtab">Historial completo</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div class="rc">
+        <div class="rc-h"><div><div class="rc-title">Reporte Semanal — Coaching</div><div class="rc-date">Sem 17–24 Mar · Para el manager</div></div><div class="rc-freq sem">Cada lunes</div></div>
+        <div class="rmt"><div class="rmn">Score promedio equipo</div><div class="rmv">74 <span style="font-size:10px;color:var(--green);font-weight:500">+3.2</span></div></div>
+        <div class="rmt"><div class="rmn">Mayor mejora</div><div class="rmv">Elizabeth R. (+5)</div></div>
+        <div class="rmt"><div class="rmn">Requiere atención</div><div class="rmv" style="color:var(--red)">Fernanda I. (-11)</div></div>
+        <div class="rmt"><div class="rmn">Objeción top</div><div class="rmv">Ya tengo agente</div></div>
+        <div class="rbtns"><button class="rbn p">Ver reporte</button><button class="rbn s">Reenviar</button></div>
+      </div>
+      <div class="rc">
+        <div class="rc-h"><div><div class="rc-title">Reporte Semanal — Agencia</div><div class="rc-date">Sem 17–24 Mar · Para OptimizAds</div></div><div class="rc-freq sem">Cada lunes</div></div>
+        <div class="rmt"><div class="rmn">Tasa de calificación</div><div class="rmv">31% <span style="font-size:10px;color:var(--red);font-weight:500">-4%</span></div></div>
+        <div class="rmt"><div class="rmn">Razón descalificación principal</div><div class="rmv">Sin crédito Infonavit activo · 38%</div></div>
+        <div class="rmt"><div class="rmn">Mejor fuente</div><div class="rmv">Meta Infonavit · 45%</div></div>
+        <div class="rmt"><div class="rmn">Enviado a</div><div class="rmv" style="font-size:10px;color:var(--teal)">gerente@optimizads.agency</div></div>
+        <div class="robs"><div class="robs-l">Observación Claude</div><div class="robs-t">38% de leads sin Infonavit activo — 3ra semana. Recomendación: anuncio educativo "¿Ya usaste tu Infonavit?"</div></div>
+        <div class="rbtns"><button class="rbn p">Ver reporte agencia</button><button class="rbn s">Reenviar a OptimizAds</button></div>
+      </div>
+    </div>
+
+    <!-- HISTORIAL COMPLETO — respuesta al punto 4 -->
+    <div class="panel" style="margin-bottom:14px">
+      <div class="ptitle">Historial completo de reportes enviados <span class="ptitle-note">Todos los tipos · todos los destinatarios</span></div>
+      <div class="hist-item">
+        <div class="hi-date">Lun 23 Mar</div>
+        <div class="hi-type sem">Semanal coaching</div>
+        <div class="hi-desc">Score promedio 74 · Fernanda con baja · Objeción: ya tengo agente</div>
+        <div class="hi-status no">No abierto</div>
+        <div class="hi-btns"><button class="hi-btn ver">Ver</button><button class="hi-btn env">Reenviar</button></div>
+      </div>
+      <div class="hist-item">
+        <div class="hi-date">Lun 23 Mar</div>
+        <div class="hi-type tl" style="background:var(--teal-dim);color:var(--teal)">Semanal agencia</div>
+        <div class="hi-desc">Tasa calificación 31% · Sin Infonavit 38% · Enviado a gerente@optimizads.agency</div>
+        <div class="hi-status leido">Leído 8:47 AM</div>
+        <div class="hi-btns"><button class="hi-btn ver">Ver</button><button class="hi-btn env">Reenviar</button></div>
+      </div>
+      <div class="hist-item">
+        <div class="hi-date">1 Mar</div>
+        <div class="hi-type men">Mensual agencia</div>
+        <div class="hi-desc">Tasa calificación mes 29% · 183 análisis · 3 acciones recomendadas</div>
+        <div class="hi-status leido">Leído · 3 dest.</div>
+        <div class="hi-btns"><button class="hi-btn ver">Ver PDF</button><button class="hi-btn env">Reenviar</button></div>
+      </div>
+      <div class="hist-item">
+        <div class="hi-date">Lun 17 Mar</div>
+        <div class="hi-type sem">Semanal coaching</div>
+        <div class="hi-desc">Score promedio 71 · Elizabeth con mejor semana · Top: precio irreal</div>
+        <div class="hi-status leido">Leído</div>
+        <div class="hi-btns"><button class="hi-btn ver">Ver</button><button class="hi-btn env">Reenviar</button></div>
+      </div>
+      <div class="hist-item">
+        <div class="hi-date">Lun 17 Mar</div>
+        <div class="hi-type tl" style="background:var(--teal-dim);color:var(--teal)">Semanal agencia</div>
+        <div class="hi-desc">Tasa calificación 35% · Sin Infonavit 41% · Alerta proactiva adjunta</div>
+        <div class="hi-status leido">Leído</div>
+        <div class="hi-btns"><button class="hi-btn ver">Ver</button><button class="hi-btn env">Reenviar</button></div>
+      </div>
+    </div>
+
+    <!-- Conversión por captadora -->
+    <div class="panel">
+      <div class="ptitle">Conversión por captadora — semana actual <span class="ptitle-note">Leads → visitas → captaciones</span></div>
+      <table class="cv-tbl">
+        <thead><tr><th>Captadora</th><th>Leads</th><th>Calificados</th><th>Visitas</th><th>Conv. visita</th><th>Captaciones</th><th>Conv. final</th><th>Score</th></tr></thead>
+        <tbody>
+          <tr><td><div style="display:flex;align-items:center;gap:7px"><div class="cv-av" style="background:#e8d08a">ER</div>Elizabeth R.</div></td><td style="font-family:'Syne',sans-serif;font-weight:700">20</td><td style="color:var(--green);font-family:'Syne',sans-serif;font-weight:700">12 <span style="font-size:9px;color:var(--ink-light);font-weight:300">(60%)</span></td><td style="font-family:'Syne',sans-serif;font-weight:700">8</td><td><div style="display:flex;align-items:center;gap:5px"><div class="cv-bar"><div class="cv-fill" style="width:67%;background:var(--green)"></div></div><span style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--green)">67%</span></div></td><td style="font-family:'Syne',sans-serif;font-weight:700;color:var(--green)">4</td><td style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--green)">20%</td><td><span style="font-family:'Syne',sans-serif;font-weight:700">79</span> <span style="font-size:10px;color:var(--green)">↑</span></td></tr>
+          <tr><td><div style="display:flex;align-items:center;gap:7px"><div class="cv-av" style="background:#d0e8d8">KS</div>Karla S.</div></td><td style="font-family:'Syne',sans-serif;font-weight:700">18</td><td style="color:var(--green);font-family:'Syne',sans-serif;font-weight:700">9 <span style="font-size:9px;color:var(--ink-light);font-weight:300">(50%)</span></td><td style="font-family:'Syne',sans-serif;font-weight:700">5</td><td><div style="display:flex;align-items:center;gap:5px"><div class="cv-bar"><div class="cv-fill" style="width:56%;background:var(--gold)"></div></div><span style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--gold)">56%</span></div></td><td style="font-family:'Syne',sans-serif;font-weight:700;color:var(--gold)">3</td><td style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--gold)">17%</td><td><span style="font-family:'Syne',sans-serif;font-weight:700">75</span></td></tr>
+          <tr style="background:rgba(184,64,64,0.02)"><td><div style="display:flex;align-items:center;gap:7px"><div class="cv-av" style="background:#e8d0c8">FI</div>Fernanda I.</div></td><td style="font-family:'Syne',sans-serif;font-weight:700">14</td><td style="color:var(--red);font-family:'Syne',sans-serif;font-weight:700">3 <span style="font-size:9px;color:var(--ink-light);font-weight:300">(21%)</span></td><td style="font-family:'Syne',sans-serif;font-weight:700">1</td><td><div style="display:flex;align-items:center;gap:5px"><div class="cv-bar"><div class="cv-fill" style="width:33%;background:var(--red)"></div></div><span style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--red)">33%</span></div></td><td style="font-family:'Syne',sans-serif;font-weight:700;color:var(--red)">0</td><td style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--red)">0%</td><td><span style="font-family:'Syne',sans-serif;font-weight:700;color:var(--red)">61</span> <span style="font-size:10px;color:var(--red)">↓↓</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ==================================================
+     VISTA 3 — DIRECCIÓN
+================================================== -->
+<div class="rol-sep">
+  <div class="rol-line dir"></div>
+  <div class="rol-badge dir">🏢 Vista 3 — Dirección</div>
+  <div class="rol-line dir"></div>
+</div>
+
+<!-- D1 DASHBOARD EJECUTIVO -->
+<div class="screen">
+  <div class="smeta dir">
+    <div class="smeta-l"><span class="snum dir">D1</span><span class="sname">Dashboard Ejecutivo</span><span class="fl dir">Dirección</span></div>
+    <span class="snote">Embudo · ROI · captaciones por captadora · sin scorecards individuales</span>
+  </div>
+  <div class="nav dir">
+    <div class="logo dir">auris<em>IQ</em></div>
+    <div class="nl on dir">Resumen</div><div class="nl">ROI</div><div class="nl">Reportes</div><div class="nl">Cuenta</div>
+    <div class="nav-r"><div class="nav-ws">Immobili Internacional</div><button class="nav-btn dir">Reportes</button></div>
+  </div>
+  <div class="cnote dir">
+    <span style="font-size:13px;flex-shrink:0;margin-top:1px">📊</span>
+    <div class="cnote-t" style="color:var(--dir)"><strong>Vista del dueño.</strong> Sin scorecards. Solo lo que importa para decisiones de negocio: captaciones, costo, y ROI.</div>
+  </div>
+  <div class="wrap">
+    <div class="sec-title">Resumen ejecutivo — Q1 2026</div>
+    <div class="sec-sub">Enero – Marzo 2026</div>
+    <div class="embudo-panel">
+      <div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:rgba(245,240,232,0.4);letter-spacing:1px;text-transform:uppercase;margin-bottom:16px">Embudo de captaciones Q1</div>
+      <div class="emb-steps">
+        <div class="emb-step"><div class="emb-val">830</div><div class="emb-bar" style="height:90px;background:rgba(200,168,75,0.4)"></div><div class="emb-label">Mensajes</div><div class="emb-pct" style="color:rgba(245,240,232,0.3)">100%</div></div>
+        <div class="emb-arr">→</div>
+        <div class="emb-step"><div class="emb-val">217</div><div class="emb-bar" style="height:60px;background:rgba(200,168,75,0.55)"></div><div class="emb-label">Llamadas</div><div class="emb-pct" style="color:rgba(245,240,232,0.5)">26%</div></div>
+        <div class="emb-arr">→</div>
+        <div class="emb-step"><div class="emb-val">54</div><div class="emb-bar" style="height:38px;background:rgba(200,168,75,0.7)"></div><div class="emb-label">Citas</div><div class="emb-pct" style="color:var(--gold-light)">25% ↑</div></div>
+        <div class="emb-arr">→</div>
+        <div class="emb-step"><div class="emb-val">46</div><div class="emb-bar" style="height:28px;background:rgba(200,168,75,0.85)"></div><div class="emb-label">Asistencia</div><div class="emb-pct" style="color:var(--gold-light)">85%</div></div>
+        <div class="emb-arr">→</div>
+        <div class="emb-step"><div class="emb-val">25</div><div class="emb-bar" style="height:20px;background:var(--gold)"></div><div class="emb-label">Captaciones</div><div class="emb-pct" style="color:#6dba8c">54% ↑</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="background:rgba(61,122,82,0.15);border:1px solid rgba(61,122,82,0.25);border-radius:7px;padding:8px 12px;text-align:center"><div style="font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#6dba8c;margin-bottom:3px">Mejora Q1 vs Q4</div><div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:#6dba8c">+25%</div><div style="font-size:10px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.35)">sin subir presupuesto</div></div>
+        <div style="background:rgba(200,168,75,0.12);border:1px solid rgba(200,168,75,0.2);border-radius:7px;padding:8px 12px;text-align:center"><div style="font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--dir);margin-bottom:3px">ROI aurisIQ Q1</div><div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--dir)">8.4x</div><div style="font-size:10px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.35)">vs costo de suscripción</div></div>
+      </div>
+    </div>
+    <div class="roi-grid">
+      <div class="roi-card"><div class="roi-l">Captaciones Q1</div><div class="roi-v" style="color:var(--green)">25</div><div class="roi-s">+5 sin subir presupuesto</div></div>
+      <div class="roi-card"><div class="roi-l">Costo por captación</div><div class="roi-v" style="color:var(--dir)">$1,840 MXN</div><div class="roi-s">-22% vs Q4</div></div>
+      <div class="roi-card"><div class="roi-l">Inversión aurisIQ</div><div class="roi-v" style="color:var(--gold)">$5,997 MXN</div><div class="roi-s">Plan Pro · 3 meses</div></div>
+    </div>
+    <!-- Captaciones por captadora — vista ejecutiva sin scores -->
+    <div class="panel" style="margin-bottom:12px">
+      <div class="ptitle">Captaciones por captadora — Q1 <span class="ptitle-note">Sin scores · solo resultados de negocio</span></div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
+        <div style="background:var(--cream-dark);border-radius:8px;padding:10px;text-align:center;border-top:3px solid var(--green)"><div style="font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:var(--ink-light);margin-bottom:6px">Elizabeth R.</div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--green)">12</div><div style="font-size:9px;font-family:'DM Sans',sans-serif;color:var(--ink-light)">captaciones</div><div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--green);margin-top:4px">20% conv.</div></div>
+        <div style="background:var(--cream-dark);border-radius:8px;padding:10px;text-align:center;border-top:3px solid var(--gold)"><div style="font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:var(--ink-light);margin-bottom:6px">Karla S.</div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--gold)">8</div><div style="font-size:9px;font-family:'DM Sans',sans-serif;color:var(--ink-light)">captaciones</div><div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--gold);margin-top:4px">17% conv.</div></div>
+        <div style="background:var(--cream-dark);border-radius:8px;padding:10px;text-align:center;border-top:3px solid var(--gold)"><div style="font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:var(--ink-light);margin-bottom:6px">Carolina M.</div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--gold)">3</div><div style="font-size:9px;font-family:'DM Sans',sans-serif;color:var(--ink-light)">captaciones</div><div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--gold);margin-top:4px">13% conv.</div></div>
+        <div style="background:var(--cream-dark);border-radius:8px;padding:10px;text-align:center;border-top:3px solid var(--gold)"><div style="font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:var(--ink-light);margin-bottom:6px">Araceli F.</div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--gold)">2</div><div style="font-size:9px;font-family:'DM Sans',sans-serif;color:var(--ink-light)">captaciones</div><div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--gold);margin-top:4px">13% conv.</div></div>
+        <div style="background:var(--red-dim);border-radius:8px;padding:10px;text-align:center;border-top:3px solid var(--red)"><div style="font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:var(--ink-light);margin-bottom:6px">Fernanda I.</div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--red)">0</div><div style="font-size:9px;font-family:'DM Sans',sans-serif;color:var(--ink-light)">captaciones</div><div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--red);margin-top:4px">0% conv.</div></div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="comp-card"><div style="font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:var(--ink-light);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:10px">Captaciones por mes</div>
+        <div class="cmp-row"><div class="cmp-p">Enero</div><div class="cmp-bar"><div class="cmp-fill" style="width:64%;background:var(--gold)"></div></div><div class="cmp-v" style="color:var(--gold)">16</div></div>
+        <div class="cmp-row"><div class="cmp-p">Febrero</div><div class="cmp-bar"><div class="cmp-fill" style="width:72%;background:var(--gold)"></div></div><div class="cmp-v" style="color:var(--gold)">18</div></div>
+        <div class="cmp-row"><div class="cmp-p">Marzo</div><div class="cmp-bar"><div class="cmp-fill" style="width:100%;background:var(--green)"></div></div><div class="cmp-v" style="color:var(--green)">25</div></div>
+      </div>
+      <div class="comp-card"><div style="font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:var(--ink-light);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:10px">Tasa calificación leads</div>
+        <div class="cmp-row"><div class="cmp-p">Enero</div><div class="cmp-bar"><div class="cmp-fill" style="width:57%;background:var(--red)"></div></div><div class="cmp-v" style="color:var(--red)">19%</div></div>
+        <div class="cmp-row"><div class="cmp-p">Febrero</div><div class="cmp-bar"><div class="cmp-fill" style="width:69%;background:var(--gold)"></div></div><div class="cmp-v" style="color:var(--gold)">23%</div></div>
+        <div class="cmp-row"><div class="cmp-p">Marzo</div><div class="cmp-bar"><div class="cmp-fill" style="width:75%;background:var(--green)"></div></div><div class="cmp-v" style="color:var(--green)">25%</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- D2 ROI -->
+<div class="screen">
+  <div class="smeta dir">
+    <div class="smeta-l"><span class="snum dir">D2</span><span class="sname">ROI de aurisIQ</span><span class="fl dir">Dirección</span></div>
+    <span class="snote">¿Cuánto generó aurisIQ este trimestre? — una sola pregunta, una respuesta clara</span>
+  </div>
+  <div class="nav dir">
+    <div class="logo dir">auris<em>IQ</em></div>
+    <div class="nl">Resumen</div><div class="nl on dir">ROI</div><div class="nl">Reportes</div><div class="nl">Cuenta</div>
+    <div class="nav-r"><div class="nav-ws">Immobili Internacional</div></div>
+  </div>
+  <div class="wrap">
+    <div class="sec-title">ROI de aurisIQ — Q1 2026</div>
+    <div class="sec-sub">Enero – Marzo 2026 · Metodología: antes/después con período de control</div>
+    <div class="roi-big">
+      <div style="font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(245,240,232,0.35);margin-bottom:14px">Impacto directo de aurisIQ</div>
+      <div class="roi-metric-row">
+        <div class="roi-metric"><div class="roi-metric-l">Captaciones adicionales vs Q4</div><div class="roi-metric-v" style="color:#6dba8c">+11</div><div class="roi-metric-d">Atribuidas a mejoras de proceso de ventas</div></div>
+        <div class="roi-metric"><div class="roi-metric-l">Captaciones atribuidas a agencia</div><div class="roi-metric-v" style="color:var(--gold)">+4</div><div class="roi-metric-d">Mejoras de segmentación en Meta via aurisIQ</div></div>
+        <div class="roi-metric"><div class="roi-metric-l">ROI calculado</div><div class="roi-metric-v" style="color:var(--dir)">8.4x</div><div class="roi-metric-d">vs inversión de $5,997 MXN en aurisIQ Q1</div></div>
+        <div class="roi-metric"><div class="roi-metric-l">Costo por captación</div><div class="roi-metric-v" style="color:var(--gold-light)">$1,840</div><div class="roi-metric-d">-22% vs $2,360 en Q4 2025</div></div>
+      </div>
+      <div style="background:rgba(61,122,82,0.12);border:1px solid rgba(61,122,82,0.25);border-radius:8px;padding:10px 14px;margin-top:6px">
+        <div style="font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#6dba8c;margin-bottom:5px">Metodología de atribución</div>
+        <div style="font-size:11px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.6);font-weight:300;line-height:1.6">Se compararon las captaciones de Q4 2025 (antes de aurisIQ) con Q1 2026 (con aurisIQ). Las 11 captaciones adicionales se atribuyen a mejoras de proceso detectadas en el análisis de llamadas. Las 4 captaciones adicionales de agencia se atribuyen a la optimización de audiencias en Meta basada en los reportes de calidad de leads de aurisIQ.</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="panel"><div class="ptitle">Inversión vs retorno</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--red-dim);border-radius:7px"><span style="font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink-light)">Inversión aurisIQ Q1</span><span style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--red)">-$5,997</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--green-dim);border-radius:7px"><span style="font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink-light)">Valor 15 captaciones adicionales</span><span style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--green)">+$50,400</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--gold-dim);border-radius:7px;border:1px solid rgba(200,168,75,0.2)"><span style="font-size:11px;font-family:'DM Sans',sans-serif;font-weight:500;color:var(--ink)">Retorno neto Q1</span><span style="font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--gold)">+$44,403</span></div>
+        </div>
+      </div>
+      <div class="panel"><div class="ptitle">Próxima renovación</div>
+        <div style="font-size:12px;font-family:'DM Sans',sans-serif;color:var(--ink);margin-bottom:10px;line-height:1.5">Plan Pro · $1,999 MXN/mes · Renovación automática el 1 Abr 2026</div>
+        <div style="padding:8px 12px;background:var(--green-dim);border-radius:7px;font-size:11px;font-family:'DM Sans',sans-serif;color:var(--green);line-height:1.5;margin-bottom:8px"><strong style="font-weight:600">Recomendación:</strong> Con 5 captadoras activas, considerar Plan Agency ($4,999) para vistas de rol completas y reportes de agencia automatizados.</div>
+        <button style="width:100%;background:var(--dir);color:white;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;padding:9px;border-radius:7px;border:none;cursor:pointer">Ver opciones de plan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- D3 REPORTES EJECUTIVOS -->
+<div class="screen">
+  <div class="smeta dir">
+    <div class="smeta-l"><span class="snum dir">D3</span><span class="sname">Reportes Ejecutivos</span><span class="fl dir">Dirección</span></div>
+    <span class="snote">Reportes mensuales y trimestrales para decisiones de alto nivel</span>
+  </div>
+  <div class="nav dir">
+    <div class="logo dir">auris<em>IQ</em></div>
+    <div class="nl">Resumen</div><div class="nl">ROI</div><div class="nl on dir">Reportes</div><div class="nl">Cuenta</div>
+    <div class="nav-r"><div class="nav-ws">Immobili Internacional</div></div>
+  </div>
+  <div class="wrap">
+    <div class="sec-title">Reportes Ejecutivos</div>
+    <div class="sec-sub">Para decisiones de presupuesto y estrategia — trimestral y mensual</div>
+    <div class="dir-rpt-card">
+      <div class="drc-header"><div><div class="drc-title">Reporte Trimestral Q1 2026</div><div class="drc-sub">Ene–Mar 2026 · 8 páginas · Dirección + Director de cuenta OptimizAds</div></div><span style="font-family:'Syne',sans-serif;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:4px;background:rgba(200,168,75,0.12);color:var(--dir)">Trimestral</span></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+        <div style="background:var(--cream-dark);border-radius:8px;padding:10px;text-align:center"><div style="font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:var(--ink-light);margin-bottom:4px">Mejora calificación</div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--green)">+6%</div><div style="font-size:10px;font-family:'DM Sans',sans-serif;color:var(--ink-light)">19% → 25%</div></div>
+        <div style="background:var(--cream-dark);border-radius:8px;padding:10px;text-align:center"><div style="font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:var(--ink-light);margin-bottom:4px">Captaciones adicionales</div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--dir)">+15</div><div style="font-size:10px;font-family:'DM Sans',sans-serif;color:var(--ink-light)">sin subir presupuesto</div></div>
+        <div style="background:var(--cream-dark);border-radius:8px;padding:10px;text-align:center"><div style="font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:var(--ink-light);margin-bottom:4px">ROI estimado</div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--gold)">8.4x</div><div style="font-size:10px;font-family:'DM Sans',sans-serif;color:var(--ink-light)">vs costo aurisIQ</div></div>
+      </div>
+      <div style="display:flex;gap:8px"><button style="background:var(--dir);color:white;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;padding:7px 14px;border-radius:6px;border:none;cursor:pointer">Ver reporte ejecutivo PDF</button><button style="background:var(--cream-dark);color:var(--ink-light);font-family:'Syne',sans-serif;font-size:10px;font-weight:700;padding:7px 14px;border-radius:6px;border:1px solid rgba(26,20,16,0.1);cursor:pointer">Metodología atribución</button></div>
+    </div>
+    <div class="dir-rpt-card">
+      <div class="drc-header"><div><div class="drc-title">Reporte Mensual — Marzo 2026</div><div class="drc-sub">Mar 2026 · 4 páginas · Dirección + Director de cuenta</div></div><span style="font-family:'Syne',sans-serif;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:4px;background:rgba(61,95,168,0.1);color:#3d5fa8">Mensual</span></div>
+      <div style="font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink-light);line-height:1.6;margin-bottom:10px">Embudo completo del mes, distribución de razones de descalificación, comparativa vs feb y vs promedio histórico, y 3 acciones recomendadas para el equipo de medios en lenguaje de campaña.</div>
+      <div style="display:flex;gap:8px"><button style="background:var(--gold);color:var(--ink);font-family:'Syne',sans-serif;font-size:10px;font-weight:700;padding:7px 14px;border-radius:6px;border:none;cursor:pointer">Ver reporte mensual PDF</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- D4 CUENTA -->
+<div class="screen">
+  <div class="smeta dir">
+    <div class="smeta-l"><span class="snum dir">D4</span><span class="sname">Configuración de Cuenta</span><span class="fl dir">Dirección</span></div>
+    <span class="snote">Usuarios y roles · suscripción · facturación</span>
+  </div>
+  <div class="nav dir">
+    <div class="logo dir">auris<em>IQ</em></div>
+    <div class="nl">Resumen</div><div class="nl">ROI</div><div class="nl">Reportes</div><div class="nl on dir">Cuenta</div>
+    <div class="nav-r"><div class="nav-ws">Immobili Internacional</div></div>
+  </div>
+  <div class="wrap">
+    <div class="sec-title">Configuración de cuenta</div>
+    <div class="sec-sub">Immobili Internacional · Plan Pro · Renovación 1 Abr 2026</div>
+    <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:14px">
+      <div>
+        <div class="panel" style="margin-bottom:12px">
+          <div class="ptitle">Usuarios activos <span class="ptitle-note">6 de 15 permitidos · Plan Pro</span></div>
+          <div class="user-row"><div class="u-av" style="background:#e8d08a">AN</div><div><div class="u-name">Anwar H.</div><div class="u-rol">Dirección · Dueño de cuenta</div></div><div class="u-actions"><button class="u-btn">Editar</button></div></div>
+          <div class="user-row"><div class="u-av" style="background:#d0e8d8">GM</div><div><div class="u-name">Gerente Inmobili</div><div class="u-rol">Gerente · Acceso completo</div></div><div class="u-actions"><button class="u-btn">Editar</button></div></div>
+          <div class="user-row"><div class="u-av" style="background:#d0dce8">OA</div><div><div class="u-name">OptimizAds</div><div class="u-rol">Agencia · Solo reportes de leads</div></div><div class="u-actions"><button class="u-btn">Editar</button></div></div>
+          <div class="user-row"><div class="u-av" style="background:#e8d0c8">ER</div><div><div class="u-name">Elizabeth R.</div><div class="u-rol">Captadora · Solo su vista</div></div><div class="u-actions"><button class="u-btn">Editar</button></div></div>
+          <button style="width:100%;background:transparent;border:1px dashed rgba(26,20,16,0.2);border-radius:7px;padding:8px;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--ink-light);cursor:pointer;margin-top:4px">+ Agregar usuario</button>
+        </div>
+      </div>
+      <div>
+        <div class="panel" style="margin-bottom:12px">
+          <div class="ptitle">Suscripción</div>
+          <div style="background:var(--gold-dim);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+            <div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--ink)">Plan Pro</div>
+            <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--gold)">$1,999 <span style="font-size:12px;font-weight:400">MXN/mes</span></div>
+            <div style="font-size:10px;font-family:'DM Sans',sans-serif;color:var(--ink-light);margin-top:3px">Próxima renovación: 1 Abr 2026</div>
+          </div>
+          <div style="font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink-light);line-height:1.8">✓ Hasta 15 usuarios · ✓ 200 análisis/mes<br>✓ 4 vistas por rol · ✓ Reportes de agencia<br>✓ Checklist de calificación · ✓ Historial ilimitado</div>
+          <div style="margin-top:10px;display:flex;gap:6px">
+            <button style="flex:1;background:var(--dir);color:white;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;padding:7px;border-radius:6px;border:none;cursor:pointer">Ver planes</button>
+            <button style="flex:1;background:var(--cream-dark);color:var(--ink-light);font-family:'Syne',sans-serif;font-size:10px;font-weight:700;padding:7px;border-radius:6px;border:1px solid rgba(26,20,16,0.1);cursor:pointer">Facturación</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================================================
+     VISTA 4 — AGENCIA
+================================================== -->
+<div class="rol-sep">
+  <div class="rol-line agt"></div>
+  <div class="rol-badge agt">📊 Vista 4 — Agencia</div>
+  <div class="rol-line agt"></div>
+</div>
+
+<!-- A1 DASHBOARD -->
+<div class="screen">
+  <div class="smeta agt">
+    <div class="smeta-l"><span class="snum agt">A1</span><span class="sname">Dashboard de Calidad de Leads</span><span class="fl agt">Agencia</span></div>
+    <span class="snote">Sin scores de captadoras · razones con nombre real · recomendaciones accionables para Meta</span>
+  </div>
+  <div class="nav agt">
+    <div class="logo agt">auris<em>IQ</em></div>
+    <div class="nl on agt">Dashboard</div><div class="nl">Reportes</div><div class="nl">Alertas</div>
+    <div class="nav-r"><div class="nav-ws">Immobili — OptimizAds</div></div>
+  </div>
+  <div class="cnote agt">
+    <span style="font-size:13px;flex-shrink:0;margin-top:1px">🎯</span>
+    <div class="cnote-t" style="color:var(--agt)"><strong>Vista exclusiva OptimizAds.</strong> Sin datos del equipo de ventas. Solo inteligencia de leads para optimizar campañas.</div>
+  </div>
+  <div class="wrap">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:14px">
+      <div><div class="sec-title">Calidad de leads — Immobili</div><div class="sec-sub" style="margin-bottom:0">Semana 17–24 Mar · 47 de 62 llamadas analizadas (76%)</div></div>
+      <button style="background:var(--teal);color:white;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;padding:8px 16px;border-radius:8px;border:none;cursor:pointer">Ver reporte PDF</button>
+    </div>
+    <div style="background:rgba(61,122,82,0.08);border:1px solid rgba(200,168,75,0.2);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:flex-start;gap:8px">
+      <span style="font-size:14px">⚡</span>
+      <div style="font-size:11px;font-family:'DM Sans',sans-serif;color:var(--teal);line-height:1.5"><strong style="font-weight:600">Alerta proactiva:</strong> 61% de leads últimos 3 días sin Infonavit activo. Patrón 3 semanas. Recomendación inmediata: anuncio educativo "¿Ya usaste tu Infonavit?"</div>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi-card"><div class="kpi-l">Leads analizados</div><div class="kpi-v">47</div><div class="kpi-d n">de 62 llamadas</div></div>
+      <div class="kpi-card"><div class="kpi-l">Calificados</div><div class="kpi-v" style="color:var(--green)">31%</div><div class="kpi-d dn">-4% vs sem. ant.</div></div>
+      <div class="kpi-card"><div class="kpi-l">Descalificados</div><div class="kpi-v" style="color:var(--red)">69%</div><div class="kpi-d dn">+4% — revisar</div></div>
+      <div class="kpi-card hl"><div class="kpi-l" style="color:var(--teal)">Mejor fuente</div><div class="kpi-v" style="color:var(--teal);font-size:14px">Meta Infonavit</div><div class="kpi-d tl">45% calificados</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:12px">
+      <div style="background:var(--ink);border-radius:10px;padding:16px">
+        <div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:rgba(245,240,232,0.4);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Razones de descalificación</div>
+        <div style="font-size:10px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.25);margin-bottom:14px">32 descalificados de 47 analizados</div>
+        <div class="dbar-row"><div class="dbar-l">Sin crédito Infonavit activo</div><div class="dbar"><div class="dbar-fill" style="width:38%;background:var(--red)"></div></div><div class="dbar-pct">38%</div></div>
+        <div class="dbar-frase">"Mi Infonavit ya lo usé cuando compré esta casa"</div>
+        <div class="dbar-row"><div class="dbar-l">Propietario no negocia precio</div><div class="dbar"><div class="dbar-fill" style="width:24%;background:var(--orange)"></div></div><div class="dbar-pct">24%</div></div>
+        <div class="dbar-frase">"Yo sé cuánto vale mi casa, no la voy a dar regalada"</div>
+        <div class="dbar-row"><div class="dbar-l">Propiedad fuera de zona</div><div class="dbar"><div class="dbar-fill" style="width:18%;background:var(--gold)"></div></div><div class="dbar-pct">18%</div></div>
+        <div class="dbar-frase">"Estoy en Ecatepec pero vi el anuncio"</div>
+        <div class="dbar-row"><div class="dbar-l">Ya tiene agente activo</div><div class="dbar"><div class="dbar-fill" style="width:13%;background:rgba(200,168,75,0.5)"></div></div><div class="dbar-pct">13%</div></div>
+        <div class="dbar-frase">"Ya estoy trabajando con alguien pero no ha vendido"</div>
+        <div style="background:rgba(255,255,255,0.04);border-radius:6px;padding:10px 12px;margin-top:6px">
+          <div style="font-size:9px;font-family:'Syne',sans-serif;font-weight:700;color:rgba(245,240,232,0.3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Calificación por fuente</div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <div style="display:flex;align-items:center;gap:8px"><div style="font-size:10px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.6);flex:1">Meta Ads — Campaña Infonavit</div><div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#6dba8c">45%</div></div>
+            <div style="display:flex;align-items:center;gap:8px"><div style="font-size:10px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.6);flex:1">WhatsApp orgánico</div><div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--gold)">31%</div></div>
+            <div style="display:flex;align-items:center;gap:8px"><div style="font-size:10px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.6);flex:1">Meta Ads — Campaña General</div><div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#e88080">18%</div></div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="panel">
+          <div class="ptitle">Recomendaciones para Meta</div>
+          <div class="rec-item u"><span class="rec-lbl tl">Acción urgente</span>Crear anuncio educativo "¿Ya usaste tu Infonavit?". Excluir audiencia "primera vivienda" en Adset Propietarios CDMX.</div>
+          <div class="rec-item m"><span class="rec-lbl bl">Optimización</span>Reducir presupuesto Campaña General (-55% desc.). Reasignar a Campaña Infonavit (45% calif.).</div>
+          <div class="rec-item m"><span class="rec-lbl bl">Lookalike</span>Crear audiencia similar basada en los 15 leads calificados de esta semana.</div>
+        </div>
+        <div class="panel">
+          <div class="ptitle">Reportes disponibles</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--teal-dim);border-radius:7px"><span>📧</span><div style="flex:1"><div style="font-size:11px;font-weight:500;font-family:'DM Sans',sans-serif;color:var(--ink)">Reporte semanal — 23 Mar</div><div style="font-size:9px;font-family:'DM Sans',sans-serif;color:var(--ink-light)">gerente@optimizads.agency · 1 pág.</div></div><button style="font-size:9px;font-family:'Syne',sans-serif;font-weight:700;padding:3px 9px;border-radius:5px;border:none;background:var(--teal);color:white;cursor:pointer">Ver</button></div>
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--cream-dark);border-radius:7px"><span>📄</span><div style="flex:1"><div style="font-size:11px;font-weight:500;font-family:'DM Sans',sans-serif;color:var(--ink)">Reporte mensual — 1 Mar</div><div style="font-size:9px;font-family:'DM Sans',sans-serif;color:var(--ink-light)">Frases textuales · 3 acciones · 3 pág.</div></div><button style="font-size:9px;font-family:'Syne',sans-serif;font-weight:700;padding:3px 9px;border-radius:5px;border:1px solid rgba(26,20,16,0.1);background:var(--cream-dark);color:var(--ink-light);cursor:pointer">PDF</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- A2 REPORTES PDF AGENCIA -->
+<div class="screen">
+  <div class="smeta agt">
+    <div class="smeta-l"><span class="snum agt">A2</span><span class="sname">Reportes</span><span class="fl agt">Agencia</span></div>
+    <span class="snote">Historial de reportes enviados · misma estructura semanal y mensual · diferente temporalidad</span>
+  </div>
+  <div class="nav agt">
+    <div class="logo agt">auris<em>IQ</em></div>
+    <div class="nl">Dashboard</div><div class="nl on agt">Reportes</div><div class="nl">Alertas</div>
+    <div class="nav-r"><div class="nav-ws">Immobili — OptimizAds</div></div>
+  </div>
+  <div class="cnote agt">
+    <span style="font-size:13px;flex-shrink:0;margin-top:1px">📄</span>
+    <div class="cnote-t" style="color:var(--agt)"><strong>Estructura común de todos los reportes:</strong> cobertura → tasa de calificación → razones con frases textuales → calificación por fuente → recomendaciones. El semanal es 1 pág., el mensual es 3 págs. con frases textuales y tendencias históricas.</div>
+  </div>
+  <div class="wrap">
+    <div class="sec-title">Historial de reportes</div>
+    <div class="sec-sub">Immobili Internacional · 14 reportes desde Mar 2026</div>
+
+    <!-- Preview reporte semanal como PDF -->
+    <div class="pdf-section">
+      <div class="pdf-header">
+        <div><div class="pdf-title">Vista previa — Reporte Semanal 23 Mar</div><div class="pdf-sub">1 página · Email HTML + PDF descargable · Enviado a gerente@optimizads.agency</div></div>
+        <div class="pdf-logo">auris<em>IQ</em></div>
+      </div>
+      <div class="agt-rpt">
+        <div class="agt-rpt-h"><div><div class="agt-rpt-t">Reporte de Calidad de Leads — Semana 17–24 Mar 2026</div><div class="agt-rpt-d">Immobili Internacional · Generado por aurisIQ · Base: 47 de 62 llamadas (76%)</div></div></div>
+        <div class="agt-kpi-row">
+          <div class="agt-kpi"><div class="agt-kpi-l">Tasa calificación</div><div class="agt-kpi-v">31%</div><div class="agt-kpi-d dn">-4% vs sem. ant.</div></div>
+          <div class="agt-kpi"><div class="agt-kpi-l">Razón principal desc.</div><div class="agt-kpi-v" style="font-size:12px;padding-top:4px">Sin Infonavit activo</div><div class="agt-kpi-d dn">38% de descalificados</div></div>
+          <div class="agt-kpi"><div class="agt-kpi-l">Mejor fuente</div><div class="agt-kpi-v" style="font-size:12px;padding-top:4px">Meta Infonavit</div><div class="agt-kpi-d up">45% calificación</div></div>
+        </div>
+        <div style="background:rgba(61,122,82,0.1);border:1px solid rgba(200,168,75,0.2);border-radius:7px;padding:8px 12px;margin-top:6px">
+          <div style="font-family:'Syne',sans-serif;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(200,168,75,0.8);margin-bottom:3px">Observación Claude</div>
+          <div style="font-size:11px;font-family:'DM Sans',sans-serif;color:rgba(245,240,232,0.7);line-height:1.5">El 38% de leads descalificados no tiene crédito Infonavit activo — patrón consistente por 3ª semana. Los prospectos creen que el Infonavit es de uso único. Recomendación: anuncio educativo dirigido a propietarios con Infonavit ya usado.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button style="background:var(--teal);color:white;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;padding:7px 14px;border-radius:6px;border:none;cursor:pointer">Descargar PDF</button>
+        <button style="background:var(--cream-dark);color:var(--ink-light);font-family:'Syne',sans-serif;font-size:10px;font-weight:700;padding:7px 14px;border-radius:6px;border:1px solid rgba(26,20,16,0.1);cursor:pointer">Ver historial</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- A3 ALERTAS -->
+<div class="screen">
+  <div class="smeta agt">
+    <div class="smeta-l"><span class="snum agt">A3</span><span class="sname">Alertas Proactivas</span><span class="fl agt">Agencia</span></div>
+    <span class="snote">No esperan al reporte semanal · historial · marcar como atendidas</span>
+  </div>
+  <div class="nav agt">
+    <div class="logo agt">auris<em>IQ</em></div>
+    <div class="nl">Dashboard</div><div class="nl">Reportes</div><div class="nl on agt">Alertas</div>
+    <div class="nav-r"><div class="nav-ws">Immobili — OptimizAds</div></div>
+  </div>
+  <div class="wrap">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div><div class="sec-title">Alertas proactivas</div><div class="sec-sub" style="margin-bottom:0">7 alertas en total · 2 pendientes</div></div>
+      <div style="display:flex;gap:5px">
+        <div style="font-size:10px;font-weight:500;font-family:'DM Sans',sans-serif;padding:4px 11px;border-radius:5px;background:var(--cream-dark);color:var(--ink-light);cursor:pointer">Todas</div>
+        <div style="font-size:10px;font-weight:500;font-family:'DM Sans',sans-serif;padding:4px 11px;border-radius:5px;background:var(--teal-dim);color:var(--teal);cursor:pointer">Pendientes (2)</div>
+      </div>
+    </div>
+    <div class="alert-row active">
+      <div class="ar-icon">🔴</div>
+      <div class="ar-body">
+        <div class="ar-title">Sin crédito Infonavit activo — 3ª semana consecutiva</div>
+        <div class="ar-text">El 38% de leads descalificados esta semana no tiene Infonavit activo. Las frases recurrentes indican que los prospectos creen que el Infonavit es de uso único.</div>
+        <div style="margin-top:6px;padding:6px 10px;background:rgba(61,122,82,0.08);border-radius:5px;font-size:10px;font-family:'DM Sans',sans-serif;color:var(--teal);line-height:1.5"><strong style="font-weight:600">Acción recomendada:</strong> Crear anuncio educativo. Excluir audiencia "primera vivienda".</div>
+        <div class="ar-meta">Detectado: Mié 24 Mar · 10:32 AM · Base: 47 análisis</div>
+      </div>
+      <div class="ar-actions"><button class="ar-btn mark">Marcar atendida</button><button class="ar-btn view">Ver en dashboard</button></div>
+    </div>
+    <div class="alert-row active">
+      <div class="ar-icon">🟡</div>
+      <div class="ar-body">
+        <div class="ar-title">Campaña General — baja calificación sostenida</div>
+        <div class="ar-text">Meta Ads Campaña General: 18% calificación vs 45% de Campaña Infonavit. Brecha se amplió desde febrero. 55% de descalificados de Campaña General vienen de fuera de zona.</div>
+        <div class="ar-meta">Detectado: Mar 23 Mar · 9:15 AM · Tendencia 3 semanas</div>
+      </div>
+      <div class="ar-actions"><button class="ar-btn mark">Marcar atendida</button><button class="ar-btn view">Ver tendencia</button></div>
+    </div>
+    <div class="alert-row done">
+      <div class="ar-icon">✅</div>
+      <div class="ar-body">
+        <div class="ar-title">Fuera de zona — pico del 28% de descalificados</div>
+        <div class="ar-text">Pico puntual la sem. del 10 Mar, no sostenido.</div>
+        <div style="margin-top:4px;font-size:10px;font-family:'DM Sans',sans-serif;color:var(--teal)">✅ Atendida 11 Mar — Se ajustó segmentación geográfica. Bajó al 18% la semana siguiente.</div>
+        <div class="ar-meta">Detectado: Lun 10 Mar · Atendida: Mar 11 Mar</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end screens -->
+</body>
+</html>
