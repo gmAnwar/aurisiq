@@ -40,10 +40,7 @@ export default function AuthNav() {
         setRole(data.role);
         setUserName(data.name || "");
         setUserEmail(data.email || session.user.email || "");
-        document.body.classList.add("has-nav");
-        if (["gerente", "direccion", "super_admin"].includes(data.role)) {
-          document.body.classList.add("has-sidebar");
-        }
+        document.body.classList.add("has-nav", "has-sidebar");
       }
     }
 

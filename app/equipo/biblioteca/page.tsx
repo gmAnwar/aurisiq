@@ -9,14 +9,26 @@ interface SpeechPhase {
   phrases: string[];
 }
 
+interface FunnelStage {
+  id: string;
+  name: string;
+}
+
+interface SpeechData {
+  phases: SpeechPhase[];
+  versionNum: number;
+  updatedAt: string | null;
+}
+
 export default function BibliotecaPage() {
-  const [phases, setPhases] = useState<SpeechPhase[]>([]);
+  const [stages, setStages] = useState<FunnelStage[]>([]);
+  const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
+  const [speechByStage, setSpeechByStage] = useState<Record<string, SpeechData>>({});
   const [editing, setEditing] = useState(false);
   const [editPhases, setEditPhases] = useState<SpeechPhase[]>([]);
-  const [versionNum, setVersionNum] = useState(0);
-  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [scorecardId, setScorecardId] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [scorecardPhases, setScorecardPhases] = useState<{ phase_name: string }[]>([]);
   const [files, setFiles] = useState<{ name: string; created_at: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState("");
@@ -31,31 +43,48 @@ export default function BibliotecaPage() {
       const me = { organization_id: session.organizationId };
       setOrgId(me.organization_id);
 
-      const { data: sc } = await supabase.from("scorecards").select("id, phases, name")
-        .or(`organization_id.eq.${me.organization_id},organization_id.is.null`)
-        .eq("active", true).order("organization_id", { ascending: false, nullsFirst: false }).limit(1).single();
+      const [scRes, stagesRes] = await Promise.all([
+        supabase.from("scorecards").select("id, phases, name")
+          .or(`organization_id.eq.${me.organization_id},organization_id.is.null`)
+          .eq("active", true).order("organization_id", { ascending: false, nullsFirst: false }).limit(1).single(),
+        supabase.from("funnel_stages").select("id, name")
+          .eq("organization_id", me.organization_id).order("order_index"),
+      ]);
 
+      const sc = scRes.data;
       if (!sc) { setLoading(false); return; }
       setScorecardId(sc.id);
+      const scPhases = (sc.phases || []) as { phase_name: string }[];
+      setScorecardPhases(scPhases);
 
-      // Get published speech version
-      const { data: sv } = await supabase.from("speech_versions")
-        .select("id, content, version_number, updated_at")
-        .eq("scorecard_id", sc.id).eq("published", true).limit(1).single();
+      const funnelStages = stagesRes.data || [];
+      setStages(funnelStages);
 
-      const scorecardPhases = (sc.phases || []) as { phase_name: string }[];
+      // Load ALL published speech versions for this scorecard
+      const { data: allSpeech } = await supabase.from("speech_versions")
+        .select("id, content, version_number, updated_at, funnel_stage_id")
+        .eq("scorecard_id", sc.id).eq("published", true);
 
-      if (sv && sv.content) {
+      const byStage: Record<string, SpeechData> = {};
+      for (const sv of allSpeech || []) {
+        const key = sv.funnel_stage_id || "_global";
         const content = sv.content as Record<string, string[]>;
-        const phaseList: SpeechPhase[] = scorecardPhases.map(sp => ({
-          phase_name: sp.phase_name,
-          phrases: content[sp.phase_name] || [],
-        }));
-        setPhases(phaseList);
-        setVersionNum(sv.version_number);
-        setUpdatedAt(sv.updated_at);
+        byStage[key] = {
+          phases: scPhases.map(sp => ({
+            phase_name: sp.phase_name,
+            phrases: content[sp.phase_name] || [],
+          })),
+          versionNum: sv.version_number,
+          updatedAt: sv.updated_at,
+        };
+      }
+      setSpeechByStage(byStage);
+
+      // Default: select first stage, or global if no stages
+      if (funnelStages.length > 0) {
+        setSelectedStageId(funnelStages[0].id);
       } else {
-        setPhases(scorecardPhases.map(sp => ({ phase_name: sp.phase_name, phrases: [] })));
+        setSelectedStageId("_global");
       }
 
       // Load files from storage
@@ -68,6 +97,12 @@ export default function BibliotecaPage() {
     }
     load();
   }, []);
+
+  const currentSpeech = selectedStageId ? speechByStage[selectedStageId] : null;
+  const currentPhases = currentSpeech?.phases || scorecardPhases.map(sp => ({ phase_name: sp.phase_name, phrases: [] }));
+  const currentVersion = currentSpeech?.versionNum || 0;
+  const currentUpdated = currentSpeech?.updatedAt || null;
+  const selectedStageName = stages.find(s => s.id === selectedStageId)?.name || "Global";
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -89,7 +124,7 @@ export default function BibliotecaPage() {
   };
 
   const startEdit = () => {
-    setEditPhases(phases.map(p => ({ ...p, phrases: [...p.phrases] })));
+    setEditPhases(currentPhases.map(p => ({ ...p, phrases: [...p.phrases] })));
     setEditing(true);
   };
 
@@ -115,7 +150,7 @@ export default function BibliotecaPage() {
   };
 
   const publish = async () => {
-    if (!scorecardId || !orgId) return;
+    if (!scorecardId || !orgId || !selectedStageId) return;
     setSaving(true);
 
     const content: Record<string, string[]> = {};
@@ -123,24 +158,35 @@ export default function BibliotecaPage() {
       content[p.phase_name] = p.phrases.filter(ph => ph.trim().length > 0);
     }
 
-    // Unpublish existing
-    await supabase.from("speech_versions")
+    const stageFilter = selectedStageId === "_global" ? null : selectedStageId;
+
+    // Unpublish existing for this stage
+    let unpublishQuery = supabase.from("speech_versions")
       .update({ published: false })
       .eq("scorecard_id", scorecardId).eq("published", true);
+    if (stageFilter) {
+      unpublishQuery = unpublishQuery.eq("funnel_stage_id", stageFilter);
+    } else {
+      unpublishQuery = unpublishQuery.is("funnel_stage_id", null);
+    }
+    await unpublishQuery;
 
-    const newVersion = versionNum + 1;
+    const newVersion = currentVersion + 1;
     await supabase.from("speech_versions").insert({
       organization_id: orgId,
       scorecard_id: scorecardId,
+      funnel_stage_id: stageFilter,
       content,
       version_number: newVersion,
       published: true,
       created_by: (await supabase.auth.getSession()).data.session?.user.id,
     });
 
-    setPhases(editPhases.map(p => ({ ...p, phrases: content[p.phase_name] || [] })));
-    setVersionNum(newVersion);
-    setUpdatedAt(new Date().toISOString());
+    const newPhases = editPhases.map(p => ({ ...p, phrases: content[p.phase_name] || [] }));
+    setSpeechByStage(prev => ({
+      ...prev,
+      [selectedStageId]: { phases: newPhases, versionNum: newVersion, updatedAt: new Date().toISOString() },
+    }));
     setEditing(false);
     setSaving(false);
   };
@@ -164,16 +210,33 @@ export default function BibliotecaPage() {
         <div className="g1-header">
           <h1 className="g1-title">Biblioteca y Speech Ideal</h1>
           <p className="g1-subtitle">
-            {versionNum > 0
-              ? `Versión ${versionNum} — ${new Date(updatedAt!).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}`
-              : "Sin versión publicada aún"}
+            {currentVersion > 0
+              ? `${selectedStageName} — Versión ${currentVersion} — ${new Date(currentUpdated!).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}`
+              : `${selectedStageName} — Sin versión publicada aún`}
           </p>
         </div>
+
+        {/* Stage tabs */}
+        {stages.length > 0 && (
+          <div className="g5-stage-tabs">
+            {stages.map(stage => (
+              <button
+                key={stage.id}
+                className={`g5-stage-tab ${selectedStageId === stage.id ? "g5-stage-tab-active" : ""}`}
+                onClick={() => { if (!editing) setSelectedStageId(stage.id); }}
+                disabled={editing}
+              >
+                {stage.name}
+                {speechByStage[stage.id] && <span className="g5-tab-dot" />}
+              </button>
+            ))}
+          </div>
+        )}
 
         {!editing ? (
           <>
             <div className="c5-phases">
-              {phases.map((p, i) => (
+              {currentPhases.map((p, i) => (
                 <div key={i} className="c5-phase-card">
                   <h3 className="c5-phase-name">{p.phase_name}</h3>
                   {p.phrases.length > 0 ? (
@@ -187,7 +250,7 @@ export default function BibliotecaPage() {
               ))}
             </div>
             <button className="btn-submit" style={{ marginTop: 24 }} onClick={startEdit}>
-              Editar speech ideal
+              Editar speech de {selectedStageName}
             </button>
           </>
         ) : (
@@ -218,7 +281,7 @@ export default function BibliotecaPage() {
             </div>
             <div className="g5-edit-actions">
               <button className="btn-submit" onClick={publish} disabled={saving}>
-                {saving ? "Publicando..." : "Publicar nueva versión"}
+                {saving ? "Publicando..." : `Publicar — ${selectedStageName}`}
               </button>
               <button className="g5-cancel-btn" onClick={() => setEditing(false)}>Cancelar</button>
             </div>

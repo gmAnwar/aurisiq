@@ -52,7 +52,7 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
   ],
 };
 
-const SIDEBAR_ROLES = ["gerente", "direccion", "super_admin"];
+const SIDEBAR_ROLES = ["captadora", "gerente", "direccion", "agencia", "super_admin"];
 
 const roleLabels: Record<string, string> = {
   captadora: "Captadora",

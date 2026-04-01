@@ -121,6 +121,14 @@ async function getScorecard(env, scorecardId) {
   return rows[0];
 }
 
+async function getDescalCategories(env, orgId) {
+  return supabaseSelect(
+    env,
+    'descalification_categories',
+    `organization_id=eq.${orgId}&select=code,label&order=code`
+  );
+}
+
 async function getOrgPlan(env, orgId) {
   const rows = await supabaseSelect(
     env,
@@ -155,6 +163,9 @@ async function callClaude(env, systemPrompt, userMessage) {
   }
 
   const data = await res.json();
+  if (!data.content || !data.content[0] || !data.content[0].text) {
+    throw new Error('Claude returned empty content');
+  }
   return data.content[0].text;
 }
 
@@ -169,6 +180,7 @@ function parseClaudeOutput(rawText) {
     objecion_principal: null,
     siguiente_accion: null,
     lead_status: null,
+    descalificacion: [],
     phases: [],
   };
 
@@ -220,6 +232,15 @@ function parseClaudeOutput(rawText) {
     /Estado del lead:\s*(converted|lost_captadora|lost_external|pending)/i
   );
   if (leadMatch) result.lead_status = leadMatch[1].toLowerCase();
+
+  // Descalification — parse JSON array from Claude output
+  const descalMatch = rawText.match(/DESCALIFICACION:\s*(\[.*?\])/i);
+  if (descalMatch) {
+    try {
+      const arr = JSON.parse(descalMatch[1]);
+      if (Array.isArray(arr)) result.descalificacion = arr.map(s => String(s).trim()).filter(Boolean).slice(0, 3);
+    } catch { /* ignore parse errors, keep empty */ }
+  }
 
   // Strip JSON artifacts from all text fields
   const cleanField = (t) => {
@@ -352,7 +373,15 @@ async function processAnalysis(env, analysisId, body, scorecard) {
   const { transcription, user_id, organization_id } = body;
 
   try {
-    const rawOutput = await callClaude(env, scorecard.prompt_template, transcription);
+    // Fetch org descalification catalog to inject into prompt
+    const descalCats = await getDescalCategories(env, organization_id);
+    let promptWithDescal = scorecard.prompt_template;
+    if (descalCats.length > 0) {
+      const catList = descalCats.map(c => `- ${c.code}: ${c.label}`).join('\n');
+      promptWithDescal += `\n\n---\nDESCALIFICACION DE LEADS\nAnaliza la transcripción y determina si el lead fue descalificado. Usa SOLO los siguientes códigos del catálogo de la organización:\n${catList}\n\nAl final de tu respuesta, incluye una línea con el formato:\nDESCALIFICACION: ["codigo1", "codigo2"]\nSi el lead calificó (no hay razón de descalificación), escribe:\nDESCALIFICACION: []\nMáximo 3 códigos. Usa SOLO códigos del catálogo anterior.`;
+    }
+
+    const rawOutput = await callClaude(env, promptWithDescal, transcription);
     const parsed = parseClaudeOutput(rawOutput);
     const phasesWithIds = matchPhaseIds(parsed.phases, scorecard.phases || []);
 
@@ -377,6 +406,10 @@ async function processAnalysis(env, analysisId, body, scorecard) {
       body.avanzo_a_siguiente_etapa || 'pending'
     );
 
+    // Validate descalification slugs against the org catalog
+    const validCodes = new Set(descalCats.map(c => c.code));
+    const validDescal = parsed.descalificacion.filter(code => validCodes.has(code));
+
     await supabaseUpdate(env, 'analyses', 'id', analysisId, {
       score_general: parsed.score_general !== null ? Math.min(parsed.score_general, 100) : null,
       clasificacion: parsed.clasificacion,
@@ -385,6 +418,7 @@ async function processAnalysis(env, analysisId, body, scorecard) {
       objecion_principal: parsed.objecion_principal,
       siguiente_accion: parsed.siguiente_accion,
       conversion_discrepancy: discrepancy,
+      categoria_descalificacion: validDescal.length > 0 ? validDescal : [],
       status: 'completado',
     });
 
@@ -445,7 +479,7 @@ async function handleSubmit(body, env, ctx, origin) {
     fuente_lead_id: body.fuente_lead_id || null,
     prospect_identifier: body.prospect_identifier || null,
     avanzo_a_siguiente_etapa: body.avanzo_a_siguiente_etapa || 'pending',
-    categoria_descalificacion: body.categoria_descalificacion || null,
+    categoria_descalificacion: [],
     status: 'procesando',
   });
 

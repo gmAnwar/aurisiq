@@ -170,8 +170,9 @@ export default function MiDiaPage() {
           )}
         </div>
       ) : (
-        <div className="c1-activity c1-no-objective">
-          <p>Tu gerente aún no ha configurado tu objetivo del mes.</p>
+        <div className="c1-no-objective-card">
+          <p className="c1-no-objective-text">Tu gerente aún no ha configurado tu objetivo del mes</p>
+          <p className="c1-no-objective-hint">Mientras tanto, sigue grabando llamadas para mejorar tu score</p>
         </div>
       )}
 
@@ -207,22 +208,18 @@ export default function MiDiaPage() {
           <div className="c4-list">
             {last5.map((a) => {
               const time = new Date(a.created_at).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
-              const primaryDescal = a.categoria_descalificacion?.[0];
-              const secondaryDescal = a.categoria_descalificacion?.slice(1) || [];
+              const codes = a.categoria_descalificacion || [];
+              const hasDescal = codes.length > 0;
+              const reasonLabel = hasDescal
+                ? codes.map(c => descalMap[c] || c).join(", ")
+                : "Lead calificado";
               return (
                 <a key={a.id} href={`/analisis/${a.id}`} className="c4-item">
                   <div className="c4-item-left">
                     <span className="c4-item-date">{time}</span>
-                    <span className="c4-item-source">
-                      {primaryDescal
-                        ? descalMap[primaryDescal] || "Razón no reconocida"
-                        : "Lead calificado"}
+                    <span className={`c4-item-source ${hasDescal ? "c1-descal-reason" : ""}`}>
+                      {reasonLabel}
                     </span>
-                    {secondaryDescal.length > 0 && (
-                      <span className="c1-secondary-descal">
-                        {secondaryDescal.map(c => descalMap[c] || "Razón no reconocida").join(", ")}
-                      </span>
-                    )}
                   </div>
                   <div className="c4-item-right">
                     {a.score_general !== null && (

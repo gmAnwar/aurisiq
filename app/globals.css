@@ -1325,20 +1325,34 @@ body.has-nav {
   text-align: center;
 }
 
-.c1-no-objective {
+.c1-no-objective-card {
+  padding: 20px 16px;
+  background: #f5efe6;
+  border-radius: 10px;
   text-align: center;
-  color: var(--ink-light);
-  font-size: 12px;
-  font-family: 'DM Sans', sans-serif;
-  font-weight: 300;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
 }
 
-.c1-secondary-descal {
-  font-size: 10px;
+.c1-no-objective-text {
+  font-size: 14px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.c1-no-objective-hint {
+  font-size: 12px;
   font-family: 'DM Sans', sans-serif;
   color: var(--ink-light);
-  font-weight: 300;
-  display: block;
+  font-weight: 400;
+}
+
+.c1-descal-reason {
+  color: var(--red, #c0392b);
 }
 
 /* C4 best call — dark card */
@@ -2171,6 +2185,60 @@ body.has-nav {
   gap: 10px;
   margin-top: 16px;
   align-items: center;
+}
+
+/* G5 — Stage tabs */
+.g5-stage-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.g5-stage-tabs::-webkit-scrollbar { display: none; }
+
+.g5-stage-tab {
+  position: relative;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-light);
+  background: var(--cream-dark);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+
+.g5-stage-tab:hover { background: #e0d8ca; }
+
+.g5-stage-tab-active {
+  background: var(--ink);
+  color: var(--cream);
+  font-weight: 600;
+}
+
+.g5-stage-tab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.g5-tab-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--gold);
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
+.g5-stage-tab-active .g5-tab-dot {
+  background: var(--gold);
 }
 
 .g5-cancel-btn {

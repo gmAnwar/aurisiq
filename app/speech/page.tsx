@@ -9,72 +9,77 @@ interface PhaseGroup {
   phrases: string[];
 }
 
+interface FunnelStage {
+  id: string;
+  name: string;
+}
+
+interface StageSpeech {
+  phases: PhaseGroup[];
+  versionNumber: number;
+  lastUpdated: string | null;
+}
+
 export default function SpeechPage() {
-  const [phases, setPhases] = useState<PhaseGroup[]>([]);
+  const [stages, setStages] = useState<FunnelStage[]>([]);
+  const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
+  const [speechByStage, setSpeechByStage] = useState<Record<string, StageSpeech>>({});
+  const [scorecardPhaseNames, setScorecardPhaseNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const [versionNumber, setVersionNumber] = useState<number | null>(null);
 
   useEffect(() => {
     async function load() {
       const session = await requireAuth(["captadora", "super_admin"]);
       if (!session) return;
 
-      // Get active scorecard
-      const { data: scorecards } = await supabase
-        .from("scorecards")
-        .select("id, phases")
-        .or(`organization_id.eq.${session.organizationId},organization_id.is.null`)
-        .eq("active", true)
-        .order("organization_id", { ascending: false, nullsFirst: false })
-        .limit(1);
+      const [scRes, stagesRes] = await Promise.all([
+        supabase.from("scorecards").select("id, phases")
+          .or(`organization_id.eq.${session.organizationId},organization_id.is.null`)
+          .eq("active", true)
+          .order("organization_id", { ascending: false, nullsFirst: false })
+          .limit(1),
+        supabase.from("funnel_stages").select("id, name")
+          .eq("organization_id", session.organizationId).order("order_index"),
+      ]);
 
-      const scorecard = scorecards?.[0];
+      const scorecard = scRes.data?.[0];
       if (!scorecard) { setLoading(false); return; }
 
-      const scorecardPhases: string[] = (scorecard.phases || []).map((sp: { phase_name: string }) => sp.phase_name);
+      const phaseNames: string[] = (scorecard.phases || []).map((sp: { phase_name: string }) => sp.phase_name);
+      setScorecardPhaseNames(phaseNames);
 
-      // Only source: published speech_version from gerente
-      const { data: published } = await supabase
-        .from("speech_versions")
-        .select("id, content, version_number, updated_at")
+      const funnelStages = stagesRes.data || [];
+      setStages(funnelStages);
+
+      // Load all published speech versions
+      const { data: allSpeech } = await supabase.from("speech_versions")
+        .select("id, content, version_number, updated_at, funnel_stage_id")
         .eq("scorecard_id", scorecard.id)
-        .eq("published", true)
-        .order("version_number", { ascending: false })
-        .limit(1);
+        .eq("published", true);
 
-      const sv = published?.[0];
-
-      if (sv && sv.content) {
-        setVersionNumber(sv.version_number);
-        setLastUpdated(sv.updated_at);
-
-        // Build phases from speech_version content, ordered by scorecard phases
+      const byStage: Record<string, StageSpeech> = {};
+      for (const sv of allSpeech || []) {
+        const key = sv.funnel_stage_id || "_global";
         const content = sv.content as Record<string, string[]>;
-        const groups: PhaseGroup[] = [];
+        byStage[key] = {
+          phases: phaseNames.map(name => ({
+            phase_name: name,
+            phrases: content[name] || [],
+          })),
+          versionNumber: sv.version_number,
+          lastUpdated: sv.updated_at,
+        };
+      }
+      setSpeechByStage(byStage);
 
-        // First add phases in scorecard order
-        for (const phaseName of scorecardPhases) {
-          groups.push({
-            phase_name: phaseName,
-            phrases: content[phaseName] || [],
-          });
-        }
-
-        // Add any extra phases from content not in scorecard
-        for (const phaseName of Object.keys(content)) {
-          if (!scorecardPhases.includes(phaseName)) {
-            groups.push({
-              phase_name: phaseName,
-              phrases: content[phaseName] || [],
-            });
-          }
-        }
-
-        setPhases(groups);
-      } else {
-        // No published speech — show empty state per scorecard phase
-        setPhases(scorecardPhases.map(name => ({ phase_name: name, phrases: [] })));
+      // Default to first stage that has a published speech, or first stage
+      const stagesWithSpeech = funnelStages.filter(s => byStage[s.id]);
+      if (stagesWithSpeech.length > 0) {
+        setSelectedStageId(stagesWithSpeech[0].id);
+      } else if (funnelStages.length > 0) {
+        setSelectedStageId(funnelStages[0].id);
+      } else if (byStage["_global"]) {
+        setSelectedStageId("_global");
       }
 
       setLoading(false);
@@ -83,11 +88,13 @@ export default function SpeechPage() {
     load();
   }, []);
 
+  const current = selectedStageId ? speechByStage[selectedStageId] : null;
+  const hasSpeechAnywhere = Object.keys(speechByStage).length > 0;
+
   if (loading) {
     return (
       <div className="container c5-container">
         <div className="skeleton-block skeleton-title" />
-        <div className="skeleton-block skeleton-textarea" />
         <div className="skeleton-block skeleton-textarea" />
         <div className="skeleton-block skeleton-textarea" />
       </div>
@@ -97,16 +104,33 @@ export default function SpeechPage() {
   return (
     <div className="container c5-container">
       <div className="c5-header">
-        <h1 className="c5-title">Mi Speech — Llamada de Captación</h1>
-        <p className="c5-subtitle">Generado desde las mejores llamadas del equipo</p>
-        {lastUpdated && (
+        <h1 className="c5-title">Mi Speech</h1>
+        <p className="c5-subtitle">Frases clave por etapa del embudo</p>
+        {current?.lastUpdated && (
           <p className="c5-updated">
-            Versión {versionNumber} — Actualizado {new Date(lastUpdated).toLocaleDateString("es-MX", { day: "numeric", month: "long" })}
+            Versión {current.versionNumber} — Actualizado {new Date(current.lastUpdated).toLocaleDateString("es-MX", { day: "numeric", month: "long" })}
           </p>
         )}
       </div>
 
-      {phases.length === 0 && (
+      {/* Stage tabs */}
+      {stages.length > 0 && (
+        <div className="g5-stage-tabs">
+          {stages.map(stage => (
+            <button
+              key={stage.id}
+              className={`g5-stage-tab ${selectedStageId === stage.id ? "g5-stage-tab-active" : ""}`}
+              onClick={() => setSelectedStageId(stage.id)}
+            >
+              {stage.name}
+              {speechByStage[stage.id] && <span className="g5-tab-dot" />}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* No speech published anywhere */}
+      {!hasSpeechAnywhere && (
         <div className="c5-empty-card">
           <div className="c5-empty-icon">📋</div>
           <div className="c5-empty-title">Aún no hay Speech Ideal publicado</div>
@@ -114,30 +138,34 @@ export default function SpeechPage() {
         </div>
       )}
 
-      {phases.length > 0 && !lastUpdated && (
+      {/* Has stages but selected stage has no speech */}
+      {hasSpeechAnywhere && !current && selectedStageId && (
         <div className="c5-empty-card">
           <div className="c5-empty-icon">📋</div>
-          <div className="c5-empty-title">Aún no hay Speech Ideal publicado</div>
-          <div className="c5-empty-sub">Pide a tu gerente que publique el Speech Ideal del equipo desde la sección Biblioteca.</div>
+          <div className="c5-empty-title">Sin frases destacadas aún</div>
+          <div className="c5-empty-sub">Tu gerente aún no ha publicado un Speech para esta etapa.</div>
         </div>
       )}
 
-      <div className="c5-phases">
-        {phases.map((group, i) => (
-          <div key={i} className="c5-phase-card">
-            <h3 className="c5-phase-name">{group.phase_name}</h3>
-            {group.phrases.length > 0 ? (
-              <ul className="c5-phrase-list">
-                {group.phrases.map((phrase, j) => (
-                  <li key={j} className="c5-phrase">{phrase}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="c5-no-phrases">Sin frases destacadas aún — el gerente publicará el Speech Ideal cuando haya suficientes análisis.</p>
-            )}
-          </div>
-        ))}
-      </div>
+      {/* Show speech content */}
+      {current && (
+        <div className="c5-phases">
+          {current.phases.map((group, i) => (
+            <div key={i} className="c5-phase-card">
+              <h3 className="c5-phase-name">{group.phase_name}</h3>
+              {group.phrases.length > 0 ? (
+                <ul className="c5-phrase-list">
+                  {group.phrases.map((phrase, j) => (
+                    <li key={j} className="c5-phrase">{phrase}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="c5-no-phrases">Sin frases destacadas aún</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       <a href="/analisis" className="c5-back-link">Volver a Mi día</a>
     </div>
