@@ -328,7 +328,7 @@ export default function NuevaLlamadaPage() {
             rows={3}
             style={{ minHeight: 60, resize: "vertical" }}
           />
-          <p className="c2-hint">Información adicional para que Claude entienda el contexto de la llamada.</p>
+          <p className="c2-hint">Contexto adicional que ayude a interpretar mejor esta llamada.</p>
         </div>
 
         {status === "analyzing" && (

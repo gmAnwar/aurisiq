@@ -34,6 +34,7 @@ export default function BibliotecaPage() {
   const [uploadMsg, setUploadMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -191,6 +192,41 @@ export default function BibliotecaPage() {
     setSaving(false);
   };
 
+  const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
+
+  const generateProvisional = async () => {
+    if (!orgId || !selectedStageId) return;
+    setGenerating(true);
+    try {
+      const res = await fetch(WORKER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "generate_speech",
+          organization_id: orgId,
+          funnel_stage_id: selectedStageId === "_global" ? null : selectedStageId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error generando speech");
+
+      const generated: SpeechPhase[] = (data.phases || []).map((p: { phase_name: string; phrases: string[] }) => ({
+        phase_name: p.phase_name,
+        phrases: (p.phrases || []).slice(0, 3),
+      }));
+      // Fill missing phases from scorecard
+      const result = scorecardPhases.map(sp => {
+        const match = generated.find(g => g.phase_name === sp.phase_name);
+        return match || { phase_name: sp.phase_name, phrases: [] };
+      });
+      setEditPhases(result);
+      setEditing(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error generando speech provisional");
+    }
+    setGenerating(false);
+  };
+
   if (loading) {
     return (<div className="g1-wrapper"><div className="g1-container">
       <div className="skeleton-block skeleton-title" />
@@ -249,9 +285,16 @@ export default function BibliotecaPage() {
                 </div>
               ))}
             </div>
-            <button className="btn-submit" style={{ marginTop: 24 }} onClick={startEdit}>
-              Editar speech de {selectedStageName}
-            </button>
+            <div style={{ display: "flex", gap: 10, marginTop: 24, flexWrap: "wrap" }}>
+              <button className="btn-submit" onClick={startEdit}>
+                Editar speech de {selectedStageName}
+              </button>
+              {currentVersion === 0 && (
+                <button className="btn-submit g5-generate-btn" onClick={generateProvisional} disabled={generating}>
+                  {generating ? "Generando..." : "Generar speech provisional con IA"}
+                </button>
+              )}
+            </div>
           </>
         ) : (
           <>

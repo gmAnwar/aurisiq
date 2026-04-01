@@ -5,9 +5,10 @@ import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
 
 interface Objective { id: string; name: string; target_value: number; current_value: number; }
+interface FunnelRow { stage: string; count: number; rate: number; }
 
 export default function DashboardEjecutivoPage() {
-  const [funnelStages, setFunnelStages] = useState<{ stage: string; count: number; rate: number }[]>([]);
+  const [funnelStages, setFunnelStages] = useState<FunnelRow[]>([]);
   const [deltaVsLastMonth, setDeltaVsLastMonth] = useState<number | null>(null);
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [totalAnalyses, setTotalAnalyses] = useState(0);
@@ -26,33 +27,35 @@ export default function DashboardEjecutivoPage() {
       const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
       const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString();
 
-      const [thisMonthRes, lastMonthRes, objRes] = await Promise.all([
-        supabase.from("analyses").select("id, avanzo_a_siguiente_etapa")
+      const [thisMonthRes, lastMonthRes, objRes, stagesRes] = await Promise.all([
+        supabase.from("analyses").select("id, avanzo_a_siguiente_etapa, funnel_stage_id")
           .eq("organization_id", me.organization_id).eq("status", "completado").gte("created_at", thisMonthStart),
         supabase.from("analyses").select("id, avanzo_a_siguiente_etapa")
           .eq("organization_id", me.organization_id).eq("status", "completado").gte("created_at", lastMonthStart).lt("created_at", thisMonthStart),
         supabase.from("objectives").select("id, name, target_value, current_value")
           .eq("organization_id", me.organization_id),
+        supabase.from("funnel_stages").select("id, name")
+          .eq("organization_id", me.organization_id).order("order_index"),
       ]);
 
       const thisMonth = thisMonthRes.data || [];
       const lastMonth = lastMonthRes.data || [];
+      const allStages = stagesRes.data || [];
       setTotalAnalyses(thisMonth.length);
 
-      // Funnel
-      const stageLabels: Record<string, string> = { pending: "Pendiente", converted: "Convertido", lost_captadora: "Perdido (captadora)", lost_external: "Perdido (externo)" };
-      const stageCounts: Record<string, number> = {};
+      // Funnel — count analyses per funnel stage
+      const countByStage: Record<string, number> = {};
       for (const a of thisMonth) {
-        const s = a.avanzo_a_siguiente_etapa || "pending";
-        stageCounts[s] = (stageCounts[s] || 0) + 1;
+        if (a.funnel_stage_id) {
+          countByStage[a.funnel_stage_id] = (countByStage[a.funnel_stage_id] || 0) + 1;
+        }
       }
 
       const total = thisMonth.length || 1;
-      const funnel = Object.entries(stageCounts).map(([stage, count]) => ({
-        stage: stageLabels[stage] || stage,
-        count,
-        rate: Math.round((count / total) * 100),
-      })).sort((a, b) => b.count - a.count);
+      const funnel: FunnelRow[] = allStages.map(s => {
+        const count = countByStage[s.id] || 0;
+        return { stage: s.name, count, rate: Math.round((count / total) * 100) };
+      });
 
       setFunnelStages(funnel);
 
@@ -157,10 +160,10 @@ export default function DashboardEjecutivoPage() {
           </div>
         </div>
 
-        {/* Empty conversions helper */}
-        {funnelStages.length > 0 && !funnelStages.find(f => f.stage === "Convertido") && (
+        {/* Empty funnel helper */}
+        {totalAnalyses === 0 && funnelStages.length > 0 && (
           <div className="c5-empty-card" style={{ marginBottom: 14 }}>
-            <div className="c5-empty-sub">Cuando las captadoras marquen leads como convertidos, verás aquí las tasas de conversión por etapa.</div>
+            <div className="c5-empty-sub">Cuando las captadoras envíen análisis, verás aquí la distribución por etapa del embudo.</div>
           </div>
         )}
 

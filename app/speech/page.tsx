@@ -24,13 +24,17 @@ export default function SpeechPage() {
   const [stages, setStages] = useState<FunnelStage[]>([]);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [speechByStage, setSpeechByStage] = useState<Record<string, StageSpeech>>({});
+  const [provisionalByStage, setProvisionalByStage] = useState<Record<string, StageSpeech>>({});
   const [scorecardPhaseNames, setScorecardPhaseNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingProvisional, setLoadingProvisional] = useState<Record<string, boolean>>({});
+  const [orgId, setOrgId] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
       const session = await requireAuth(["captadora", "super_admin"]);
       if (!session) return;
+      setOrgId(session.organizationId);
 
       const [scRes, stagesRes] = await Promise.all([
         supabase.from("scorecards").select("id, phases")
@@ -88,8 +92,44 @@ export default function SpeechPage() {
     load();
   }, []);
 
+  const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
+
   const current = selectedStageId ? speechByStage[selectedStageId] : null;
-  const hasSpeechAnywhere = Object.keys(speechByStage).length > 0;
+  const provisional = selectedStageId ? provisionalByStage[selectedStageId] : null;
+  const isLoadingProv = selectedStageId ? loadingProvisional[selectedStageId] : false;
+  const display = current || provisional;
+  const isProvisional = !current && !!provisional;
+
+  // Auto-fetch provisional when selecting a stage without published speech
+  useEffect(() => {
+    if (!selectedStageId || !orgId || current || provisional || isLoadingProv) return;
+    setLoadingProvisional(prev => ({ ...prev, [selectedStageId]: true }));
+    const stageId = selectedStageId;
+    fetch(WORKER_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "generate_speech",
+        organization_id: orgId,
+        funnel_stage_id: stageId === "_global" ? null : stageId,
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.phases) {
+          const phases: PhaseGroup[] = (data.phases as { phase_name: string; phrases: string[] }[]).map(p => ({
+            phase_name: p.phase_name,
+            phrases: (p.phrases || []).slice(0, 3),
+          }));
+          setProvisionalByStage(prev => ({
+            ...prev,
+            [stageId]: { phases, versionNumber: 0, lastUpdated: null },
+          }));
+        }
+      })
+      .catch(() => { /* silently fail — show empty state */ })
+      .finally(() => setLoadingProvisional(prev => ({ ...prev, [stageId]: false })));
+  }, [selectedStageId, orgId, current, provisional, isLoadingProv]);
 
   if (loading) {
     return (
@@ -129,28 +169,31 @@ export default function SpeechPage() {
         </div>
       )}
 
-      {/* No speech published anywhere */}
-      {!hasSpeechAnywhere && (
+      {/* Loading provisional */}
+      {isLoadingProv && !display && (
         <div className="c5-empty-card">
-          <div className="c5-empty-icon">📋</div>
-          <div className="c5-empty-title">Aún no hay Speech Ideal publicado</div>
+          <div className="c5-empty-title">Generando speech provisional...</div>
+          <div className="c5-empty-sub">Creando frases modelo basadas en el scorecard de esta etapa.</div>
+        </div>
+      )}
+
+      {/* No speech and no provisional and not loading */}
+      {!display && !isLoadingProv && (
+        <div className="c5-empty-card">
+          <div className="c5-empty-title">Sin speech disponible</div>
           <div className="c5-empty-sub">Pide a tu gerente que publique el Speech Ideal del equipo desde la sección Biblioteca.</div>
         </div>
       )}
 
-      {/* Has stages but selected stage has no speech */}
-      {hasSpeechAnywhere && !current && selectedStageId && (
-        <div className="c5-empty-card">
-          <div className="c5-empty-icon">📋</div>
-          <div className="c5-empty-title">Sin frases destacadas aún</div>
-          <div className="c5-empty-sub">Tu gerente aún no ha publicado un Speech para esta etapa.</div>
-        </div>
+      {/* Provisional badge */}
+      {isProvisional && display && (
+        <div className="c5-provisional-badge">Provisional · Pendiente de revisión por tu gerente</div>
       )}
 
-      {/* Show speech content */}
-      {current && (
+      {/* Show speech content (published or provisional) */}
+      {display && (
         <div className="c5-phases">
-          {current.phases.map((group, i) => (
+          {display.phases.map((group, i) => (
             <div key={i} className="c5-phase-card">
               <h3 className="c5-phase-name">{group.phase_name}</h3>
               {group.phrases.length > 0 ? (

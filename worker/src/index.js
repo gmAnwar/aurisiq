@@ -573,6 +573,74 @@ async function handleQuota(body, env, origin) {
   return jsonResponse(quota, 200, origin);
 }
 
+// ─── Route: generate provisional speech ───────────────────
+
+async function handleGenerateSpeech(body, env, origin) {
+  const { organization_id, funnel_stage_id } = body;
+  if (!organization_id) {
+    return jsonResponse({ error: 'Missing organization_id' }, 400, origin);
+  }
+
+  // Get scorecard — from funnel_stage if provided, otherwise org default
+  let scorecardId = null;
+  let stageName = null;
+  if (funnel_stage_id) {
+    const stages = await supabaseSelect(
+      env, 'funnel_stages',
+      `id=eq.${funnel_stage_id}&organization_id=eq.${organization_id}&select=scorecard_id,name`
+    );
+    if (stages.length > 0) {
+      scorecardId = stages[0].scorecard_id;
+      stageName = stages[0].name;
+    }
+  }
+
+  // Fallback to org's active scorecard
+  if (!scorecardId) {
+    const scs = await supabaseSelect(
+      env, 'scorecards',
+      `active=eq.true&or=(organization_id.eq.${organization_id},organization_id.is.null)&select=id&order=organization_id.desc.nullslast&limit=1`
+    );
+    if (scs.length > 0) scorecardId = scs[0].id;
+  }
+
+  if (!scorecardId) {
+    return jsonResponse({ error: 'No scorecard found' }, 404, origin);
+  }
+
+  const scorecard = await getScorecard(env, scorecardId);
+  const phases = scorecard.phases || [];
+
+  if (phases.length === 0) {
+    return jsonResponse({ error: 'Scorecard has no phases' }, 400, origin);
+  }
+
+  const phaseList = phases.map(p => `- ${p.phase_name} (${p.score_max} pts)`).join('\n');
+
+  const systemPrompt = `Eres AurisIQ. Genera frases modelo para un Speech Ideal de ventas. Cada frase debe ser un ejemplo concreto de lo que diría una vendedora excelente en esa fase de la conversación. Las frases deben sonar naturales, en español mexicano, y ser directamente usables en una llamada real. No uses placeholders genéricos.`;
+
+  const userPrompt = `Genera 2-3 frases modelo por cada fase del scorecard${stageName ? ` para la etapa "${stageName}"` : ''}. Las fases son:
+
+${phaseList}
+
+Responde SOLO con JSON válido en este formato exacto, sin texto adicional:
+{"phases": [{"phase_name": "Nombre de Fase", "phrases": ["frase 1", "frase 2"]}]}`;
+
+  const rawOutput = await callClaude(env, systemPrompt, userPrompt);
+
+  // Parse JSON from Claude's response
+  let result;
+  try {
+    // Strip markdown code fences if present
+    const cleaned = rawOutput.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    result = JSON.parse(cleaned);
+  } catch {
+    return jsonResponse({ error: 'Failed to parse speech output' }, 500, origin);
+  }
+
+  return jsonResponse(result, 200, origin);
+}
+
 // ─── Scheduled handlers ────────────────────────────────────
 
 async function handleTimeoutRecovery(env) {
@@ -797,6 +865,10 @@ export default {
 
       if (body.action === 'quota') {
         return await handleQuota(body, env, origin);
+      }
+
+      if (body.action === 'generate_speech') {
+        return await handleGenerateSpeech(body, env, origin);
       }
 
       // Default: submit analysis
