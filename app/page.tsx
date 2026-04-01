@@ -7,6 +7,7 @@ import { getSession, getHomeForRole } from "../lib/auth";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [mode, setMode] = useState<"password" | "magic">("password");
   const [loading, setLoading] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -123,16 +124,27 @@ export default function LoginPage() {
             <label htmlFor="password" className="input-label">
               Contraseña
             </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="input-field"
-              placeholder="Tu contraseña"
-              required
-              disabled={loading}
-            />
+            <div className="input-password-wrap">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="input-field"
+                placeholder="Tu contraseña"
+                required
+                disabled={loading}
+                style={{ paddingRight: 40 }}
+              />
+              <button
+                type="button"
+                className="input-eye-btn"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+              >
+                {showPassword ? "\u{1F441}" : "\u{1F441}\u{200D}\u{1F5E8}"}
+              </button>
+            </div>
           </div>
         )}
 

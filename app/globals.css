@@ -552,6 +552,26 @@ body.has-nav {
   font-weight: 300;
 }
 
+.input-password-wrap {
+  position: relative;
+}
+
+.input-eye-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.input-eye-btn:hover { opacity: 0.8; }
+
 .btn-submit {
   width: 100%;
   padding: 9px 16px;
