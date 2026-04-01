@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { supabase } from "../../../../lib/supabase";
 import { requireAuth } from "../../../../lib/auth";
+import { stripJson } from "../../../../lib/text";
 
 interface AnalysisRow { id: string; score_general: number | null; clasificacion: string | null; created_at: string; categoria_descalificacion: string[] | null; patron_error: string | null; siguiente_accion: string | null; }
 interface PhaseRow { phase_name: string; score: number; score_max: number; analysis_id: string; }
@@ -226,6 +227,7 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
                       <div className="c4-item-left">
                         <span className="c4-item-date">{d.toLocaleDateString("es-MX", { day: "numeric", month: "short" })}</span>
                         {primaryDescal && <span className="c4-item-source">{descalMap[primaryDescal] || "Razón no reconocida"}</span>}
+                        {!primaryDescal && a.patron_error && <span className="c4-item-source">{stripJson(a.patron_error).slice(0, 60)}</span>}
                       </div>
                       <div className="c4-item-right">
                         {a.score_general !== null && <span className={`c4-item-score c4-score-${a.clasificacion || "regular"}`}>{a.score_general}</span>}
@@ -269,21 +271,20 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
               <div className="g2-coaching-list">
                 {analyses.filter(a => a.patron_error || a.siguiente_accion).slice(0, 15).map(a => {
                   const d = new Date(a.created_at);
+                  const error = stripJson(a.patron_error);
+                  const accion = stripJson(a.siguiente_accion);
+                  if (!error && !accion) return null;
                   return (
                     <div key={a.id} className="g2-coaching-card">
-                      <span className="g2-coaching-date">{d.toLocaleDateString("es-MX", { day: "numeric", month: "short" })}</span>
-                      {a.patron_error && (
-                        <div className="g2-coaching-row">
-                          <span className="g2-coaching-label">Lo que dije:</span>
-                          <p>{a.patron_error}</p>
-                        </div>
-                      )}
-                      {a.siguiente_accion && (
-                        <div className="g2-coaching-row">
-                          <span className="g2-coaching-label">Cómo debería decirlo:</span>
-                          <p>{a.siguiente_accion}</p>
-                        </div>
-                      )}
+                      <span className="g2-coaching-date">{d.toLocaleDateString("es-MX", { day: "numeric", month: "short" })} · Score: {a.score_general ?? "—"}</span>
+                      <div className="g2-coaching-row">
+                        <span className="g2-coaching-label">Lo que dije:</span>
+                        <p>{error || "Sin patrón identificado en esta llamada"}</p>
+                      </div>
+                      <div className="g2-coaching-row">
+                        <span className="g2-coaching-label">Cómo debería decirlo:</span>
+                        <p>{accion || "Sin sugerencia específica para esta llamada"}</p>
+                      </div>
                     </div>
                   );
                 })}

@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
+import { stripJson } from "../../../lib/text";
 
 interface Phase {
   phase_name: string;
@@ -119,21 +120,11 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
   const primaryDescal = analysis.categoria_descalificacion?.[0];
   const secondaryDescal = analysis.categoria_descalificacion?.slice(1) || [];
 
-  // Strip JSON artifacts from Claude output (e.g. ```json { ... }```)
-  const cleanText = (t: string | null) => {
-    if (!t) return null;
-    return t
-      .replace(/```[\s\S]*$/g, "")          // strip from ``` to end
-      .replace(/\n\s*\{[\s\S]*$/g, "")      // strip trailing JSON object
-      .replace(/\s*json\s*\{[\s\S]*$/gi, "") // strip "json { ... }"
-      .trim() || null;
-  };
-
-  // Reformat patron_error as positive improvement
-  const mejora = cleanText(analysis.patron_error?.replace(/^[-•*]\s*/, ""));
-  const accion = cleanText(analysis.siguiente_accion);
-  const critico = cleanText(analysis.momento_critico);
-  const objecion = cleanText(analysis.objecion_principal);
+  // Clean all text fields
+  const mejora = stripJson(analysis.patron_error) || null;
+  const accion = stripJson(analysis.siguiente_accion) || null;
+  const critico = stripJson(analysis.momento_critico) || null;
+  const objecion = stripJson(analysis.objecion_principal) || null;
 
   return (
     <div className="container c3-container">

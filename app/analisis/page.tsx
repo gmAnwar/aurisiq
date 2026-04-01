@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
 import { getOrgTimezone, todayStart, monthStart as getMonthStart, todayDisplay } from "../../lib/dates";
+import { stripJson } from "../../lib/text";
 
 interface Analysis {
   id: string;
@@ -73,19 +74,6 @@ export default function MiDiaPage() {
         const thisMonthCount = all.filter(a => new Date(a.created_at) >= new Date(mStart)).length;
         setMonthlyDone(thisMonthCount);
       }
-
-      // Strip JSON artifacts from Claude output
-      const stripJson = (t: string) => {
-        let s = t;
-        // Remove fenced code blocks (```...```)
-        const tripleIdx = s.indexOf("\u0060\u0060\u0060");
-        if (tripleIdx > 0) s = s.slice(0, tripleIdx);
-        // Remove trailing JSON objects
-        s = s.replace(/\n\s*\{\s*"[\s\S]*$/g, "");
-        // Remove inline json patterns
-        s = s.replace(/\s*json\s*\{[\s\S]*$/gi, "");
-        return s.trim();
-      };
 
       // Tip from last 7 days — short title from patron_error, phrase from siguiente_accion
       const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);

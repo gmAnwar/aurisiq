@@ -140,7 +140,7 @@ export default function EquipoDashboard() {
   if (loading) return (<div className="g1-wrapper"><div className="g1-container"><div className="skeleton-block skeleton-title" /><div className="g1-kpis"><div className="skeleton-block" style={{height:80}}/><div className="skeleton-block" style={{height:80}}/><div className="skeleton-block" style={{height:80}}/><div className="skeleton-block" style={{height:80}}/></div></div></div>);
   if (error) return (<div className="g1-wrapper"><div className="g1-container"><div className="message-box message-error"><p>{error}</p></div></div></div>);
 
-  const statusEmoji = { green: "🟢", yellow: "🟡", red: "🔴", none: "⚪" };
+  const statusEmoji = { green: "🟢", yellow: "🟡", red: "🔴", none: "⚙️" };
 
   return (
     <div className="g1-wrapper">
@@ -180,9 +180,10 @@ export default function EquipoDashboard() {
                   <span className="g1-traffic-detail">
                     {c.dailyTarget !== null
                       ? `${c.dailyDone}/${c.dailyTarget} hoy`
-                      : "Sin objetivo"}
+                      : "Sin objetivo configurado"}
                     {c.count > 0 ? ` · Score: ${c.avgScore}` : ""}
                     {c.delta !== null ? ` (${c.delta > 0 ? "+" : ""}${c.delta})` : ""}
+                    {c.status === "none" && " · Configura objetivo en G7"}
                   </span>
                 </div>
               </a>

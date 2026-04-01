@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
 import { getOrgTimezone, weekStart as getWeekStart, prevWeekStart as getPrevWeekStart } from "../../lib/dates";
+import { stripJson } from "../../lib/text";
 
 interface Analysis {
   id: string;
@@ -55,16 +56,6 @@ export default function MiSemanaPage() {
 
   // Best call
   const best = weekAnalyses.filter(a => a.score_general !== null).sort((a, b) => b.score_general! - a.score_general!)[0] || null;
-
-  // Strip JSON artifacts from Claude output
-  const stripJson = (t: string) => {
-    let s = t;
-    const tripleIdx = s.indexOf("\u0060\u0060\u0060");
-    if (tripleIdx > 0) s = s.slice(0, tripleIdx);
-    s = s.replace(/\n\s*\{\s*"[\s\S]*$/g, "");
-    s = s.replace(/\s*json\s*\{[\s\S]*$/gi, "");
-    return s.trim();
-  };
 
   // Most frequent objection
   const objCounts: Record<string, { count: number; response: string | null }> = {};
