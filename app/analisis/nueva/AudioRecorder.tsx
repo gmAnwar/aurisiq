@@ -35,21 +35,7 @@ export default function AudioRecorder({ onRecordingComplete, disabled }: AudioRe
     try {
       // getDisplayMedia captures system audio (softphone, Zoom, etc.)
       // The browser shows a native picker to select what to share
-      // getDisplayMedia requires video: true in most browsers — we request it and discard it
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        audio: true,
-        video: true,
-      });
-
-      // Immediately stop video tracks — we only need audio
-      stream.getVideoTracks().forEach((t) => t.stop());
-
-      // Check if we actually got an audio track
-      if (stream.getAudioTracks().length === 0) {
-        stream.getTracks().forEach((t) => t.stop());
-        setError("No se seleccionó audio del sistema. Asegúrate de marcar \"Compartir audio\" en el popup del navegador.");
-        return;
-      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
@@ -70,20 +56,13 @@ export default function AudioRecorder({ onRecordingComplete, disabled }: AudioRe
         setElapsed(0);
       };
 
-      // Handle user stopping the share from the browser's native UI
-      stream.getAudioTracks()[0].onended = () => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-          mediaRecorderRef.current.stop();
-        }
-      };
-
       recorder.start(1000);
       mediaRecorderRef.current = recorder;
       setRecording(true);
       setElapsed(0);
       timerRef.current = setInterval(() => setElapsed((p) => p + 1), 1000);
     } catch {
-      setError("No pudimos capturar el audio del sistema. Verifica que tu navegador soporte compartir audio.");
+      setError("No pudimos acceder al micrófono. Verifica los permisos de tu navegador.");
     }
   }, [onRecordingComplete]);
 
@@ -97,7 +76,7 @@ export default function AudioRecorder({ onRecordingComplete, disabled }: AudioRe
     return (
       <div className="c2-recorder c2-recorder-active">
         <span className="c2-rec-dot" />
-        <span className="c2-rec-timer">Grabando audio del sistema... {formatTime(elapsed)}</span>
+        <span className="c2-rec-timer">Grabando... {formatTime(elapsed)}</span>
         <button className="c2-rec-stop" onClick={stopRecording} type="button">
           Detener
         </button>
