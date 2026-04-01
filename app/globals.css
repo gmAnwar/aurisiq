@@ -3122,3 +3122,11 @@ body.has-nav {
   text-decoration: underline;
   padding: 8px;
 }
+
+.ear-upload-link {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: var(--ink-light);
+  text-decoration: underline;
+  margin-top: 8px;
+}
