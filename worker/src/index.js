@@ -647,8 +647,12 @@ async function handleTranscribe(body, env, origin) {
     return jsonResponse({ error: 'Organization is in read-only mode' }, 403, origin);
   }
 
-  // Decode base64 (strip data URL prefix if present)
-  const raw = audio_base64.replace(/^data:audio\/[^;]+;base64,/, '');
+  // Decode base64 — strip data URL prefix (data:audio/webm;codecs=opus;base64,...)
+  let raw = audio_base64;
+  const commaIdx = raw.indexOf(',');
+  if (commaIdx !== -1 && raw.startsWith('data:')) {
+    raw = raw.slice(commaIdx + 1);
+  }
   const binaryStr = atob(raw);
   const bytes = new Uint8Array(binaryStr.length);
   for (let i = 0; i < binaryStr.length; i++) {
