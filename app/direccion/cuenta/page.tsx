@@ -3,12 +3,14 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
+import { getOrgTimezone, monthStart as getMonthStart } from "../../../lib/dates";
 
 interface User { id: string; name: string; email: string; role: string; last_sign_in_at: string | null; active: boolean; }
 
 export default function CuentaPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [org, setOrg] = useState<Record<string, unknown> | null>(null);
+  const [monthlyCount, setMonthlyCount] = useState(0);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("captadora");
   const [inviteMsg, setInviteMsg] = useState("");
@@ -23,15 +25,22 @@ export default function CuentaPage() {
       if (!session) return;
       const me = { organization_id: session.organizationId };
 
-      const [usersRes, orgRes] = await Promise.all([
+      const tz = await getOrgTimezone(me.organization_id);
+      const ms = getMonthStart(tz);
+
+      const [usersRes, orgRes, countRes] = await Promise.all([
         supabase.from("users").select("id, name, email, role, last_sign_in_at, active")
           .eq("organization_id", me.organization_id).order("name"),
-        supabase.from("organizations").select("name, plan, analysis_count_month, access_status")
+        supabase.from("organizations").select("name, plan, access_status")
           .eq("id", me.organization_id).single(),
+        supabase.from("analyses").select("id", { count: "exact", head: true })
+          .eq("organization_id", me.organization_id).eq("status", "completado")
+          .gte("created_at", ms),
       ]);
 
       setUsers(usersRes.data || []);
       setOrg(orgRes.data);
+      setMonthlyCount(countRes.count || 0);
       setLoading(false);
     }
     load();
@@ -139,7 +148,7 @@ export default function CuentaPage() {
         {org && (() => {
           const tierLimits: Record<string, number | null> = { starter: 50, growth: 200, pro: 500, scale: 1500, enterprise: null, founder: 50 };
           const plan = (org.plan as string) || "starter";
-          const used = (org.analysis_count_month as number) || 0;
+          const used = monthlyCount;
           const limit = tierLimits[plan];
           const pct = limit ? Math.min(100, Math.round((used / limit) * 100)) : 0;
           const status = org.access_status as string;
