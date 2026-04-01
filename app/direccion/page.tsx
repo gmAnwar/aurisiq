@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
+import { getOrgTimezone, monthStart as getMonthStart } from "../../lib/dates";
 
 interface Objective { id: string; name: string; target_value: number; current_value: number; }
 interface FunnelRow { stage: string; count: number; rate: number; }
@@ -22,10 +23,12 @@ export default function DashboardEjecutivoPage() {
       if (!session) return;
       const me = { organization_id: session.organizationId };
 
-      const now = new Date();
-      const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
-      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString();
+      const tz = await getOrgTimezone(me.organization_id);
+      const thisMonthStart = getMonthStart(tz);
+      // Previous month: shift back 1 month from the start of this month
+      const thisMonthDate = new Date(thisMonthStart);
+      const lastMonthStart = new Date(thisMonthDate.getFullYear(), thisMonthDate.getMonth() - 1, 1).toISOString();
+      const threeMonthsAgo = new Date(thisMonthDate.getFullYear(), thisMonthDate.getMonth() - 3, 1).toISOString();
 
       const [thisMonthRes, lastMonthRes, objRes, stagesRes] = await Promise.all([
         supabase.from("analyses").select("id, avanzo_a_siguiente_etapa, funnel_stage_id")

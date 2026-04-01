@@ -1383,11 +1383,11 @@ body.has-nav {
 }
 
 .tip-title {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--ink);
-  line-height: 1.4;
+  line-height: 1.5;
   margin-bottom: 6px;
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -1421,7 +1421,7 @@ body.has-nav {
   color: var(--ink-mid);
   border-left: 2px solid var(--cap);
   padding-left: 10px;
-  margin-top: 8px;
+  margin-top: 14px;
   line-height: 1.6;
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -2917,4 +2917,208 @@ body.has-nav {
   color: var(--green);
   font-weight: 300;
   white-space: nowrap;
+}
+
+/* =============================================
+   Navbar — Grabar dot
+   ============================================= */
+.navbar-grabar {
+  color: var(--cap) !important;
+  font-weight: 600 !important;
+}
+
+.navbar-sidebar .navbar-grabar {
+  margin-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding-top: 10px;
+}
+
+/* =============================================
+   C_EAR — Grabar Llamada
+   ============================================= */
+.ear-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 80px);
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.ear-idle, .ear-recording, .ear-transcribing, .ear-review {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.ear-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.ear-subtitle {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--ink-light);
+  max-width: 300px;
+}
+
+.ear-start-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Syne', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: white;
+  background: var(--cap);
+  border: none;
+  border-radius: 50px;
+  padding: 16px 36px;
+  cursor: pointer;
+  transition: var(--transition);
+  margin-top: 12px;
+}
+
+.ear-start-btn:hover { opacity: 0.9; transform: scale(1.02); }
+
+.ear-start-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: white;
+}
+
+.ear-error {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: var(--red);
+  max-width: 320px;
+}
+
+/* Recording state */
+.ear-rec-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ear-rec-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--red);
+  animation: ear-pulse 1s ease-in-out infinite;
+}
+
+@keyframes ear-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.ear-rec-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--ink-light);
+}
+
+.ear-timer {
+  font-family: 'Syne', sans-serif;
+  font-size: 48px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: 2px;
+}
+
+.ear-waveform {
+  border-radius: 8px;
+  background: var(--cream-dark);
+  width: 100%;
+  max-width: 320px;
+  height: 60px;
+}
+
+.ear-stop-btn {
+  font-family: 'Syne', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: white;
+  background: var(--red);
+  border: none;
+  border-radius: 50px;
+  padding: 16px 40px;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: var(--transition);
+}
+
+.ear-stop-btn:hover { opacity: 0.9; }
+
+/* Transcribing state */
+.ear-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(0,0,0,0.08);
+  border-top-color: var(--cap);
+  border-radius: 50%;
+  animation: c2-spin 0.6s linear infinite;
+}
+
+.ear-transcribing-text {
+  font-family: 'Syne', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.ear-transcribing-sub {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: var(--ink-light);
+}
+
+/* Review state */
+.ear-review-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.ear-review-hint {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: var(--ink-light);
+}
+
+.ear-review-text {
+  width: 100%;
+  background: white;
+  border-radius: 10px;
+  padding: 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: var(--ink);
+  line-height: 1.6;
+  max-height: 300px;
+  overflow-y: auto;
+  text-align: left;
+  box-shadow: var(--shadow);
+}
+
+.ear-retry-btn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: var(--ink-light);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 8px;
 }

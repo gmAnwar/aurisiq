@@ -12,7 +12,7 @@ interface NavItem {
 const NAV_BY_ROLE: Record<string, NavItem[]> = {
   captadora: [
     { href: "/analisis", label: "Mi d\u00eda" },
-    { href: "/analisis/nueva", label: "Grabar" },
+    { href: "/grabar", label: "\u25cf Grabar" },
     { href: "/semana", label: "Mi semana" },
     { href: "/speech", label: "Mi Speech" },
   ],
@@ -38,7 +38,7 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
   ],
   super_admin: [
     { href: "/analisis", label: "Mi d\u00eda" },
-    { href: "/analisis/nueva", label: "Grabar" },
+    { href: "/grabar", label: "\u25cf Grabar" },
     { href: "/semana", label: "Mi semana" },
     { href: "/speech", label: "Mi Speech" },
     { href: "/equipo", label: "Equipo" },
@@ -71,7 +71,6 @@ const MOBILE_NAV: Record<string, NavItem[]> = {
   direccion: [
     { href: "/direccion", label: "Resumen" },
     { href: "/equipo", label: "Equipo" },
-    { href: "/direccion/roi", label: "ROI" },
     { href: "/direccion/cuenta", label: "Cuenta" },
   ],
   agencia: NAV_BY_ROLE.agencia,
@@ -110,11 +109,12 @@ export default function NavBar({ role, userName, userEmail }: NavBarProps) {
       {allItems.map((item) => {
         const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href + "/"));
         const isMobileVisible = mobileItems.some(m => m.href === item.href);
+        const isGrabar = item.href === "/grabar";
         return (
           <a
             key={item.href}
             href={item.href}
-            className={`navbar-item ${isActive ? "navbar-active" : ""} ${!isMobileVisible ? "navbar-desktop-only" : ""}`}
+            className={`navbar-item ${isActive ? "navbar-active" : ""} ${!isMobileVisible ? "navbar-desktop-only" : ""} ${isGrabar ? "navbar-grabar" : ""}`}
           >
             {item.label}
           </a>

@@ -38,11 +38,56 @@ export default function NuevaLlamadaPage() {
   const [editPct, setEditPct] = useState(0);
 
   const wordCount = transcription.trim().split(/\s+/).filter(Boolean).length;
-  const MIN_WORDS = 200;
+  const MIN_WORDS = transcriptionSource === "audio" ? 50 : 200;
+
+  const AUDIO_EXTENSIONS = [".mp3", ".m4a", ".wav", ".ogg", ".webm", ".mp4"];
+
+  const transcribeAudioFile = async (file: File) => {
+    if (file.size < 1024) {
+      setFileMsg("La grabación es muy corta. Intenta con un audio más largo.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setFileMsg("El audio excede 10MB. Intenta con un archivo más corto.");
+      return;
+    }
+    setIsTranscribing(true);
+    setFileMsg(`Transcribiendo "${file.name}"...`);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await fetch(WORKER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "transcribe", audio_base64: base64, organization_id: orgId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al transcribir");
+      setTranscription(data.text);
+      setTranscriptionOriginal(data.text);
+      setTranscriptionSource("audio");
+      setEditPct(0);
+      setFileMsg("Transcripción automática lista — revisa antes de analizar.");
+    } catch (err) {
+      setFileMsg(err instanceof Error ? err.message : "Error al transcribir el audio.");
+    }
+    setIsTranscribing(false);
+  };
 
   const extractTextFromFile = async (file: File) => {
     setFileMsg("");
     const name = file.name.toLowerCase();
+
+    // Audio files → transcribe via AssemblyAI
+    if (AUDIO_EXTENSIONS.some(ext => name.endsWith(ext))) {
+      await transcribeAudioFile(file);
+      return;
+    }
+
     if (name.endsWith(".txt")) {
       const text = await file.text();
       if (text.length > CHAR_LIMIT) {
@@ -52,7 +97,6 @@ export default function NuevaLlamadaPage() {
       setTranscription(text);
       setFileMsg(`Archivo "${file.name}" cargado.`);
     } else if (name.endsWith(".doc") || name.endsWith(".docx")) {
-      // For .doc/.docx, extract raw text from the binary by stripping XML tags
       const text = await file.text();
       const cleaned = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
       if (cleaned.length > CHAR_LIMIT) {
@@ -66,7 +110,7 @@ export default function NuevaLlamadaPage() {
       setTranscription(cleaned);
       setFileMsg(`Archivo "${file.name}" cargado.`);
     } else {
-      setFileMsg("Formato no soportado. Usa .txt, .doc o .docx.");
+      setFileMsg("Formato no soportado. Usa .txt, .doc, .docx, .mp3, .m4a, .wav u .ogg.");
     }
   };
 
@@ -112,6 +156,16 @@ export default function NuevaLlamadaPage() {
       }
 
       setLoading(false);
+
+      // Pick up transcription from C_EAR recording
+      const recorded = sessionStorage.getItem("aurisiq_recorded_transcription");
+      if (recorded) {
+        sessionStorage.removeItem("aurisiq_recorded_transcription");
+        setTranscription(recorded);
+        setTranscriptionOriginal(recorded);
+        setTranscriptionSource("audio");
+        setFileMsg("Transcripción automática lista — revisa antes de analizar.");
+      }
     }
 
     init();
@@ -120,34 +174,9 @@ export default function NuevaLlamadaPage() {
   const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
 
   const handleRecordingComplete = useCallback(async (blob: Blob) => {
-    setIsTranscribing(true);
     setErrorMsg("");
-    setFileMsg("");
-    try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-
-      const res = await fetch(WORKER_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "transcribe", audio_base64: base64, organization_id: orgId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error al transcribir");
-
-      setTranscription(data.text);
-      setTranscriptionOriginal(data.text);
-      setTranscriptionSource("audio");
-      setEditPct(0);
-      setFileMsg("Transcripción automática lista — revisa antes de analizar.");
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Error al transcribir el audio.");
-    }
-    setIsTranscribing(false);
+    const file = new File([blob], "grabacion.webm", { type: blob.type });
+    await transcribeAudioFile(file);
   }, [orgId]);
 
   // Track edits to auto-transcribed text
@@ -360,7 +389,7 @@ export default function NuevaLlamadaPage() {
           <div className="c2-file-row">
             <label className="c2-file-btn">
               Buscar archivo
-              <input type="file" accept=".txt,.doc,.docx" onChange={handleFileInput} hidden disabled={status === "analyzing" || isTranscribing} />
+              <input type="file" accept=".txt,.doc,.docx,.mp3,.m4a,.wav,.ogg,.webm,.mp4" onChange={handleFileInput} hidden disabled={status === "analyzing" || isTranscribing} />
             </label>
             <AudioRecorder
               onRecordingComplete={handleRecordingComplete}

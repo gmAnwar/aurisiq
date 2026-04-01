@@ -402,7 +402,7 @@ async function processAnalysis(env, analysisId, body, scorecard) {
     const descalCats = await getDescalCategories(env, organization_id);
     let promptWithDescal = scorecard.prompt_template;
     // Tone guidance for patron_error — coaching-positive, never aggressive
-    promptWithDescal += `\n\n---\nTONO DEL PATRÓN DE ERROR\nEl bloque PATRÓN DE ERROR PRINCIPAL debe usar tono de coaching positivo. Empieza con frases como "Para tu siguiente llamada, enfócate en...", "Un área de oportunidad que vale la pena trabajar es...", "Esta semana puedes mejorar en...". NUNCA uses frases como "cometió un error", "falla más común", "error costoso", "el problema más grave". El objetivo es motivar, no señalar fallos.`;
+    promptWithDescal += `\n\n---\nTONO Y FORMATO DEL PATRÓN DE ERROR\nEl bloque PATRÓN DE ERROR PRINCIPAL debe ser BREVE: máximo 2-3 oraciones concretas y accionables. No es un análisis completo — es un tip rápido. Usa tono de coaching positivo. Empieza con "Para tu siguiente llamada, enfócate en...", "Un área de oportunidad es...", "Esta semana puedes mejorar en...". NUNCA uses "cometió un error", "falla más común", "error costoso". El objetivo es motivar, no señalar fallos.\n\nIDIOMA: Responde completamente en español. No uses anglicismos ni palabras en inglés (no "follow-up", "lead", "goodwill", "call to action", "closing"). Usa los equivalentes en español: seguimiento, prospecto, confianza, llamado a la acción, cierre.`;
 
     if (descalCats.length > 0) {
       const catList = descalCats.map(c => `- ${c.code}: ${c.label}`).join('\n');
