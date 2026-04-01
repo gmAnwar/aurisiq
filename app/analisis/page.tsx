@@ -25,7 +25,9 @@ export default function MiDiaPage() {
   const [userName, setUserName] = useState("");
   const [streak, setStreak] = useState(0);
   const [tipTitle, setTipTitle] = useState<string | null>(null);
+  const [tipFull, setTipFull] = useState<string | null>(null);
   const [tipFrase, setTipFrase] = useState<string | null>(null);
+  const [tipExpanded, setTipExpanded] = useState(false);
   const [monthlyTarget, setMonthlyTarget] = useState<number | null>(null);
   const [monthlyDone, setMonthlyDone] = useState(0);
   const [orgTz, setOrgTz] = useState("America/Monterrey");
@@ -90,8 +92,10 @@ export default function MiDiaPage() {
       }
       const topErr = Object.entries(errors).sort((a, b) => b[1].count - a[1].count)[0];
       if (topErr) {
+        const full = topErr[0];
+        setTipFull(full);
         // Limit tip title to ~120 chars, cut at last sentence boundary
-        let title = topErr[0];
+        let title = full;
         if (title.length > 120) {
           const cut = title.slice(0, 120);
           const lastPunct = Math.max(cut.lastIndexOf("."), cut.lastIndexOf(","), cut.lastIndexOf(";"));
@@ -196,7 +200,14 @@ export default function MiDiaPage() {
       {tipTitle && (
         <div className="tip-card">
           <div className="tip-lbl">Tu tip del día</div>
-          <div className="tip-title">{tipTitle}</div>
+          <div className={`tip-title ${tipExpanded ? "tip-title-expanded" : ""}`}>
+            {tipExpanded ? tipFull : tipTitle}
+          </div>
+          {tipFull && tipFull.length > 120 && (
+            <button className="tip-toggle" onClick={() => setTipExpanded(!tipExpanded)}>
+              {tipExpanded ? "Leer menos \u2191" : "Leer más \u2193"}
+            </button>
+          )}
           {tipFrase && <div className="tip-frase">{tipFrase}</div>}
         </div>
       )}

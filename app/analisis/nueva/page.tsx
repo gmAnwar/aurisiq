@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
+import { computeEditPercentage } from "../../../lib/text";
+import AudioRecorder from "./AudioRecorder";
 
 interface LeadSource {
   id: string;
@@ -30,6 +32,10 @@ export default function NuevaLlamadaPage() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcriptionOriginal, setTranscriptionOriginal] = useState<string | null>(null);
+  const [transcriptionSource, setTranscriptionSource] = useState<"manual" | "audio">("manual");
+  const [editPct, setEditPct] = useState(0);
 
   const wordCount = transcription.trim().split(/\s+/).filter(Boolean).length;
   const MIN_WORDS = 200;
@@ -113,6 +119,46 @@ export default function NuevaLlamadaPage() {
 
   const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
 
+  const handleRecordingComplete = useCallback(async (blob: Blob) => {
+    setIsTranscribing(true);
+    setErrorMsg("");
+    setFileMsg("");
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      const res = await fetch(WORKER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "transcribe", audio_base64: base64, organization_id: orgId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al transcribir");
+
+      setTranscription(data.text);
+      setTranscriptionOriginal(data.text);
+      setTranscriptionSource("audio");
+      setEditPct(0);
+      setFileMsg("Transcripción automática lista — revisa antes de analizar.");
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Error al transcribir el audio.");
+    }
+    setIsTranscribing(false);
+  }, [orgId]);
+
+  // Track edits to auto-transcribed text
+  const handleTranscriptionChange = useCallback((value: string) => {
+    setTranscription(value);
+    if (transcriptionSource === "audio" && transcriptionOriginal) {
+      const pct = computeEditPercentage(transcriptionOriginal, value);
+      setEditPct(pct);
+    }
+  }, [transcriptionSource, transcriptionOriginal]);
+
   const handleSubmit = async () => {
     if (!canSubmit || !userId || !orgId) return;
 
@@ -143,6 +189,12 @@ export default function NuevaLlamadaPage() {
           organization_id: orgId,
           fuente_lead_id: selectedSource,
           funnel_stage_id: selectedStage,
+          transcription_original: transcriptionOriginal,
+          transcription_edited: transcriptionSource === "audio" && transcriptionOriginal && transcription.trim() !== transcriptionOriginal
+            ? transcription.trim() : null,
+          edit_percentage: transcriptionOriginal && transcription.trim() !== transcriptionOriginal
+            ? editPct : 0,
+          has_audio: transcriptionSource === "audio",
         }),
       });
 
@@ -292,21 +344,36 @@ export default function NuevaLlamadaPage() {
               value={transcription}
               onChange={(e) => {
                 if (e.target.value.length <= CHAR_LIMIT) {
-                  setTranscription(e.target.value);
+                  handleTranscriptionChange(e.target.value);
                 }
               }}
-              disabled={status === "analyzing"}
+              disabled={status === "analyzing" || isTranscribing}
               rows={10}
             />
           </div>
+          {transcriptionSource === "audio" && transcriptionOriginal && (
+            <p className="c2-auto-banner">Transcripción automática — revisa antes de analizar</p>
+          )}
+          {editPct > 40 && (
+            <p className="c2-edit-warning">Has editado una parte importante del texto ({editPct}%) — el análisis refleja tu versión.</p>
+          )}
           <div className="c2-file-row">
             <label className="c2-file-btn">
               Buscar archivo
-              <input type="file" accept=".txt,.doc,.docx" onChange={handleFileInput} hidden disabled={status === "analyzing"} />
+              <input type="file" accept=".txt,.doc,.docx" onChange={handleFileInput} hidden disabled={status === "analyzing" || isTranscribing} />
             </label>
-            <span className="c2-file-hint">.txt, .doc, .docx</span>
+            <AudioRecorder
+              onRecordingComplete={handleRecordingComplete}
+              disabled={status === "analyzing" || isTranscribing || transcription.length > 0}
+            />
             {fileMsg && <span className="c2-file-msg">{fileMsg}</span>}
           </div>
+          {isTranscribing && (
+            <div className="c2-transcribing">
+              <span className="c2-transcribing-spinner" />
+              Transcribiendo audio...
+            </div>
+          )}
           <div className="c2-char-count">
             <span className={wordCount < MIN_WORDS ? "c2-char-warning" : ""}>
               {wordCount} palabras{wordCount < MIN_WORDS ? ` (mínimo ${MIN_WORDS})` : ""} · {charCount.toLocaleString()} / {CHAR_LIMIT.toLocaleString()} caracteres

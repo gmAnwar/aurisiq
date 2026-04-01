@@ -19,6 +19,9 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
   const [audioExpired, setAudioExpired] = useState(true);
   const [managerNote, setManagerNote] = useState("");
   const [editingNote, setEditingNote] = useState(false);
+  const [editPercentage, setEditPercentage] = useState(0);
+  const [transcriptionOriginal, setTranscriptionOriginal] = useState<string | null>(null);
+  const [showOriginal, setShowOriginal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -40,7 +43,7 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
         supabase.from("users").select("name").eq("id", a.user_id as string).single(),
         supabase.from("analysis_phases").select("phase_name, score, score_max").eq("analysis_id", id).order("created_at", { ascending: true }),
         supabase.from("descalification_categories").select("code, label").eq("organization_id", a.organization_id as string),
-        supabase.from("analysis_jobs").select("transcription_text, has_audio, audio_url, audio_expires_at").eq("analysis_id", id).single(),
+        supabase.from("analysis_jobs").select("transcription_text, has_audio, audio_url, audio_expires_at, transcription_original, edit_percentage").eq("analysis_id", id).single(),
       ]);
 
       setCaptadoraName(userRes.data?.name || "");
@@ -55,6 +58,8 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
         setHasAudio(jobRes.data.has_audio || false);
         setAudioUrl(jobRes.data.audio_url || null);
         setAudioExpired(!jobRes.data.audio_expires_at || new Date(jobRes.data.audio_expires_at) <= new Date());
+        setEditPercentage(jobRes.data.edit_percentage || 0);
+        setTranscriptionOriginal(jobRes.data.transcription_original || null);
       }
 
       setLoading(false);
@@ -197,8 +202,26 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
         {/* Transcription */}
         {transcription && (
           <div className="g1-section">
-            <h2 className="g1-section-title">Transcripción</h2>
+            <div className="g3-transcription-header">
+              <h2 className="g1-section-title">Transcripción</h2>
+              {editPercentage > 0 && (
+                <span className="g3-edit-badge">Editada {editPercentage}%</span>
+              )}
+            </div>
             <div className="g3-transcription">{transcription}</div>
+            {editPercentage > 0 && transcriptionOriginal && (
+              <>
+                <button className="g3-show-original" onClick={() => setShowOriginal(!showOriginal)}>
+                  {showOriginal ? "Ocultar original" : "Ver original"}
+                </button>
+                {showOriginal && (
+                  <div className="g3-original-panel">
+                    <span className="g3-original-label">Transcripción original (AssemblyAI)</span>
+                    <div className="g3-transcription g3-transcription-original">{transcriptionOriginal}</div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 

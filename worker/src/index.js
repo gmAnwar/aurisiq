@@ -19,6 +19,8 @@ const TIER_LIMITS = {
 const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 const STALE_JOB_MINUTES = 5;
+const ASSEMBLYAI_URL = 'https://api.assemblyai.com/v2';
+const MAX_AUDIO_BYTES = 10 * 1024 * 1024; // 10MB
 
 // ─── Helpers ───────────────────────────────────────────────
 
@@ -137,6 +139,28 @@ async function getOrgPlan(env, orgId) {
   );
   if (!rows.length) throw new Error(`Organization ${orgId} not found`);
   return rows[0];
+}
+
+// ─── Edit percentage (server-side, never trust frontend) ──
+
+function computeEditPct(original, edited) {
+  if (!original || !edited) return 0;
+  const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  const a = norm(original).split(/\s+/).filter(Boolean);
+  const b = norm(edited).split(/\s+/).filter(Boolean);
+  if (a.length === 0 || a.join(' ') === b.join(' ')) return 0;
+  const m = a.length, n = b.length;
+  let prev = new Array(n + 1).fill(0);
+  let curr = new Array(n + 1).fill(0);
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      curr[j] = a[i - 1] === b[j - 1] ? prev[j - 1] + 1 : Math.max(prev[j], curr[j - 1]);
+    }
+    [prev, curr] = [curr, prev];
+    curr.fill(0);
+  }
+  const changed = Math.max(m, n) - prev[n];
+  return Math.min(100, Math.round((changed / m) * 100));
 }
 
 // ─── Claude API ────────────────────────────────────────────
@@ -370,12 +394,16 @@ async function updateUserStats(env, userId, orgId) {
 // ─── Background processing (called via ctx.waitUntil) ──────
 
 async function processAnalysis(env, analysisId, body, scorecard) {
-  const { transcription, user_id, organization_id } = body;
+  const { user_id, organization_id } = body;
+  const transcription = body.transcription_edited || body.transcription_original || body.transcription;
 
   try {
     // Fetch org descalification catalog to inject into prompt
     const descalCats = await getDescalCategories(env, organization_id);
     let promptWithDescal = scorecard.prompt_template;
+    // Tone guidance for patron_error — coaching-positive, never aggressive
+    promptWithDescal += `\n\n---\nTONO DEL PATRÓN DE ERROR\nEl bloque PATRÓN DE ERROR PRINCIPAL debe usar tono de coaching positivo. Empieza con frases como "Para tu siguiente llamada, enfócate en...", "Un área de oportunidad que vale la pena trabajar es...", "Esta semana puedes mejorar en...". NUNCA uses frases como "cometió un error", "falla más común", "error costoso", "el problema más grave". El objetivo es motivar, no señalar fallos.`;
+
     if (descalCats.length > 0) {
       const catList = descalCats.map(c => `- ${c.code}: ${c.label}`).join('\n');
       promptWithDescal += `\n\n---\nDESCALIFICACION DE LEADS\nAnaliza la transcripción y determina si el lead fue descalificado. Usa SOLO los siguientes códigos del catálogo de la organización:\n${catList}\n\nAl final de tu respuesta, incluye una línea con el formato:\nDESCALIFICACION: ["codigo1", "codigo2"]\nSi el lead calificó (no hay razón de descalificación), escribe:\nDESCALIFICACION: []\nMáximo 3 códigos. Usa SOLO códigos del catálogo anterior.`;
@@ -428,6 +456,34 @@ async function processAnalysis(env, analysisId, body, scorecard) {
     });
 
     await updateUserStats(env, user_id, organization_id);
+
+    // Check for high edit pattern (3+ consecutive analyses with >40% edits)
+    if ((body.edit_percentage || 0) > 40) {
+      try {
+        const recentJobs = await supabaseSelect(
+          env, 'analysis_jobs',
+          `user_id=eq.${user_id}&order=created_at.desc&limit=3&select=edit_percentage`
+        );
+        if (recentJobs.length >= 3 && recentJobs.every(j => (j.edit_percentage || 0) > 40)) {
+          const existing = await supabaseSelect(
+            env, 'alerts',
+            `organization_id=eq.${organization_id}&type=eq.high_edit_pattern&status=eq.activa&select=id&limit=1`
+          );
+          if (existing.length === 0) {
+            await supabaseInsert(env, 'alerts', {
+              organization_id,
+              type: 'high_edit_pattern',
+              status: 'activa',
+              threshold_value: 40,
+              current_value: body.edit_percentage,
+              description: 'Revisión recomendada — transcripciones con ediciones significativas en los últimos 3 análisis',
+            });
+          }
+        }
+      } catch (alertErr) {
+        console.error('Edit alert check failed:', alertErr.message);
+      }
+    }
   } catch (err) {
     console.error(`Analysis ${analysisId} failed:`, err.message);
     await supabaseUpdate(env, 'analyses', 'id', analysisId, { status: 'error' });
@@ -490,6 +546,10 @@ async function handleSubmit(body, env, ctx, origin) {
     status: 'procesando',
     processing_started_at: new Date().toISOString(),
     transcription_text: body.transcription,
+    transcription_original: body.transcription_original || null,
+    transcription_edited: body.transcription_edited || null,
+    edit_percentage: computeEditPct(body.transcription_original, body.transcription_edited),
+    has_audio: body.has_audio || false,
   });
 
   // Fire-and-forget: process in background
@@ -571,6 +631,92 @@ async function handleQuota(body, env, origin) {
   }
 
   return jsonResponse(quota, 200, origin);
+}
+
+// ─── Route: transcribe audio via AssemblyAI ───────────────
+
+async function handleTranscribe(body, env, origin) {
+  const { audio_base64, organization_id } = body;
+  if (!audio_base64 || !organization_id) {
+    return jsonResponse({ error: 'Missing audio_base64 or organization_id' }, 400, origin);
+  }
+
+  // Validate org exists and is active
+  const org = await getOrgPlan(env, organization_id);
+  if (org.access_status === 'read_only') {
+    return jsonResponse({ error: 'Organization is in read-only mode' }, 403, origin);
+  }
+
+  // Decode base64 (strip data URL prefix if present)
+  const raw = audio_base64.replace(/^data:audio\/[^;]+;base64,/, '');
+  const binaryStr = atob(raw);
+  const bytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i++) {
+    bytes[i] = binaryStr.charCodeAt(i);
+  }
+
+  if (bytes.length > MAX_AUDIO_BYTES) {
+    return jsonResponse({ error: 'Audio exceeds 10MB limit' }, 400, origin);
+  }
+
+  // Upload audio to AssemblyAI
+  const uploadRes = await fetch(`${ASSEMBLYAI_URL}/upload`, {
+    method: 'POST',
+    headers: {
+      authorization: env.ASSEMBLYAI_API_KEY,
+      'content-type': 'application/octet-stream',
+    },
+    body: bytes,
+  });
+
+  if (!uploadRes.ok) {
+    const err = await uploadRes.text();
+    throw new Error(`AssemblyAI upload failed: ${uploadRes.status} ${err}`);
+  }
+
+  const { upload_url } = await uploadRes.json();
+
+  // Start transcription
+  const transcriptRes = await fetch(`${ASSEMBLYAI_URL}/transcript`, {
+    method: 'POST',
+    headers: {
+      authorization: env.ASSEMBLYAI_API_KEY,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ audio_url: upload_url, language_code: 'es' }),
+  });
+
+  if (!transcriptRes.ok) {
+    const err = await transcriptRes.text();
+    throw new Error(`AssemblyAI transcript request failed: ${transcriptRes.status} ${err}`);
+  }
+
+  const { id: transcriptId } = await transcriptRes.json();
+
+  // Poll for completion (max 120 seconds)
+  const maxPolls = 40;
+  for (let i = 0; i < maxPolls; i++) {
+    await new Promise((r) => setTimeout(r, 3000));
+
+    const pollRes = await fetch(`${ASSEMBLYAI_URL}/transcript/${transcriptId}`, {
+      headers: { authorization: env.ASSEMBLYAI_API_KEY },
+    });
+
+    const pollData = await pollRes.json();
+
+    if (pollData.status === 'completed') {
+      if (!pollData.text || pollData.text.trim().length === 0) {
+        return jsonResponse({ error: 'No se detectó audio hablado en la grabación' }, 400, origin);
+      }
+      return jsonResponse({ text: pollData.text }, 200, origin);
+    }
+
+    if (pollData.status === 'error') {
+      return jsonResponse({ error: pollData.error || 'Error al transcribir el audio' }, 500, origin);
+    }
+  }
+
+  return jsonResponse({ error: 'La transcripción está tomando demasiado tiempo. Intenta con un audio más corto.' }, 504, origin);
 }
 
 // ─── Route: generate provisional speech ───────────────────
@@ -865,6 +1011,10 @@ export default {
 
       if (body.action === 'quota') {
         return await handleQuota(body, env, origin);
+      }
+
+      if (body.action === 'transcribe') {
+        return await handleTranscribe(body, env, origin);
       }
 
       if (body.action === 'generate_speech') {
