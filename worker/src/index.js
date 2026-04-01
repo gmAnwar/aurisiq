@@ -683,7 +683,7 @@ async function handleTranscribe(body, env, origin) {
       authorization: env.ASSEMBLYAI_API_KEY,
       'content-type': 'application/json',
     },
-    body: JSON.stringify({ audio_url: upload_url, language_code: 'es' }),
+    body: JSON.stringify({ audio_url: upload_url, language_code: 'es', speech_models: ['universal-3-pro'] }),
   });
 
   if (!transcriptRes.ok) {

@@ -8,6 +8,7 @@ SUPABASE_URL = "https://ekvvsosbwkfyhawywgpn.supabase.co"
 # Secrets (set via `wrangler secret put`):
 # CLAUDE_API_KEY
 # SUPABASE_SERVICE_ROLE_KEY
+# ASSEMBLYAI_API_KEY
 
 # Cron: timeout recovery every 5 minutes
 [triggers]
