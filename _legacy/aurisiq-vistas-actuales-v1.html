@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>aurisIQ — Vistas Actuales v1 · 31 Mar 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --cream:#f5f0e8;--cream-dark:#ede6d8;
+  --ink:#1a1410;--ink-mid:#3a2e25;--ink-light:#6b5d50;
+  --gold:#c8a84b;--gold-light:#e4cc88;--gold-dim:rgba(200,168,75,0.15);
+  --green:#3d7a52;--red:#b84040;
+  --cap:#c87840;--cap-dim:rgba(200,120,64,0.15);
+  --border:rgba(26,20,16,0.1);--shadow:0 1px 6px rgba(26,20,16,0.07)
+}
+body{font-family:'DM Sans',sans-serif;background:#110d0a;color:var(--ink);padding:40px 20px 80px}
+h1,h2,h3{font-family:'Syne',sans-serif}
+
+.doc-header{max-width:1080px;margin:0 auto 52px;text-align:center}
+.doc-header h1{font-family:'Syne',sans-serif;font-size:50px;font-weight:800;letter-spacing:-2px;color:var(--gold);line-height:1;margin-bottom:6px}
+.doc-header .sub{font-size:14px;color:rgba(245,240,232,0.45);margin-top:5px;font-family:'DM Sans',sans-serif;font-weight:300}
+
+.screens{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:44px}
+.screen{background:var(--cream);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5),0 0 0 1px rgba(255,255,255,0.04)}
+
+.rol-sep{max-width:1080px;margin:0 auto 20px;display:flex;align-items:center;gap:14px}
+.rol-line{flex:1;height:1px;background:rgba(200,168,75,0.2)}
+.rol-badge{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:5px 16px;border-radius:20px;white-space:nowrap;background:var(--gold-dim);color:var(--gold);border:1px solid rgba(200,168,75,0.3)}
+
+.smeta{padding:8px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--ink)}
+.smeta-l{display:flex;align-items:center;gap:8px}
+.snum{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;padding:3px 9px;border-radius:4px;color:var(--gold);background:var(--gold-dim)}
+.sname{font-family:'Syne',sans-serif;font-size:12px;font-weight:600;color:rgba(245,240,232,0.85)}
+.snote{font-size:10px;color:rgba(245,240,232,0.28);font-weight:300;font-family:'DM Sans',sans-serif}
+.fl{font-family:'DM Sans',sans-serif;font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:4px;display:inline-block}
+.fl.cap{background:var(--cap-dim);color:var(--cap)}
+.fl.ger{background:var(--gold-dim);color:var(--gold)}
+.fl.dir{background:var(--gold-dim);color:var(--gold)}
+.fl.agt{background:var(--gold-dim);color:var(--gold)}
+
+.screen-img{width:100%;display:block}
+.screen-note{padding:12px 18px;font-size:11px;font-family:'DM Sans',sans-serif;color:var(--ink-light);line-height:1.5;background:var(--cream-dark);border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <h1>auris<em style="font-style:normal;opacity:0.45">IQ</em></h1>
+  <div class="sub">Vistas actuales por rol · Captadora · Gerente · Direccion · Agencia · v1 · 31 Mar 2026<br>
+  Stack: Next.js + Supabase + Cloudflare Worker · Paleta: crema + dorado + verde oscuro · Tipografia: Syne + DM Sans</div>
+</div>
+
+<div class="screens">
+
+<!-- ========== VISTA CAPTADORA ========== -->
+<div class="rol-sep">
+  <div class="rol-line"></div>
+  <div class="rol-badge">Vista 1 — Captadora</div>
+  <div class="rol-line"></div>
+</div>
+
+<div class="screen">
+  <div class="smeta">
+    <div class="smeta-l"><span class="snum">C1</span><span class="sname">Mi Dia</span><span class="fl cap">Captadora</span></div>
+    <span class="snote">Saludo + objetivo de actividad + tip del dia + ultimas llamadas + boton grabar</span>
+  </div>
+  <img class="screen-img" src="screenshots/c1-mi-dia.png" alt="C1 Mi Dia">
+  <div class="screen-note">Componentes: saludo con nombre, cuota diaria (objetivo/22), tip del dia (patron_error), lista de llamadas con label legible, score promedio (solo si 2+), boton terracota "Grabar llamada".</div>
+</div>
+
+<div class="screen">
+  <div class="smeta">
+    <div class="smeta-l"><span class="snum">C2</span><span class="sname">Nueva Llamada</span><span class="fl cap">Captadora</span></div>
+    <span class="snote">Etapa + fuente_lead + textarea + drag-and-drop + notas opcionales + validador 200 palabras</span>
+  </div>
+  <img class="screen-img" src="screenshots/c2-nueva-llamada.png" alt="C2 Nueva Llamada">
+  <div class="screen-note">Componentes: selector etapa embudo, selector fuente_lead (requerido), textarea con drop zone (.txt/.docx), boton "Buscar archivo", validador 200 palabras minimo, notas de contexto opcionales, boton "Analizar" deshabilitado sin fuente/texto.</div>
+</div>
+
+<div class="screen">
+  <div class="smeta">
+    <div class="smeta-l"><span class="snum">C3</span><span class="sname">Mi Resultado</span><span class="fl cap">Captadora</span></div>
+    <span class="snote">Resultado positivo + mejora + fases peor-a-mejor + secciones expandibles + score al final</span>
+  </div>
+  <img class="screen-img" src="screenshots/c3-mi-resultado.png" alt="C3 Mi Resultado">
+  <div class="screen-note">Componentes: badge "Lead calificado/requiere seguimiento", frase que funciono, UNA mejora concreta, razones con label, fases ordenadas peor-a-mejor con colores, secciones expandibles (momento critico, objecion), score al FINAL. Estado vacio mostrado aqui (mock user).</div>
+</div>
+
+<div class="screen">
+  <div class="smeta">
+    <div class="smeta-l"><span class="snum">C4</span><span class="sname">Mi Semana</span><span class="fl cap">Captadora</span></div>
+    <span class="snote">Stats + mejor llamada dark card + objecion frecuente + grafica score por dia</span>
+  </div>
+  <img class="screen-img" src="screenshots/c4-mi-semana.png" alt="C4 Mi Semana">
+  <div class="screen-note">Componentes: total llamadas, score promedio con delta, mejor llamada (dark card ink), objecion mas frecuente con frase, grafica score por dia (solo si 3+). Sin comparativas con equipo.</div>
+</div>
+
+<div class="screen">
+  <div class="smeta">
+    <div class="smeta-l"><span class="snum">C5</span><span class="sname">Mi Speech</span><span class="fl cap">Captadora</span></div>
+    <span class="snote">Fases numeradas + frases con border terracota + version publicada por gerente</span>
+  </div>
+  <img class="screen-img" src="screenshots/c5-mi-speech.png" alt="C5 Mi Speech">
+  <div class="screen-note">Componentes: titulo "Mi Speech — Llamada de Captacion", fases con numero dorado (CSS counter), max 3 frases por fase con border-left terracota, version y fecha de publicacion. Lee exclusivamente de speech_versions (published=true).</div>
+</div>
+
+<!-- ========== VISTA GERENTE ========== -->
+<div class="rol-sep">
+  <div class="rol-line"></div>
+  <div class="rol-badge">Vista 2 — Gerente</div>
+  <div class="rol-line"></div>
+</div>
+
+<div class="screen">
+  <div class="smeta">
+    <div class="smeta-l"><span class="snum">G1</span><span class="sname">Dashboard Equipo</span><span class="fl ger">Gerente</span></div>
+    <span class="snote">KPIs + semaforo + top objeciones + alertas banner</span>
+  </div>
+  <img class="screen-img" src="screenshots/g1-dashboard-equipo.png" alt="G1 Dashboard Equipo">
+  <div class="screen-note">Componentes: 4 KPIs (analisis semana, score promedio, mejor score, mayor mejora), banner alertas activas, semaforo captadoras (rojo/amarillo/verde), top 3 objeciones con frecuencia, seccion alertas.</div>
+</div>
+
+<div class="screen">
+  <div class="smeta">
+    <div class="smeta-l"><span class="snum">G2</span><span class="sname">Perfil Captadora</span><span class="fl ger">Gerente</span></div>
+    <span class="snote">4 tabs: hoy + progreso + objetivos + coaching · comparativa con guard 5+</span>
+  </div>
+  <img class="screen-img" src="screenshots/g2-perfil-captadora.png" alt="G2 Perfil Captadora">
+  <div class="screen-note">Componentes: avatar + nombre, tabs (hoy/progreso/objetivos/coaching), evolucion de score, comparativa antes/despues (solo si 5+ analisis en cada periodo), area de oportunidad (fase con mayor brecha vs equipo), historial con labels legibles.</div>
+</div>
+
+<div class="screen">
+  <div class="smeta">
+    <div class="smeta-l"><span class="snum">G7</span><span class="sname">Configuracion</span><span class="fl ger">Gerente</span></div>
+    <span class="snote">Etapas + descal + fuentes + objetivos + destinatarios + notificaciones + ROI + plan</span>
+  </div>
+  <img class="screen-img" src="screenshots/g7-configuracion.png" alt="G7 Configuracion">
+  <div class="screen-note">Componentes: 8 secciones — etapas embudo, catalogo descalificacion (code auto-generado, toggle), fuentes lead (separado de descal), objetivos equipo (volume mensual), destinatarios (emails equipo/agencia), notificaciones (4 toggles), metricas ROI (ticket promedio, baseline), plan (tier, uso, estado).</div>
+</div>
+
+<!-- ========== VISTA DIRECCION ========== -->
+<div class="rol-sep">
+  <div class="rol-line"></div>
+  <div class="rol-badge">Vista 3 — Direccion</div>
+  <div class="rol-line"></div>
+</div>
+
+<div class="screen">
+  <div class="smeta">
+    <div class="smeta-l"><span class="snum">D1</span><span class="sname">Dashboard Ejecutivo</span><span class="fl dir">Direccion</span></div>
+    <span class="snote">Embudo + delta + comparativa 3 meses + iniciativas</span>
+  </div>
+  <img class="screen-img" src="screenshots/d1-dashboard-ejecutivo.png" alt="D1 Dashboard Ejecutivo">
+  <div class="screen-note">Componentes: KPIs (analisis mes, tasa conversion, delta vs mes anterior), embudo de captaciones con barras, comparativa mensual (3 meses), seccion iniciativas desde objectives. Sin scores individuales, sin nombres de captadoras.</div>
+</div>
+
+<!-- ========== VISTA AGENCIA ========== -->
+<div class="rol-sep">
+  <div class="rol-line"></div>
+  <div class="rol-badge">Vista 4 — Agencia</div>
+  <div class="rol-line"></div>
+</div>
+
+<div class="screen">
+  <div class="smeta">
+    <div class="smeta-l"><span class="snum">A1</span><span class="sname">Calidad de Leads</span><span class="fl agt">Agencia</span></div>
+    <span class="snote">Tasa calificacion + razones + fuentes con delta + alertas banner</span>
+  </div>
+  <img class="screen-img" src="screenshots/a1-calidad-leads.png" alt="A1 Calidad de Leads">
+  <div class="screen-note">Componentes: banner alertas activas, tasa calificacion (numero grande dark card), razones descalificacion (primaria vs secundaria), calificacion por fuente con delta vs semana anterior, cobertura analisis. Sin nombres de captadoras, sin scores individuales.</div>
+</div>
+
+</div><!-- end screens -->
+
+<div class="doc-header" style="margin-top:60px">
+  <div class="sub">
+    Referencia generada automaticamente desde app.aurisiq.io con SKIP_AUTH · 31 Mar 2026<br>
+    Commit: f23ff99 · 10 pantallas capturadas a 1280px · Datos vacios (mock user, sin datos reales en Supabase)<br>
+    Paleta oficial: crema + dorado + verde oscuro · Tipografia: Syne + DM Sans unicamente
+  </div>
+</div>
+
+</body>
+</html>
