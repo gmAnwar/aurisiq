@@ -56,15 +56,25 @@ export default function MiSemanaPage() {
   // Best call
   const best = weekAnalyses.filter(a => a.score_general !== null).sort((a, b) => b.score_general! - a.score_general!)[0] || null;
 
+  // Strip JSON artifacts from Claude output
+  const stripJson = (t: string) => {
+    let s = t;
+    const tripleIdx = s.indexOf("\u0060\u0060\u0060");
+    if (tripleIdx > 0) s = s.slice(0, tripleIdx);
+    s = s.replace(/\n\s*\{\s*"[\s\S]*$/g, "");
+    s = s.replace(/\s*json\s*\{[\s\S]*$/gi, "");
+    return s.trim();
+  };
+
   // Most frequent objection
   const objCounts: Record<string, { count: number; response: string | null }> = {};
   for (const a of weekAnalyses) {
     if (a.objecion_principal) {
-      const cleaned = a.objecion_principal.replace(/^\*+\s*/, "").trim();
+      const cleaned = stripJson(a.objecion_principal.replace(/^\*+\s*/, ""));
       if (cleaned) {
         if (!objCounts[cleaned]) objCounts[cleaned] = { count: 0, response: null };
         objCounts[cleaned].count++;
-        if (a.siguiente_accion && !objCounts[cleaned].response) objCounts[cleaned].response = a.siguiente_accion;
+        if (a.siguiente_accion && !objCounts[cleaned].response) objCounts[cleaned].response = stripJson(a.siguiente_accion);
       }
     }
   }

@@ -75,11 +75,17 @@ export default function MiDiaPage() {
       }
 
       // Strip JSON artifacts from Claude output
-      const stripJson = (t: string) => t
-        .replace(/```[\s\S]*$/g, "")
-        .replace(/\n\s*\{[\s\S]*$/g, "")
-        .replace(/\s*json\s*\{[\s\S]*$/gi, "")
-        .trim();
+      const stripJson = (t: string) => {
+        let s = t;
+        // Remove fenced code blocks (```...```)
+        const tripleIdx = s.indexOf("\u0060\u0060\u0060");
+        if (tripleIdx > 0) s = s.slice(0, tripleIdx);
+        // Remove trailing JSON objects
+        s = s.replace(/\n\s*\{\s*"[\s\S]*$/g, "");
+        // Remove inline json patterns
+        s = s.replace(/\s*json\s*\{[\s\S]*$/gi, "");
+        return s.trim();
+      };
 
       // Tip from last 7 days — short title from patron_error, phrase from siguiente_accion
       const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
