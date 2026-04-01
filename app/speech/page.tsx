@@ -18,17 +18,20 @@ interface StageSpeech {
   phases: PhaseGroup[];
   versionNumber: number;
   lastUpdated: string | null;
+  isProvisional: boolean;
 }
 
 export default function SpeechPage() {
   const [stages, setStages] = useState<FunnelStage[]>([]);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [speechByStage, setSpeechByStage] = useState<Record<string, StageSpeech>>({});
-  const [provisionalByStage, setProvisionalByStage] = useState<Record<string, StageSpeech>>({});
-  const [scorecardPhaseNames, setScorecardPhaseNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingProvisional, setLoadingProvisional] = useState<Record<string, boolean>>({});
+  const [generatingStage, setGeneratingStage] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [scorecardId, setScorecardId] = useState<string | null>(null);
+  const [scorecardPhaseNames, setScorecardPhaseNames] = useState<string[]>([]);
+
+  const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
 
   useEffect(() => {
     async function load() {
@@ -48,6 +51,7 @@ export default function SpeechPage() {
 
       const scorecard = scRes.data?.[0];
       if (!scorecard) { setLoading(false); return; }
+      setScorecardId(scorecard.id);
 
       const phaseNames: string[] = (scorecard.phases || []).map((sp: { phase_name: string }) => sp.phase_name);
       setScorecardPhaseNames(phaseNames);
@@ -55,15 +59,17 @@ export default function SpeechPage() {
       const funnelStages = stagesRes.data || [];
       setStages(funnelStages);
 
-      // Load all published speech versions
+      // Load all speech versions: published OR provisional
       const { data: allSpeech } = await supabase.from("speech_versions")
-        .select("id, content, version_number, updated_at, funnel_stage_id")
+        .select("id, content, version_number, updated_at, funnel_stage_id, published, is_provisional")
         .eq("scorecard_id", scorecard.id)
-        .eq("published", true);
+        .or("published.eq.true,is_provisional.eq.true");
 
       const byStage: Record<string, StageSpeech> = {};
       for (const sv of allSpeech || []) {
         const key = sv.funnel_stage_id || "_global";
+        // Published takes priority over provisional
+        if (byStage[key] && !byStage[key].isProvisional) continue;
         const content = sv.content as Record<string, string[]>;
         byStage[key] = {
           phases: phaseNames.map(name => ({
@@ -72,16 +78,14 @@ export default function SpeechPage() {
           })),
           versionNumber: sv.version_number,
           lastUpdated: sv.updated_at,
+          isProvisional: sv.is_provisional && !sv.published,
         };
       }
       setSpeechByStage(byStage);
 
-      // Default to first stage that has a published speech, or first stage
-      const stagesWithSpeech = funnelStages.filter(s => byStage[s.id]);
-      if (stagesWithSpeech.length > 0) {
-        setSelectedStageId(stagesWithSpeech[0].id);
-      } else if (funnelStages.length > 0) {
-        setSelectedStageId(funnelStages[0].id);
+      if (funnelStages.length > 0) {
+        const withSpeech = funnelStages.filter(s => byStage[s.id]);
+        setSelectedStageId(withSpeech.length > 0 ? withSpeech[0].id : funnelStages[0].id);
       } else if (byStage["_global"]) {
         setSelectedStageId("_global");
       }
@@ -92,44 +96,61 @@ export default function SpeechPage() {
     load();
   }, []);
 
-  const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
-
   const current = selectedStageId ? speechByStage[selectedStageId] : null;
-  const provisional = selectedStageId ? provisionalByStage[selectedStageId] : null;
-  const isLoadingProv = selectedStageId ? loadingProvisional[selectedStageId] : false;
-  const display = current || provisional;
-  const isProvisional = !current && !!provisional;
 
-  // Auto-fetch provisional when selecting a stage without published speech
-  useEffect(() => {
-    if (!selectedStageId || !orgId || current || provisional || isLoadingProv) return;
-    setLoadingProvisional(prev => ({ ...prev, [selectedStageId]: true }));
-    const stageId = selectedStageId;
-    fetch(WORKER_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "generate_speech",
+  // Generate provisional and save to DB (only when no speech exists for this stage)
+  const generateProvisional = async (stageId: string) => {
+    if (!orgId || !scorecardId) return;
+    setGeneratingStage(stageId);
+    try {
+      const res = await fetch(WORKER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "generate_speech",
+          organization_id: orgId,
+          funnel_stage_id: stageId === "_global" ? null : stageId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.phases) throw new Error("Error generando speech");
+
+      const content: Record<string, string[]> = {};
+      for (const p of data.phases as { phase_name: string; phrases: string[] }[]) {
+        content[p.phase_name] = (p.phrases || []).slice(0, 3);
+      }
+
+      // Save to DB as provisional
+      await supabase.from("speech_versions").insert({
         organization_id: orgId,
+        scorecard_id: scorecardId,
         funnel_stage_id: stageId === "_global" ? null : stageId,
-      }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.phases) {
-          const phases: PhaseGroup[] = (data.phases as { phase_name: string; phrases: string[] }[]).map(p => ({
-            phase_name: p.phase_name,
-            phrases: (p.phrases || []).slice(0, 3),
-          }));
-          setProvisionalByStage(prev => ({
-            ...prev,
-            [stageId]: { phases, versionNumber: 0, lastUpdated: null },
-          }));
-        }
-      })
-      .catch(() => { /* silently fail — show empty state */ })
-      .finally(() => setLoadingProvisional(prev => ({ ...prev, [stageId]: false })));
-  }, [selectedStageId, orgId, current, provisional, isLoadingProv]);
+        content,
+        version_number: 0,
+        published: false,
+        is_provisional: true,
+      });
+
+      const phases: PhaseGroup[] = scorecardPhaseNames.map(name => ({
+        phase_name: name,
+        phrases: content[name] || [],
+      }));
+
+      setSpeechByStage(prev => ({
+        ...prev,
+        [stageId]: { phases, versionNumber: 0, lastUpdated: new Date().toISOString(), isProvisional: true },
+      }));
+    } catch {
+      // Silently fail — user sees empty state
+    }
+    setGeneratingStage(null);
+  };
+
+  // Auto-generate when selecting a stage without any speech
+  useEffect(() => {
+    if (!selectedStageId || !orgId || current || generatingStage) return;
+    generateProvisional(selectedStageId);
+  }, [selectedStageId, orgId, current, generatingStage]);
 
   if (loading) {
     return (
@@ -146,7 +167,7 @@ export default function SpeechPage() {
       <div className="c5-header">
         <h1 className="c5-title">Mi Speech</h1>
         <p className="c5-subtitle">Frases clave por etapa del embudo</p>
-        {current?.lastUpdated && (
+        {current?.lastUpdated && !current.isProvisional && (
           <p className="c5-updated">
             Versión {current.versionNumber} — Actualizado {new Date(current.lastUpdated).toLocaleDateString("es-MX", { day: "numeric", month: "long" })}
           </p>
@@ -163,22 +184,22 @@ export default function SpeechPage() {
               onClick={() => setSelectedStageId(stage.id)}
             >
               {stage.name}
-              {speechByStage[stage.id] && <span className="g5-tab-dot" />}
+              {speechByStage[stage.id] && !speechByStage[stage.id].isProvisional && <span className="g5-tab-dot" />}
             </button>
           ))}
         </div>
       )}
 
-      {/* Loading provisional */}
-      {isLoadingProv && !display && (
+      {/* Generating */}
+      {generatingStage && !current && (
         <div className="c5-empty-card">
           <div className="c5-empty-title">Generando speech provisional...</div>
           <div className="c5-empty-sub">Creando frases modelo basadas en el scorecard de esta etapa.</div>
         </div>
       )}
 
-      {/* No speech and no provisional and not loading */}
-      {!display && !isLoadingProv && (
+      {/* No speech and not generating */}
+      {!current && !generatingStage && (
         <div className="c5-empty-card">
           <div className="c5-empty-title">Sin speech disponible</div>
           <div className="c5-empty-sub">Pide a tu gerente que publique el Speech Ideal del equipo desde la sección Biblioteca.</div>
@@ -186,14 +207,14 @@ export default function SpeechPage() {
       )}
 
       {/* Provisional badge */}
-      {isProvisional && display && (
+      {current?.isProvisional && (
         <div className="c5-provisional-badge">Provisional · Pendiente de revisión por tu gerente</div>
       )}
 
-      {/* Show speech content (published or provisional) */}
-      {display && (
+      {/* Show speech content */}
+      {current && (
         <div className="c5-phases">
-          {display.phases.map((group, i) => (
+          {current.phases.map((group, i) => (
             <div key={i} className="c5-phase-card">
               <h3 className="c5-phase-name">{group.phase_name}</h3>
               {group.phrases.length > 0 ? (

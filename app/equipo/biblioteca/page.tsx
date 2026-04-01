@@ -18,6 +18,7 @@ interface SpeechData {
   phases: SpeechPhase[];
   versionNum: number;
   updatedAt: string | null;
+  isProvisional?: boolean;
 }
 
 export default function BibliotecaPage() {
@@ -61,14 +62,17 @@ export default function BibliotecaPage() {
       const funnelStages = stagesRes.data || [];
       setStages(funnelStages);
 
-      // Load ALL published speech versions for this scorecard
+      // Load published + provisional speech versions
       const { data: allSpeech } = await supabase.from("speech_versions")
-        .select("id, content, version_number, updated_at, funnel_stage_id")
-        .eq("scorecard_id", sc.id).eq("published", true);
+        .select("id, content, version_number, updated_at, funnel_stage_id, published, is_provisional")
+        .eq("scorecard_id", sc.id)
+        .or("published.eq.true,is_provisional.eq.true");
 
       const byStage: Record<string, SpeechData> = {};
       for (const sv of allSpeech || []) {
         const key = sv.funnel_stage_id || "_global";
+        // Published takes priority over provisional
+        if (byStage[key] && !byStage[key].isProvisional) continue;
         const content = sv.content as Record<string, string[]>;
         byStage[key] = {
           phases: scPhases.map(sp => ({
@@ -77,6 +81,7 @@ export default function BibliotecaPage() {
           })),
           versionNum: sv.version_number,
           updatedAt: sv.updated_at,
+          isProvisional: sv.is_provisional && !sv.published,
         };
       }
       setSpeechByStage(byStage);
@@ -161,10 +166,11 @@ export default function BibliotecaPage() {
 
     const stageFilter = selectedStageId === "_global" ? null : selectedStageId;
 
-    // Unpublish existing for this stage
+    // Unpublish existing + delete provisionals for this stage
     let unpublishQuery = supabase.from("speech_versions")
-      .update({ published: false })
-      .eq("scorecard_id", scorecardId).eq("published", true);
+      .update({ published: false, is_provisional: false })
+      .eq("scorecard_id", scorecardId)
+      .or("published.eq.true,is_provisional.eq.true");
     if (stageFilter) {
       unpublishQuery = unpublishQuery.eq("funnel_stage_id", stageFilter);
     } else {
@@ -186,7 +192,7 @@ export default function BibliotecaPage() {
     const newPhases = editPhases.map(p => ({ ...p, phrases: content[p.phase_name] || [] }));
     setSpeechByStage(prev => ({
       ...prev,
-      [selectedStageId]: { phases: newPhases, versionNum: newVersion, updatedAt: new Date().toISOString() },
+      [selectedStageId]: { phases: newPhases, versionNum: newVersion, updatedAt: new Date().toISOString(), isProvisional: false },
     }));
     setEditing(false);
     setSaving(false);
@@ -246,9 +252,11 @@ export default function BibliotecaPage() {
         <div className="g1-header">
           <h1 className="g1-title">Biblioteca y Speech Ideal</h1>
           <p className="g1-subtitle">
-            {currentVersion > 0
-              ? `${selectedStageName} — Versión ${currentVersion} — ${new Date(currentUpdated!).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}`
-              : `${selectedStageName} — Sin versión publicada aún`}
+            {currentSpeech?.isProvisional
+              ? `${selectedStageName} — Generado por IA · Revisar y publicar`
+              : currentVersion > 0
+                ? `${selectedStageName} — Versión ${currentVersion} — ${new Date(currentUpdated!).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}`
+                : `${selectedStageName} — Sin versión publicada aún`}
           </p>
         </div>
 
