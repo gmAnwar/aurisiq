@@ -66,6 +66,9 @@ En caso de conflicto entre este CLAUDE.md y el TÉCNICO, el TÉCNICO tiene prior
 - conversion_discrepancy: comparar lead_status del output de Claude contra avanzo_a_siguiente_etapa
 - Dominio: aurisiq.io (comprado 28 Mar 2026) — app en app.aurisiq.io
 
+## Reglas de UI
+- La ÚNICA fuente del proyecto es DM Sans (400, 500, 600, 700). No se permite ninguna otra fuente. Nunca usar Syne, Playfair, Montserrat, ni ninguna fuente display o decorativa.
+
 ## Reglas operacionales críticas
 - NUNCA borrar de auth.users directamente — solo users.active = false
 - NUNCA guardar el name de fuente_lead directamente — siempre UUID reference

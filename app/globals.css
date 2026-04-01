@@ -2,7 +2,7 @@
    RESET Y BASE — paleta oficial aurisIQ
    Crema + Dorado + Verde oscuro
    PROHIBIDO: morado, rosa genérico, azul marino puro
-   Tipografía: SOLO Syne y DM Sans — nunca otro font-family
+   Tipografía: SOLO DM Sans — nunca otro font-family
 ===================================================== */
 :root {
   /* Paleta base */
@@ -66,10 +66,10 @@
   --terracota-hover: #b06830;
 
   /* Tipografía */
-  --font-heading: 'Syne', sans-serif;
+  --font-heading: 'DM Sans', sans-serif;
   --font-body: 'DM Sans', sans-serif;
-  --font-display: 'Syne', sans-serif;
-  --font-mono: 'Syne', sans-serif;
+  --font-display: 'DM Sans', sans-serif;
+  --font-mono: 'DM Sans', sans-serif;
   --font-family: 'DM Sans', sans-serif;
   --border-radius: 10px;
   --transition: all 0.2s ease;
@@ -85,7 +85,7 @@ body {
   min-height: 100vh;
 }
 
-h1, h2, h3, .syne { font-family: 'Syne', sans-serif; }
+h1, h2, h3, .syne { font-family: 'DM Sans', sans-serif; }
 
 body > * { position: relative; z-index: 1; }
 
@@ -108,7 +108,7 @@ body > * { position: relative; z-index: 1; }
 }
 
 .navbar-brand {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 800;
   font-size: 17px;
   letter-spacing: -0.5px;
@@ -259,7 +259,7 @@ body > * { position: relative; z-index: 1; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 10px;
   font-weight: 700;
   flex-shrink: 0;
@@ -328,14 +328,14 @@ body > * { position: relative; z-index: 1; }
 }
 
 .navbar-menu-name {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 12px;
   font-weight: 700;
   color: var(--cream);
 }
 
 .navbar-menu-role {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 1px;
@@ -364,7 +364,7 @@ body > * { position: relative; z-index: 1; }
   text-align: left;
   background: none;
   border: none;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 11px;
   font-weight: 700;
   color: var(--red);
@@ -398,7 +398,7 @@ body.has-nav {
    ============================================= */
 .badge {
   display: inline-block;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 1px;
@@ -419,7 +419,7 @@ body.has-nav {
 }
 
 .ptitle {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 12px;
   font-weight: 700;
   color: var(--ink);
@@ -440,7 +440,7 @@ body.has-nav {
 .pfill { height: 100%; border-radius: 3px; }
 
 .sec-title {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 16px;
   font-weight: 700;
   color: var(--ink);
@@ -459,8 +459,8 @@ body.has-nav {
 /* KPI row */
 .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
 .kpi-card { background: white; border-radius: 10px; padding: 13px; box-shadow: var(--shadow); }
-.kpi-l { font-size: 9px; font-family: 'Syne', sans-serif; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--ink-light); margin-bottom: 4px; }
-.kpi-v { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: var(--ink); line-height: 1; margin-bottom: 2px; }
+.kpi-l { font-size: 9px; font-family: 'DM Sans', sans-serif; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--ink-light); margin-bottom: 4px; }
+.kpi-v { font-family: 'DM Sans', sans-serif; font-size: 20px; font-weight: 700; color: var(--ink); line-height: 1; margin-bottom: 2px; }
 .kpi-d { font-size: 10px; font-family: 'DM Sans', sans-serif; font-weight: 500; }
 .kpi-d.up { color: var(--green); }
 .kpi-d.dn { color: var(--red); }
@@ -514,7 +514,7 @@ body.has-nav {
 }
 
 .auth-title {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 36px;
   font-weight: 800;
   letter-spacing: -1px;
@@ -544,7 +544,7 @@ body.has-nav {
 }
 
 .input-label {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 1px;
@@ -602,7 +602,7 @@ body.has-nav {
   border: none;
   background-color: var(--gold);
   color: white;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -681,7 +681,7 @@ body.has-nav {
 .c2-header { margin-bottom: 24px; }
 
 .c2-title {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.3px;
@@ -764,7 +764,7 @@ body.has-nav {
 }
 
 .c2-file-btn {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 10px;
   font-weight: 700;
   color: var(--cap);
@@ -962,7 +962,7 @@ body.has-nav {
 
 .c2-analyzing-text {
   font-size: 14px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 600;
   color: var(--cap);
 }
@@ -976,7 +976,7 @@ body.has-nav {
   display: inline-block;
   margin-top: 12px;
   padding: 8px 20px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 11px;
   font-weight: 700;
   color: var(--red);
@@ -1021,7 +1021,7 @@ body.has-nav {
   padding: 8px 16px;
   border-radius: 8px;
   font-size: 13px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   margin-bottom: 24px;
 }
@@ -1040,7 +1040,7 @@ body.has-nav {
 
 .c3-section-label {
   font-size: 9px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
@@ -1080,7 +1080,7 @@ body.has-nav {
   padding: 6px 12px;
   border-radius: 6px;
   font-size: 11px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   background: var(--red-dim);
   color: var(--red);
@@ -1121,7 +1121,7 @@ body.has-nav {
 
 .c3-phase-score {
   font-size: 10px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   color: var(--ink);
 }
@@ -1157,7 +1157,7 @@ body.has-nav {
 }
 
 .c3-score-value {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 28px;
   font-weight: 700;
   color: var(--ink);
@@ -1165,7 +1165,7 @@ body.has-nav {
 
 .c3-clasificacion {
   font-size: 9px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -1179,7 +1179,7 @@ body.has-nav {
 }
 
 .c3-expand-summary {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 11px;
   font-weight: 700;
   color: var(--ink-light);
@@ -1226,7 +1226,7 @@ body.has-nav {
 .c4-header { margin-bottom: 4px; }
 
 .c4-greeting {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.3px;
@@ -1259,14 +1259,14 @@ body.has-nav {
 }
 
 .c4-stat-value {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 20px;
   font-weight: 700;
   color: var(--ink);
 }
 
 .c4-stat-label {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.8px;
@@ -1278,7 +1278,7 @@ body.has-nav {
 .c4-list-section { margin-top: 8px; }
 
 .c4-list-title {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 1.5px;
@@ -1326,7 +1326,7 @@ body.has-nav {
 }
 
 .c4-item-date {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 10px;
   font-weight: 700;
   color: var(--ink);
@@ -1346,7 +1346,7 @@ body.has-nav {
 }
 
 .c4-item-score {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 16px;
   font-weight: 700;
 }
@@ -1356,7 +1356,7 @@ body.has-nav {
   display: inline-block;
   margin-top: 6px;
   font-size: 10px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   color: var(--cap);
   background: var(--cap-dim);
@@ -1373,7 +1373,7 @@ body.has-nav {
 }
 
 .tip-lbl {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 1.5px;
@@ -1465,7 +1465,7 @@ body.has-nav {
 
 .c1-activity-count {
   font-size: 14px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   color: var(--ink);
 }
@@ -1494,7 +1494,7 @@ body.has-nav {
 
 .c1-quota-done {
   font-size: 13px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   color: var(--green);
   text-align: center;
@@ -1514,7 +1514,7 @@ body.has-nav {
 
 .c1-no-objective-text {
   font-size: 14px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   color: var(--ink);
 }
@@ -1539,7 +1539,7 @@ body.has-nav {
 }
 
 .c4-best-lbl {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 1.5px;
@@ -1549,7 +1549,7 @@ body.has-nav {
 }
 
 .c4-best-score {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 28px;
   font-weight: 700;
   color: var(--cap);
@@ -1558,7 +1558,7 @@ body.has-nav {
 }
 
 .c4-best-date {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 12px;
   font-weight: 600;
   color: var(--cream);
@@ -1592,7 +1592,7 @@ body.has-nav {
 .c5-header { margin-bottom: 4px; }
 
 .c5-title {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.3px;
@@ -1629,7 +1629,7 @@ body.has-nav {
 }
 
 .c5-phase-name {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 12px;
   font-weight: 700;
   margin-bottom: 10px;
@@ -1651,7 +1651,7 @@ body.has-nav {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 10px;
   font-weight: 700;
   color: var(--ink);
@@ -1689,7 +1689,7 @@ body.has-nav {
 .c5-expand-btn {
   width: 100%;
   padding: 9px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 11px;
   font-weight: 700;
   color: var(--cap);
@@ -1726,7 +1726,7 @@ body.has-nav {
 }
 
 .c5-empty-icon { font-size: 32px; margin-bottom: 12px; }
-.c5-empty-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+.c5-empty-title { font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
 .c5-empty-sub { font-size: 12px; font-family: 'DM Sans', sans-serif; color: var(--ink-light); font-weight: 300; line-height: 1.5; }
 
 .c5-back-link {
@@ -1762,7 +1762,7 @@ body.has-nav {
 .g1-header { margin-bottom: 16px; }
 
 .g1-title {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.3px;
@@ -1799,7 +1799,7 @@ body.has-nav {
 }
 
 .g1-kpi-value {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 20px;
   font-weight: 700;
   color: var(--ink);
@@ -1812,7 +1812,7 @@ body.has-nav {
 }
 
 .g1-kpi-label {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.8px;
@@ -1825,7 +1825,7 @@ body.has-nav {
 .g1-section { margin-bottom: 14px; }
 
 .g1-section-title {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 1.5px;
@@ -1859,7 +1859,7 @@ body.has-nav {
   grid-template-columns: 2fr 1fr 1fr 1fr;
   padding: 10px 16px;
   background: var(--cream-dark);
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 8px;
   font-weight: 700;
   color: var(--ink-light);
@@ -1889,11 +1889,11 @@ body.has-nav {
   color: var(--ink);
 }
 
-.g1-rank-score { font-family: 'Syne', sans-serif; font-weight: 700; }
+.g1-rank-score { font-family: 'DM Sans', sans-serif; font-weight: 700; }
 
 .g1-rank-delta {
   text-align: center;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   font-size: 11px;
   color: var(--ink-light);
@@ -1926,7 +1926,7 @@ body.has-nav {
 .g1-traffic-status { font-size: 14px; }
 
 .g1-traffic-info { display: flex; flex-direction: column; gap: 2px; }
-.g1-traffic-name { font-size: 12px; font-family: 'Syne', sans-serif; font-weight: 600; color: var(--ink); }
+.g1-traffic-name { font-size: 12px; font-family: 'DM Sans', sans-serif; font-weight: 600; color: var(--ink); }
 .g1-traffic-detail { font-size: 10px; font-family: 'DM Sans', sans-serif; color: var(--ink-light); font-weight: 300; }
 
 /* G2 — Coaching tab */
@@ -1941,7 +1941,7 @@ body.has-nav {
 
 .g2-coaching-date {
   font-size: 10px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   color: var(--ink-light);
   display: block;
@@ -1953,7 +1953,7 @@ body.has-nav {
 
 .g2-coaching-label {
   font-size: 9px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -1987,7 +1987,7 @@ body.has-nav {
 
 .g1-objecion-rank {
   font-size: 10px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   color: var(--ink-light);
   min-width: 24px;
@@ -2003,7 +2003,7 @@ body.has-nav {
 
 .g1-objecion-count {
   font-size: 10px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   color: var(--ink-light);
 }
@@ -2027,7 +2027,7 @@ body.has-nav {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 11px;
   font-weight: 700;
   flex-shrink: 0;
@@ -2042,7 +2042,7 @@ body.has-nav {
 
 .g2-score-pill {
   font-size: 9px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   padding: 3px 9px;
   border-radius: 4px;
@@ -2079,7 +2079,7 @@ body.has-nav {
 
 .g2-evo-label {
   font-size: 9px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   color: var(--ink-light);
   margin-top: 4px;
@@ -2107,7 +2107,7 @@ body.has-nav {
 .g2-comp-name { flex: 1; font-weight: 500; color: var(--ink); }
 .g2-comp-before { color: var(--ink-light); font-weight: 300; }
 .g2-comp-arrow { color: var(--ink-light); font-size: 10px; }
-.g2-comp-after { font-family: 'Syne', sans-serif; font-weight: 700; }
+.g2-comp-after { font-family: 'DM Sans', sans-serif; font-weight: 700; }
 
 .g2-opportunity {
   padding: 14px;
@@ -2137,7 +2137,7 @@ body.has-nav {
 
 .g3-captadora-link {
   color: var(--ink);
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 600;
   font-size: 12px;
   text-decoration: none;
@@ -2171,7 +2171,7 @@ body.has-nav {
 
 .g3-insight-label {
   font-size: 9px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -2226,11 +2226,11 @@ body.has-nav {
   background: var(--cream-dark);
 }
 
-.g4-prospect-name { font-family: 'Syne', sans-serif; font-weight: 600; font-size: 12px; color: var(--ink); }
+.g4-prospect-name { font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 12px; color: var(--ink); }
 
 .g4-stage {
   font-size: 9px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   letter-spacing: 0.5px;
   padding: 3px 9px;
@@ -2296,7 +2296,7 @@ body.has-nav {
 
 .g4-note-save, .g4-note-cancel {
   padding: 6px 12px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 10px;
   font-weight: 700;
   border-radius: 6px;
@@ -2492,7 +2492,7 @@ body.has-nav {
 
 .g6-report-meta { display: flex; justify-content: space-between; align-items: center; }
 .g6-report-date { font-size: 11px; font-family: 'DM Sans', sans-serif; font-weight: 500; color: var(--ink); }
-.g6-report-type { font-size: 9px; font-family: 'Syne', sans-serif; font-weight: 700; color: var(--ink-light); text-transform: uppercase; letter-spacing: 0.5px; }
+.g6-report-type { font-size: 9px; font-family: 'DM Sans', sans-serif; font-weight: 700; color: var(--ink-light); text-transform: uppercase; letter-spacing: 0.5px; }
 
 /* =============================================
    D1 — Dashboard Ejecutivo
@@ -2508,7 +2508,7 @@ body.has-nav {
 .d1-funnel-label { font-size: 11px; font-family: 'DM Sans', sans-serif; min-width: 110px; color: var(--ink-light); font-weight: 300; }
 .d1-funnel-bar-bg { flex: 1; height: 6px; background: var(--cream-dark); border-radius: 3px; overflow: hidden; }
 .d1-funnel-bar-fill { height: 100%; background: var(--gold); border-radius: 3px; transition: width 0.3s; }
-.d1-funnel-value { font-size: 10px; font-family: 'Syne', sans-serif; font-weight: 700; color: var(--ink-light); min-width: 70px; text-align: right; }
+.d1-funnel-value { font-size: 10px; font-family: 'DM Sans', sans-serif; font-weight: 700; color: var(--ink-light); min-width: 70px; text-align: right; }
 
 .d1-objectives { display: flex; flex-direction: column; gap: 10px; }
 
@@ -2553,13 +2553,13 @@ body.has-nav {
   transition: height 0.3s;
 }
 
-.d1-monthly-rate { font-size: 12px; font-family: 'Syne', sans-serif; font-weight: 700; margin-top: 6px; color: var(--ink); }
+.d1-monthly-rate { font-size: 12px; font-family: 'DM Sans', sans-serif; font-weight: 700; margin-top: 6px; color: var(--ink); }
 .d1-monthly-count { font-size: 10px; font-family: 'DM Sans', sans-serif; color: var(--ink-light); font-weight: 300; }
 .d1-monthly-label { font-size: 10px; font-family: 'DM Sans', sans-serif; color: var(--ink-light); text-transform: capitalize; }
 
 .d1-obj-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
 .d1-obj-name { font-size: 12px; font-family: 'DM Sans', sans-serif; font-weight: 500; color: var(--ink); }
-.d1-obj-pct { font-size: 12px; font-family: 'Syne', sans-serif; font-weight: 700; color: var(--ink); }
+.d1-obj-pct { font-size: 12px; font-family: 'DM Sans', sans-serif; font-weight: 700; color: var(--ink); }
 
 /* =============================================
    D2 — ROI
@@ -2574,7 +2574,7 @@ body.has-nav {
   border-radius: 12px;
 }
 
-.d2-hero-value { font-size: 40px; font-family: 'Syne', sans-serif; font-weight: 700; color: var(--cream); }
+.d2-hero-value { font-size: 40px; font-family: 'DM Sans', sans-serif; font-weight: 700; color: var(--cream); }
 .d2-hero-label { font-size: 11px; font-family: 'DM Sans', sans-serif; color: rgba(245,240,232,0.4); font-weight: 300; margin-top: 4px; }
 
 .d2-calc {
@@ -2594,7 +2594,7 @@ body.has-nav {
 }
 
 .d2-calc-row:first-child { border-top: none; }
-.d2-calc-row span:last-child { font-family: 'Syne', sans-serif; font-weight: 700; }
+.d2-calc-row span:last-child { font-family: 'DM Sans', sans-serif; font-weight: 700; }
 .d2-calc-highlight { background: var(--gold-dim); font-weight: 600; }
 
 /* =============================================
@@ -2606,7 +2606,7 @@ body.has-nav {
   padding: 10px 14px;
   background: var(--cream-dark);
   font-size: 8px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   letter-spacing: 1px;
   color: var(--ink-light);
@@ -2635,7 +2635,7 @@ body.has-nav {
 
 .d4-deactivate-btn {
   padding: 3px 9px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 9px;
   font-weight: 700;
   color: var(--red);
@@ -2675,7 +2675,7 @@ body.has-nav {
 }
 
 .d4-billing-row:first-child { border-top: none; }
-.d4-billing-value { font-family: 'Syne', sans-serif; font-weight: 700; text-transform: capitalize; }
+.d4-billing-value { font-family: 'DM Sans', sans-serif; font-weight: 700; text-transform: capitalize; }
 
 /* =============================================
    G7 — Configuración
@@ -2800,12 +2800,12 @@ body.has-nav {
 }
 
 .a1-descal-label { flex: 1; font-weight: 500; color: var(--ink); }
-.a1-descal-pct { font-family: 'Syne', sans-serif; font-weight: 700; min-width: 36px; text-align: right; }
+.a1-descal-pct { font-family: 'DM Sans', sans-serif; font-weight: 700; min-width: 36px; text-align: right; }
 .a1-descal-count { font-size: 10px; color: var(--ink-light); font-weight: 300; min-width: 30px; }
 
 .a1-descal-badge {
   font-size: 8px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -2821,7 +2821,7 @@ body.has-nav {
   padding: 10px 14px;
   background: var(--cream-dark);
   font-size: 8px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   color: var(--ink-light);
   text-transform: uppercase;
@@ -2881,7 +2881,7 @@ body.has-nav {
 
 .a3-alert-source {
   font-size: 10px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   color: var(--ink);
   margin-left: 8px;
@@ -2897,7 +2897,7 @@ body.has-nav {
 
 .a3-attend-btn {
   padding: 4px 10px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 9px;
   font-weight: 700;
   color: var(--teal);
@@ -2956,7 +2956,7 @@ body.has-nav {
 }
 
 .ear-title {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 24px;
   font-weight: 800;
   color: var(--ink);
@@ -2973,7 +2973,7 @@ body.has-nav {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 16px;
   font-weight: 700;
   color: white;
@@ -3029,7 +3029,7 @@ body.has-nav {
 }
 
 .ear-timer {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 48px;
   font-weight: 800;
   color: var(--ink);
@@ -3045,7 +3045,7 @@ body.has-nav {
 }
 
 .ear-stop-btn {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 16px;
   font-weight: 700;
   color: white;
@@ -3071,7 +3071,7 @@ body.has-nav {
 }
 
 .ear-transcribing-text {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 16px;
   font-weight: 700;
   color: var(--ink);
@@ -3085,7 +3085,7 @@ body.has-nav {
 
 /* Review state */
 .ear-review-title {
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 18px;
   font-weight: 700;
   color: var(--ink);
