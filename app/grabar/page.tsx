@@ -86,7 +86,19 @@ export default function GrabarPage() {
     setErrorMsg("");
     setTranscription("");
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        audio: true,
+        video: true,
+      });
+
+      // Remove video tracks — we only need audio
+      stream.getVideoTracks().forEach(t => t.stop());
+
+      if (stream.getAudioTracks().length === 0) {
+        stream.getTracks().forEach(t => t.stop());
+        setErrorMsg("No se seleccionó audio del sistema. Asegúrate de marcar \"Compartir audio\" en el popup del navegador.");
+        return;
+      }
 
       // Set up audio analyser for waveform
       const audioCtx = new AudioContext();
@@ -121,6 +133,13 @@ export default function GrabarPage() {
         handleTranscription(blob);
       };
 
+      // Handle user stopping share from browser native UI
+      stream.getAudioTracks()[0].onended = () => {
+        if (mediaRecorderRef.current?.state === "recording") {
+          mediaRecorderRef.current.stop();
+        }
+      };
+
       recorder.start(1000);
       mediaRecorderRef.current = recorder;
       setStage("recording");
@@ -128,7 +147,7 @@ export default function GrabarPage() {
       timerRef.current = setInterval(() => setElapsed(p => p + 1), 1000);
       drawWaveform();
     } catch {
-      setErrorMsg("No pudimos acceder al micrófono. Verifica los permisos de tu navegador.");
+      setErrorMsg("No pudimos capturar el audio del sistema. Verifica que tu navegador soporte compartir audio.");
     }
   };
 
@@ -182,7 +201,7 @@ export default function GrabarPage() {
       {stage === "idle" && (
         <div className="ear-idle">
           <h1 className="ear-title">Grabar Llamada</h1>
-          <p className="ear-subtitle">Pon la llamada en altavoz y graba con el micrófono de tu dispositivo</p>
+          <p className="ear-subtitle">Captura el audio de tu softphone, Zoom o cualquier app de llamadas</p>
           <button className="ear-start-btn" onClick={startRecording}>
             <span className="ear-start-icon" />
             Iniciar grabación
@@ -196,7 +215,7 @@ export default function GrabarPage() {
         <div className="ear-recording">
           <div className="ear-rec-indicator">
             <span className="ear-rec-dot" />
-            <span className="ear-rec-label">Grabando</span>
+            <span className="ear-rec-label">Grabando audio del sistema</span>
           </div>
           <span className="ear-timer">{formatTime(elapsed)}</span>
           <canvas ref={canvasRef} className="ear-waveform" width={280} height={60} />
