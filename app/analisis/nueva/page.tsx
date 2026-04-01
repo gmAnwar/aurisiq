@@ -46,6 +46,7 @@ export default function NuevaLlamadaPage() {
   const [recMode, setRecMode] = useState<RecMode>("off");
   const [recElapsed, setRecElapsed] = useState(0);
   const [recError, setRecError] = useState("");
+  const [recLabel, setRecLabel] = useState("");
   const [mobile, setMobile] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -54,6 +55,7 @@ export default function NuevaLlamadaPage() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const allStreamsRef = useRef<MediaStream[]>([]);
 
   const wordCount = transcription.trim().split(/\s+/).filter(Boolean).length;
   const MIN_WORDS = transcriptionSource === "audio" ? 50 : 200;
@@ -242,34 +244,74 @@ export default function NuevaLlamadaPage() {
 
   const startRecording = async () => {
     setRecError("");
+    allStreamsRef.current = [];
     try {
-      let stream: MediaStream;
+      let recordStream: MediaStream;
+      let label = "";
+
       if (mobile) {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Mobile: microphone only
+        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        allStreamsRef.current.push(micStream);
+        recordStream = micStream;
+        label = "Grabando con micrófono";
       } else {
-        stream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
-        stream.getVideoTracks().forEach(t => t.stop());
-        if (stream.getAudioTracks().length === 0) {
-          stream.getTracks().forEach(t => t.stop());
-          setRecError("No se seleccionó audio del sistema. Asegúrate de marcar \"Compartir audio\" en el popup.");
-          return;
+        // Desktop: combine microphone + system audio
+        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        allStreamsRef.current.push(micStream);
+
+        let displayStream: MediaStream | null = null;
+        try {
+          displayStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
+          displayStream.getVideoTracks().forEach(t => t.stop());
+          if (displayStream.getAudioTracks().length === 0) {
+            displayStream.getTracks().forEach(t => t.stop());
+            displayStream = null;
+          }
+        } catch {
+          displayStream = null;
         }
-        stream.getAudioTracks()[0].onended = () => {
-          if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
-        };
+
+        if (displayStream) {
+          allStreamsRef.current.push(displayStream);
+          // Combine both streams via AudioContext
+          const audioCtx = new AudioContext();
+          const micSource = audioCtx.createMediaStreamSource(micStream);
+          const displaySource = audioCtx.createMediaStreamSource(displayStream);
+          const destination = audioCtx.createMediaStreamDestination();
+          micSource.connect(destination);
+          displaySource.connect(destination);
+          audioCtxRef.current = audioCtx;
+          recordStream = destination.stream;
+          label = "Grabando micrófono + audio del sistema";
+
+          // Stop recording if user ends display share
+          displayStream.getAudioTracks()[0].onended = () => {
+            if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
+          };
+        } else {
+          // Fallback: microphone only
+          setRecError("Solo se capturará tu micrófono");
+          recordStream = micStream;
+          label = "Grabando solo micrófono";
+        }
       }
 
-      const audioCtx = new AudioContext();
-      const source = audioCtx.createMediaStreamSource(stream);
-      const analyser = audioCtx.createAnalyser();
+      setRecLabel(label);
+
+      // Set up analyser on the stream that goes to the recorder
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new AudioContext();
+      }
+      const analyserSource = audioCtxRef.current.createMediaStreamSource(recordStream);
+      const analyser = audioCtxRef.current.createAnalyser();
       analyser.fftSize = 256;
-      source.connect(analyser);
+      analyserSource.connect(analyser);
       analyserRef.current = analyser;
-      audioCtxRef.current = audioCtx;
 
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus" : "audio/mp4";
-      const recorder = new MediaRecorder(stream, { mimeType });
+      const recorder = new MediaRecorder(recordStream, { mimeType });
       chunksRef.current = [];
 
       recorder.ondataavailable = (e) => {
@@ -277,8 +319,9 @@ export default function NuevaLlamadaPage() {
       };
 
       recorder.onstop = () => {
-        stream.getTracks().forEach(t => t.stop());
-        audioCtx.close();
+        allStreamsRef.current.forEach(s => s.getTracks().forEach(t => t.stop()));
+        allStreamsRef.current = [];
+        audioCtxRef.current?.close();
         if (recTimerRef.current) clearInterval(recTimerRef.current);
         if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
         analyserRef.current = null;
@@ -294,11 +337,7 @@ export default function NuevaLlamadaPage() {
       setRecElapsed(0);
       recTimerRef.current = setInterval(() => setRecElapsed(p => p + 1), 1000);
     } catch {
-      setRecError(
-        mobile
-          ? "No pudimos acceder al micrófono. Verifica los permisos de tu navegador."
-          : "No pudimos capturar el audio del sistema. Verifica que tu navegador soporte compartir audio."
-      );
+      setRecError("No pudimos acceder al micrófono. Verifica los permisos de tu navegador.");
     }
   };
 
@@ -308,9 +347,10 @@ export default function NuevaLlamadaPage() {
 
   const cancelRecording = () => {
     if (mediaRecorderRef.current?.state === "recording") {
-      mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
       mediaRecorderRef.current.stop();
     }
+    allStreamsRef.current.forEach(s => s.getTracks().forEach(t => t.stop()));
+    allStreamsRef.current = [];
     if (recTimerRef.current) clearInterval(recTimerRef.current);
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     analyserRef.current = null;
@@ -318,6 +358,7 @@ export default function NuevaLlamadaPage() {
     audioCtxRef.current = null;
     setRecMode("off");
     setRecElapsed(0);
+    setRecError("");
   };
 
   // ─── Submit ────────────────────────────────────────────────
@@ -442,9 +483,7 @@ export default function NuevaLlamadaPage() {
           <div className="ear-recording">
             <div className="ear-rec-indicator">
               <span className="ear-rec-dot" />
-              <span className="ear-rec-label">
-                {mobile ? "Grabando con micrófono" : "Grabando audio del sistema"}
-              </span>
+              <span className="ear-rec-label">{recLabel}</span>
             </div>
             <span className="ear-timer">{formatTime(recElapsed)}</span>
             <canvas ref={canvasRef} className="ear-waveform" width={280} height={60} />
