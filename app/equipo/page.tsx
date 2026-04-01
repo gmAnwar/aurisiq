@@ -22,6 +22,7 @@ export default function EquipoDashboard() {
   const [totalWeek, setTotalWeek] = useState(0);
   const [avgScore, setAvgScore] = useState<number | null>(null);
   const [bestCaptadora, setBestCaptadora] = useState<string | null>(null);
+  const [bestScore, setBestScore] = useState<number | null>(null);
   const [mostImproved, setMostImproved] = useState<string | null>(null);
   const [captadoras, setCaptadoras] = useState<CaptadoraCard[]>([]);
   const [objeciones, setObjeciones] = useState<ObjecionFreq[]>([]);
@@ -117,7 +118,9 @@ export default function EquipoDashboard() {
 
       if (cards.length > 0 && cards.some(c => c.count > 0)) {
         const sorted = [...cards].sort((a, b) => b.avgScore - a.avgScore);
-        setBestCaptadora(sorted.find(c => c.count > 0)?.name || null);
+        const topCap = sorted.find(c => c.count > 0);
+        setBestCaptadora(topCap?.name || null);
+        setBestScore(topCap?.avgScore || null);
         const withDelta = cards.filter(c => c.delta !== null && c.delta > 0);
         withDelta.sort((a, b) => (b.delta || 0) - (a.delta || 0));
         setMostImproved(withDelta[0]?.name || null);
@@ -164,7 +167,7 @@ export default function EquipoDashboard() {
         <div className="g1-kpis">
           <div className="g1-kpi"><span className="g1-kpi-value">{totalWeek}</span><span className="g1-kpi-label">Análisis semana</span></div>
           <div className="g1-kpi"><span className="g1-kpi-value">{avgScore !== null ? avgScore : "—"}</span><span className="g1-kpi-label">Score promedio</span></div>
-          <div className="g1-kpi"><span className="g1-kpi-value g1-kpi-name">{bestCaptadora || "—"}</span><span className="g1-kpi-label">Mejor score</span></div>
+          <div className="g1-kpi"><span className="g1-kpi-value g1-kpi-name">{bestCaptadora ? `${bestCaptadora} · ${bestScore}` : "—"}</span><span className="g1-kpi-label">Mejor score</span></div>
           <div className="g1-kpi"><span className="g1-kpi-value g1-kpi-name">{mostImproved || "—"}</span><span className="g1-kpi-label">Mayor mejora</span></div>
         </div>
 

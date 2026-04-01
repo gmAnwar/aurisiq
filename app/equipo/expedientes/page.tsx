@@ -47,7 +47,7 @@ export default function ExpedientesPage() {
       // Group by prospect_identifier
       const groups: Record<string, ProspectGroup> = {};
       for (const a of analysesRes.data || []) {
-        const key = a.prospect_identifier || "sin_identificar";
+        const key = a.prospect_identifier || "Prospecto sin identificar";
         if (!groups[key]) groups[key] = { identifier: key, entries: [] };
         groups[key].entries.push(a);
       }
@@ -101,7 +101,7 @@ export default function ExpedientesPage() {
         </div>
 
         {prospects.length === 0 && (
-          <p className="g1-empty">No hay prospectos con identificador registrado. Los análisis necesitan un `prospect_identifier` para agruparse aquí.</p>
+          <p className="g1-empty">No hay prospectos con identificador registrado. Los análisis se agrupan por prospecto cuando se incluye su nombre o teléfono.</p>
         )}
 
         <div className="g4-prospects">

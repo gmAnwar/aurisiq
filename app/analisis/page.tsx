@@ -90,7 +90,14 @@ export default function MiDiaPage() {
       }
       const topErr = Object.entries(errors).sort((a, b) => b[1].count - a[1].count)[0];
       if (topErr) {
-        setTipTitle(topErr[0]);
+        // Limit tip title to ~120 chars, cut at last sentence boundary
+        let title = topErr[0];
+        if (title.length > 120) {
+          const cut = title.slice(0, 120);
+          const lastPunct = Math.max(cut.lastIndexOf("."), cut.lastIndexOf(","), cut.lastIndexOf(";"));
+          title = lastPunct > 40 ? cut.slice(0, lastPunct + 1) : cut.slice(0, cut.lastIndexOf(" "));
+        }
+        setTipTitle(title);
         const srcAnalysis = all.find(a => a.id === topErr[1].analysisId);
         if (srcAnalysis?.siguiente_accion) {
           setTipFrase(stripJson(srcAnalysis.siguiente_accion));
@@ -206,9 +213,11 @@ export default function MiDiaPage() {
                 <a key={a.id} href={`/analisis/${a.id}`} className="c4-item">
                   <div className="c4-item-left">
                     <span className="c4-item-date">{time}</span>
-                    {primaryDescal && (
-                      <span className="c4-item-source">{descalMap[primaryDescal] || "Razón no reconocida"}</span>
-                    )}
+                    <span className="c4-item-source">
+                      {primaryDescal
+                        ? descalMap[primaryDescal] || "Razón no reconocida"
+                        : "Lead calificado"}
+                    </span>
                     {secondaryDescal.length > 0 && (
                       <span className="c1-secondary-descal">
                         {secondaryDescal.map(c => descalMap[c] || "Razón no reconocida").join(", ")}

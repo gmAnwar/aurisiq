@@ -205,10 +205,10 @@ function parseClaudeOutput(rawText) {
   );
   if (patronMatch) result.patron_error = patronMatch[1].trim();
 
-  const objecionMatch = rawText.match(/Objeci[oó]n:\s*(.+?)(?:\n|$)/i);
+  const objecionMatch = rawText.match(/Objeci[oó]n(?:\s+principal)?:\s*(.+?)(?:\n|$)/i);
   if (objecionMatch) result.objecion_principal = objecionMatch[1].trim();
 
-  const accionMatch = rawText.match(/Acci[oó]n concreta:\s*(.+?)(?:\n|$)/i);
+  const accionMatch = rawText.match(/(?:Acci[oó]n concreta|Siguiente acci[oó]n|Recomendaci[oó]n):\s*(.+?)(?:\n|$)/i);
   if (accionMatch) result.siguiente_accion = accionMatch[1].trim();
 
   const momentoMatch = rawText.match(
@@ -220,6 +220,22 @@ function parseClaudeOutput(rawText) {
     /Estado del lead:\s*(converted|lost_captadora|lost_external|pending)/i
   );
   if (leadMatch) result.lead_status = leadMatch[1].toLowerCase();
+
+  // Strip JSON artifacts from all text fields
+  const cleanField = (t) => {
+    if (!t) return t;
+    let s = t;
+    const idx = s.indexOf('```');
+    if (idx > 0) s = s.slice(0, idx);
+    s = s.replace(/\n\s*\{\s*"[\s\S]*$/g, '');
+    s = s.replace(/\s*json\s*\{[\s\S]*$/gi, '');
+    s = s.replace(/^\*+\s*/, '');
+    return s.trim() || null;
+  };
+  result.patron_error = cleanField(result.patron_error);
+  result.momento_critico = cleanField(result.momento_critico);
+  result.objecion_principal = cleanField(result.objecion_principal);
+  result.siguiente_accion = cleanField(result.siguiente_accion);
 
   return result;
 }

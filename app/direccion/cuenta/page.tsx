@@ -10,6 +10,7 @@ interface User { id: string; name: string; email: string; role: string; last_sig
 export default function CuentaPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [org, setOrg] = useState<Record<string, unknown> | null>(null);
+  const [orgId, setOrgId] = useState("");
   const [monthlyCount, setMonthlyCount] = useState(0);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("captadora");
@@ -24,6 +25,7 @@ export default function CuentaPage() {
       const session = await requireAuth(["direccion", "super_admin"]);
       if (!session) return;
       const me = { organization_id: session.organizationId };
+      setOrgId(session.organizationId);
 
       const tz = await getOrgTimezone(me.organization_id);
       const ms = getMonthStart(tz);
@@ -56,7 +58,7 @@ export default function CuentaPage() {
     const { data: inv, error: invErr } = await supabase.from("invitations").insert({
       email: inviteEmail,
       role: inviteRole,
-      organization_id: org?.id || users[0]?.id ? undefined : undefined,
+      organization_id: orgId,
     }).select("id").single();
 
     if (invErr) {
