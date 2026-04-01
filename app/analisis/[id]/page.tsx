@@ -119,10 +119,21 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
   const primaryDescal = analysis.categoria_descalificacion?.[0];
   const secondaryDescal = analysis.categoria_descalificacion?.slice(1) || [];
 
+  // Strip JSON artifacts from Claude output (e.g. ```json { ... }```)
+  const cleanText = (t: string | null) => {
+    if (!t) return null;
+    return t
+      .replace(/```[\s\S]*$/g, "")          // strip from ``` to end
+      .replace(/\n\s*\{[\s\S]*$/g, "")      // strip trailing JSON object
+      .replace(/\s*json\s*\{[\s\S]*$/gi, "") // strip "json { ... }"
+      .trim() || null;
+  };
+
   // Reformat patron_error as positive improvement
-  const mejora = analysis.patron_error
-    ? analysis.patron_error.replace(/^[-•*]\s*/, "")
-    : null;
+  const mejora = cleanText(analysis.patron_error?.replace(/^[-•*]\s*/, ""));
+  const accion = cleanText(analysis.siguiente_accion);
+  const critico = cleanText(analysis.momento_critico);
+  const objecion = cleanText(analysis.objecion_principal);
 
   return (
     <div className="container c3-container">
@@ -132,10 +143,10 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
       </div>
 
       {/* Best phrase */}
-      {analysis.siguiente_accion && (
+      {accion && (
         <div className="c3-section">
           <p className="c3-section-label">Lo que funcionó mejor</p>
-          <p className="c3-highlight">{analysis.siguiente_accion}</p>
+          <p className="c3-highlight">{accion}</p>
         </div>
       )}
 
@@ -195,17 +206,17 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
       )}
 
       {/* Expandable sections */}
-      {analysis.momento_critico && (
+      {critico && (
         <details className="c3-expandable">
           <summary className="c3-expand-summary">Momento crítico</summary>
-          <div className="c3-expand-content">{analysis.momento_critico}</div>
+          <div className="c3-expand-content">{critico}</div>
         </details>
       )}
 
-      {analysis.objecion_principal && (
+      {objecion && (
         <details className="c3-expandable">
           <summary className="c3-expand-summary">Objeción principal</summary>
-          <div className="c3-expand-content">{analysis.objecion_principal}</div>
+          <div className="c3-expand-content">{objecion}</div>
         </details>
       )}
 

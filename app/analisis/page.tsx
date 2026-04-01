@@ -74,12 +74,19 @@ export default function MiDiaPage() {
         setMonthlyDone(thisMonthCount);
       }
 
+      // Strip JSON artifacts from Claude output
+      const stripJson = (t: string) => t
+        .replace(/```[\s\S]*$/g, "")
+        .replace(/\n\s*\{[\s\S]*$/g, "")
+        .replace(/\s*json\s*\{[\s\S]*$/gi, "")
+        .trim();
+
       // Tip from last 7 days — short title from patron_error, phrase from siguiente_accion
       const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
       const errors: Record<string, { count: number; analysisId: string }> = {};
       for (const a of all) {
         if (a.patron_error && new Date(a.created_at) >= weekAgo) {
-          const cleaned = a.patron_error.replace(/^[-•*]\s*/, "").trim();
+          const cleaned = stripJson(a.patron_error.replace(/^[-•*]\s*/, ""));
           if (cleaned && !errors[cleaned]) {
             errors[cleaned] = { count: 0, analysisId: a.id };
           }
@@ -88,12 +95,10 @@ export default function MiDiaPage() {
       }
       const topErr = Object.entries(errors).sort((a, b) => b[1].count - a[1].count)[0];
       if (topErr) {
-        // Title: full patron_error text, CSS handles visual display
         setTipTitle(topErr[0]);
-        // Phrase: siguiente_accion from that analysis (never truncated)
         const srcAnalysis = all.find(a => a.id === topErr[1].analysisId);
         if (srcAnalysis?.siguiente_accion) {
-          setTipFrase(srcAnalysis.siguiente_accion);
+          setTipFrase(stripJson(srcAnalysis.siguiente_accion));
         }
       }
 
