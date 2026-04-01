@@ -48,6 +48,7 @@ export default function MiDiaPage() {
           .eq("organization_id", session.organizationId).eq("is_active", true)
           .eq("type", "volume").in("period_type", ["monthly"])
           .or(`target_user_id.eq.${session.userId},target_user_id.is.null`)
+          .order("target_user_id", { ascending: false, nullsFirst: false })
           .limit(1),
       ]);
 
