@@ -136,16 +136,34 @@ export default function CuentaPage() {
         </div>
 
         {/* Billing */}
-        {org && (
-          <div className="g1-section">
-            <h2 className="g1-section-title">Facturación</h2>
-            <div className="d4-billing">
-              <div className="d4-billing-row"><span>Plan actual</span><span className="d4-billing-value">{(org.plan as string || "").toUpperCase()}</span></div>
-              <div className="d4-billing-row"><span>Análisis este mes</span><span className="d4-billing-value">{org.analysis_count_month as number || 0}</span></div>
-              <div className="d4-billing-row"><span>Estado</span><span className="d4-billing-value">{org.access_status as string}</span></div>
+        {org && (() => {
+          const tierLimits: Record<string, number | null> = { starter: 50, growth: 200, pro: 500, scale: 1500, enterprise: null, founder: 50 };
+          const plan = (org.plan as string) || "starter";
+          const used = (org.analysis_count_month as number) || 0;
+          const limit = tierLimits[plan];
+          const pct = limit ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+          const status = org.access_status as string;
+          const statusColor = status === "active" ? "var(--green)" : status === "grace" ? "var(--gold)" : "var(--red)";
+          return (
+            <div className="g1-section">
+              <h2 className="g1-section-title">Facturación</h2>
+              <div className="d4-billing">
+                <div className="d4-billing-row"><span>Plan actual</span><span className="d4-billing-value">{plan.toUpperCase()}</span></div>
+                <div className="d4-billing-row">
+                  <span>Análisis este mes</span>
+                  <span className="d4-billing-value">{used} / {limit !== null ? limit : "∞"}</span>
+                </div>
+                {limit && (
+                  <div className="d4-billing-row" style={{ flexDirection: "column", gap: 6 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Uso</span><span className="d4-billing-value">{pct}%</span></div>
+                    <div className="c3-phase-bar-bg"><div className="c3-phase-bar-fill" style={{ width: `${pct}%`, background: pct > 90 ? "var(--red)" : pct > 70 ? "var(--gold)" : "var(--green)" }} /></div>
+                  </div>
+                )}
+                <div className="d4-billing-row"><span>Estado</span><span className="d4-billing-value" style={{ color: statusColor, textTransform: "capitalize" }}>{status}</span></div>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         <a href="/direccion" className="c5-back-link">Volver al dashboard</a>
       </div>

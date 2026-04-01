@@ -6,6 +6,8 @@ import { getSession, getHomeForRole } from "../lib/auth";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<"password" | "magic">("password");
   const [loading, setLoading] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
@@ -60,20 +62,22 @@ export default function LoginPage() {
     setLoading(true);
     setMessage(null);
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-
-    if (error) {
-      setMessage({ text: error.message, error: true });
+    if (mode === "password") {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setMessage({ text: "Email o contraseña incorrectos.", error: true });
+      }
+      // If successful, onAuthStateChange handles redirect
     } else {
-      setMessage({
-        text: "¡Revisa tu correo! Te hemos enviado un enlace mágico para acceder.",
-        error: false,
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
       });
+      if (error) {
+        setMessage({ text: error.message, error: true });
+      } else {
+        setMessage({ text: "¡Revisa tu correo! Te enviamos un enlace de acceso.", error: false });
+      }
     }
 
     setLoading(false);
@@ -114,8 +118,35 @@ export default function LoginPage() {
           />
         </div>
 
+        {mode === "password" && (
+          <div className="input-group">
+            <label htmlFor="password" className="input-label">
+              Contraseña
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="input-field"
+              placeholder="Tu contraseña"
+              required
+              disabled={loading}
+            />
+          </div>
+        )}
+
         <button type="submit" className="btn-submit" disabled={loading}>
-          {loading ? <span className="loader"></span> : "Enviar enlace de acceso"}
+          {loading ? <span className="loader"></span> : mode === "password" ? "Iniciar sesión" : "Enviar enlace de acceso"}
+        </button>
+
+        <button
+          type="button"
+          className="c5-back-link"
+          style={{ border: "none", background: "none", cursor: "pointer", width: "100%", fontFamily: "inherit" }}
+          onClick={() => { setMode(mode === "password" ? "magic" : "password"); setMessage(null); }}
+        >
+          {mode === "password" ? "¿Sin contraseña? Enviar magic link" : "Iniciar sesión con contraseña"}
         </button>
       </form>
 
