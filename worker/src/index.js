@@ -767,14 +767,22 @@ async function handleGenerateSpeech(body, env, origin) {
 
   const phaseList = phases.map(p => `- ${p.phase_name} (${p.score_max} pts)`).join('\n');
 
-  const systemPrompt = `Eres AurisIQ. Genera frases modelo para un Speech Ideal de ventas. Cada frase debe ser un ejemplo concreto de lo que diría una vendedora excelente en esa fase de la conversación. Las frases deben sonar naturales, en español mexicano, y ser directamente usables en una llamada real. No uses placeholders genéricos.`;
+  const systemPrompt = `Eres AurisIQ. Genera frases modelo para un Speech Ideal de ventas basándote EXCLUSIVAMENTE en el contexto del scorecard que se te proporciona. El scorecard describe exactamente qué hace esta empresa y qué debe decir la captadora en cada fase. NO inventes el contexto del negocio — úsalo del scorecard. Las frases deben sonar naturales, en español mexicano, y ser directamente usables en una llamada real. No uses placeholders genéricos.`;
 
-  const userPrompt = `Genera 2-3 frases modelo por cada fase del scorecard${stageName ? ` para la etapa "${stageName}"` : ''}. Las fases son:
+  const userPrompt = `A continuación el scorecard completo que describe el negocio, las fases de la conversación, y los criterios de evaluación:
+
+---
+${scorecard.prompt_template}
+---
+
+Genera 3 frases ejemplo por cada fase${stageName ? ` para la etapa "${stageName}"` : ''}. Las fases son:
 
 ${phaseList}
 
+Cada frase debe ser algo que la captadora diría literalmente en esa fase, basándote en lo que el scorecard describe como comportamiento excelente.
+
 Responde SOLO con JSON válido en este formato exacto, sin texto adicional:
-{"phases": [{"phase_name": "Nombre de Fase", "phrases": ["frase 1", "frase 2"]}]}`;
+{"phases": [{"phase_name": "Nombre de Fase", "phrases": ["frase 1", "frase 2", "frase 3"]}]}`;
 
   const rawOutput = await callClaude(env, systemPrompt, userPrompt);
 
