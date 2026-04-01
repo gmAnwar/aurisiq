@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname } from "next/navigation";
+import { supabase } from "../../lib/supabase";
 
 interface NavItem {
   href: string;
@@ -50,10 +52,8 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
   ],
 };
 
-// Roles that use sidebar on desktop
 const SIDEBAR_ROLES = ["gerente", "direccion", "super_admin"];
 
-// Mobile: max 4 items per role
 const MOBILE_NAV: Record<string, NavItem[]> = {
   captadora: NAV_BY_ROLE.captadora,
   gerente: [
@@ -77,18 +77,30 @@ const MOBILE_NAV: Record<string, NavItem[]> = {
   ],
 };
 
-export default function NavBar({ role }: { role: string }) {
+interface NavBarProps {
+  role: string;
+  userName: string;
+  userEmail: string;
+}
+
+export default function NavBar({ role, userName, userEmail }: NavBarProps) {
   const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
   const allItems = NAV_BY_ROLE[role] || NAV_BY_ROLE.captadora;
   const mobileItems = MOBILE_NAV[role] || allItems.slice(0, 4);
   const useSidebar = SIDEBAR_ROLES.includes(role);
+  const initial = userName.charAt(0).toUpperCase() || "?";
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  };
 
   return (
     <nav className={`navbar ${useSidebar ? "navbar-sidebar" : ""}`}>
       <span className="navbar-brand">
         auris<span style={{ opacity: 0.45, fontStyle: "normal" }}>IQ</span>
       </span>
-      {/* Desktop: all items. Mobile: max 4 */}
       {allItems.map((item) => {
         const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href + "/"));
         const isMobileVisible = mobileItems.some(m => m.href === item.href);
@@ -102,6 +114,24 @@ export default function NavBar({ role }: { role: string }) {
           </a>
         );
       })}
+
+      {/* User panel */}
+      <div className="navbar-user-panel">
+        <button className="navbar-user-btn" onClick={() => setMenuOpen(!menuOpen)}>
+          <span className="navbar-user-initial">{initial}</span>
+          <span className="navbar-user-name">{userName}</span>
+        </button>
+        {menuOpen && (
+          <>
+            <div className="navbar-user-backdrop" onClick={() => setMenuOpen(false)} />
+            <div className="navbar-user-menu">
+              <div className="navbar-menu-email">{userEmail}</div>
+              <div className="navbar-menu-sep" />
+              <button className="navbar-menu-logout" onClick={handleSignOut}>Cerrar sesión</button>
+            </div>
+          </>
+        )}
+      </div>
     </nav>
   );
 }
