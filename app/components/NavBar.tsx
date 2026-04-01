@@ -54,6 +54,14 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
 
 const SIDEBAR_ROLES = ["gerente", "direccion", "super_admin"];
 
+const roleLabels: Record<string, string> = {
+  captadora: "Captadora",
+  gerente: "Gerente",
+  direccion: "Dirección",
+  agencia: "Agencia",
+  super_admin: "Super Admin",
+};
+
 const MOBILE_NAV: Record<string, NavItem[]> = {
   captadora: NAV_BY_ROLE.captadora,
   gerente: [
@@ -125,7 +133,11 @@ export default function NavBar({ role, userName, userEmail }: NavBarProps) {
           <>
             <div className="navbar-user-backdrop" onClick={() => setMenuOpen(false)} />
             <div className="navbar-user-menu">
-              <div className="navbar-menu-email">{userEmail}</div>
+              <div className="navbar-menu-profile">
+                <span className="navbar-menu-name">{userName}</span>
+                <span className="navbar-menu-role">{roleLabels[role] || role}</span>
+                <span className="navbar-menu-email-text">{userEmail}</span>
+              </div>
               <div className="navbar-menu-sep" />
               <button className="navbar-menu-logout" onClick={handleSignOut}>Cerrar sesión</button>
             </div>

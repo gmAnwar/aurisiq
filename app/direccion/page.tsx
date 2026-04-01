@@ -157,6 +157,13 @@ export default function DashboardEjecutivoPage() {
           </div>
         </div>
 
+        {/* Empty conversions helper */}
+        {funnelStages.length > 0 && !funnelStages.find(f => f.stage === "Convertido") && (
+          <div className="c5-empty-card" style={{ marginBottom: 14 }}>
+            <div className="c5-empty-sub">Cuando las captadoras marquen leads como convertidos, verás aquí las tasas de conversión por etapa.</div>
+          </div>
+        )}
+
         {/* 3-month comparison */}
         {monthlyComparison.length > 1 && (
           <div className="g1-section">

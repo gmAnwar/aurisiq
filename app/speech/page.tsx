@@ -107,8 +107,18 @@ export default function SpeechPage() {
       </div>
 
       {phases.length === 0 && (
-        <div className="c4-empty">
-          <p>No hay scorecard configurado para tu organización.</p>
+        <div className="c5-empty-card">
+          <div className="c5-empty-icon">📋</div>
+          <div className="c5-empty-title">Aún no hay Speech Ideal publicado</div>
+          <div className="c5-empty-sub">Pide a tu gerente que publique el Speech Ideal del equipo desde la sección Biblioteca.</div>
+        </div>
+      )}
+
+      {phases.length > 0 && !lastUpdated && (
+        <div className="c5-empty-card">
+          <div className="c5-empty-icon">📋</div>
+          <div className="c5-empty-title">Aún no hay Speech Ideal publicado</div>
+          <div className="c5-empty-sub">Pide a tu gerente que publique el Speech Ideal del equipo desde la sección Biblioteca.</div>
         </div>
       )}
 

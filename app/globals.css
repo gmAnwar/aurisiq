@@ -320,12 +320,35 @@ body > * { position: relative; z-index: 1; }
   margin-top: 6px;
 }
 
-.navbar-menu-email {
-  padding: 8px 14px;
+.navbar-menu-profile {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navbar-menu-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cream);
+}
+
+.navbar-menu-role {
+  font-family: 'Syne', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.navbar-menu-email-text {
   font-family: 'DM Sans', sans-serif;
-  font-size: 11px;
-  color: rgba(245,240,232,0.4);
+  font-size: 10px;
+  color: rgba(245,240,232,0.35);
   word-break: break-all;
+  margin-top: 2px;
 }
 
 .navbar-menu-sep {
@@ -1503,6 +1526,19 @@ body.has-nav {
   color: var(--ink-light);
   font-weight: 300;
 }
+
+.c5-empty-card {
+  text-align: center;
+  padding: 32px 20px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  margin-bottom: 16px;
+}
+
+.c5-empty-icon { font-size: 32px; margin-bottom: 12px; }
+.c5-empty-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+.c5-empty-sub { font-size: 12px; font-family: 'DM Sans', sans-serif; color: var(--ink-light); font-weight: 300; line-height: 1.5; }
 
 .c5-back-link {
   display: block;
