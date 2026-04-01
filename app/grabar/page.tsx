@@ -86,19 +86,20 @@ export default function GrabarPage() {
     setErrorMsg("");
     setTranscription("");
     try {
+      // getDisplayMedia requires video: true in most browsers — we request it and discard it
       const stream = await navigator.mediaDevices.getDisplayMedia({
         audio: true,
-        video: false,
+        video: true,
       });
+
+      // Immediately stop video tracks — we only need audio
+      stream.getVideoTracks().forEach(t => t.stop());
 
       if (stream.getAudioTracks().length === 0) {
         stream.getTracks().forEach(t => t.stop());
-        setErrorMsg("No se seleccionó audio del sistema. Asegúrate de marcar \"Compartir audio\" en el popup.");
+        setErrorMsg("No se seleccionó audio del sistema. Asegúrate de marcar \"Compartir audio\" en el popup del navegador.");
         return;
       }
-
-      // Remove video tracks if browser forced them
-      stream.getVideoTracks().forEach(t => t.stop());
 
       // Set up audio analyser for waveform
       const audioCtx = new AudioContext();

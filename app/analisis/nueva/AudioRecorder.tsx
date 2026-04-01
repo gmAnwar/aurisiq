@@ -35,20 +35,21 @@ export default function AudioRecorder({ onRecordingComplete, disabled }: AudioRe
     try {
       // getDisplayMedia captures system audio (softphone, Zoom, etc.)
       // The browser shows a native picker to select what to share
+      // getDisplayMedia requires video: true in most browsers — we request it and discard it
       const stream = await navigator.mediaDevices.getDisplayMedia({
         audio: true,
-        video: false,
+        video: true,
       });
+
+      // Immediately stop video tracks — we only need audio
+      stream.getVideoTracks().forEach((t) => t.stop());
 
       // Check if we actually got an audio track
       if (stream.getAudioTracks().length === 0) {
         stream.getTracks().forEach((t) => t.stop());
-        setError("No se seleccionó audio del sistema. Asegúrate de marcar \"Compartir audio\" en el popup.");
+        setError("No se seleccionó audio del sistema. Asegúrate de marcar \"Compartir audio\" en el popup del navegador.");
         return;
       }
-
-      // Remove video tracks if browser forced them (some browsers require video for getDisplayMedia)
-      stream.getVideoTracks().forEach((t) => t.stop());
 
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
