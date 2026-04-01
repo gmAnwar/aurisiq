@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
 import { computeEditPercentage } from "../../../lib/text";
-import AudioRecorder from "./AudioRecorder";
 
 interface LeadSource {
   id: string;
@@ -12,10 +11,16 @@ interface LeadSource {
 }
 
 type Status = "idle" | "analyzing" | "error";
+type RecMode = "off" | "recording" | "transcribing";
 
 interface FunnelStage {
   id: string;
   name: string;
+}
+
+function isMobile(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
 export default function NuevaLlamadaPage() {
@@ -37,28 +42,42 @@ export default function NuevaLlamadaPage() {
   const [transcriptionSource, setTranscriptionSource] = useState<"manual" | "audio">("manual");
   const [editPct, setEditPct] = useState(0);
 
+  // Inline recording state
+  const [recMode, setRecMode] = useState<RecMode>("off");
+  const [recElapsed, setRecElapsed] = useState(0);
+  const [recError, setRecError] = useState("");
+  const [mobile, setMobile] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
   const wordCount = transcription.trim().split(/\s+/).filter(Boolean).length;
   const MIN_WORDS = transcriptionSource === "audio" ? 50 : 200;
 
   const AUDIO_EXTENSIONS = [".mp3", ".m4a", ".wav", ".ogg", ".webm", ".mp4"];
+  const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
 
-  const transcribeAudioFile = async (file: File) => {
-    if (file.size < 1024) {
+  const transcribeAudioBlob = async (blob: Blob, label?: string) => {
+    if (blob.size < 1024) {
       setFileMsg("La grabación es muy corta. Intenta con un audio más largo.");
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
+    if (blob.size > 10 * 1024 * 1024) {
       setFileMsg("El audio excede 10MB. Intenta con un archivo más corto.");
       return;
     }
     setIsTranscribing(true);
-    setFileMsg(`Transcribiendo "${file.name}"...`);
+    setFileMsg(label || "Transcribiendo audio...");
     try {
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
         reader.onerror = reject;
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(blob);
       });
       const res = await fetch(WORKER_URL, {
         method: "POST",
@@ -82,12 +101,12 @@ export default function NuevaLlamadaPage() {
     setFileMsg("");
     const name = file.name.toLowerCase();
 
-    // Audio files → transcribe via AssemblyAI
     if (AUDIO_EXTENSIONS.some(ext => name.endsWith(ext))) {
-      await transcribeAudioFile(file);
+      await transcribeAudioBlob(file, `Transcribiendo "${file.name}"...`);
       return;
     }
 
+    const CHAR_LIMIT = 15000;
     if (name.endsWith(".txt")) {
       const text = await file.text();
       if (text.length > CHAR_LIMIT) {
@@ -127,11 +146,12 @@ export default function NuevaLlamadaPage() {
     if (file) extractTextFromFile(file);
     e.target.value = "";
   };
-  const canSubmit = selectedSource !== "" && selectedStage !== "" && wordCount >= MIN_WORDS && status === "idle";
+  const canSubmit = selectedSource !== "" && selectedStage !== "" && wordCount >= MIN_WORDS && status === "idle" && !isTranscribing;
   const charCount = transcription.length;
   const CHAR_LIMIT = 15000;
 
   useEffect(() => {
+    setMobile(isMobile());
     async function init() {
       const session = await requireAuth(["captadora", "super_admin"]);
       if (!session) return;
@@ -156,28 +176,15 @@ export default function NuevaLlamadaPage() {
       }
 
       setLoading(false);
-
-      // Pick up transcription from C_EAR recording
-      const recorded = sessionStorage.getItem("aurisiq_recorded_transcription");
-      if (recorded) {
-        sessionStorage.removeItem("aurisiq_recorded_transcription");
-        setTranscription(recorded);
-        setTranscriptionOriginal(recorded);
-        setTranscriptionSource("audio");
-        setFileMsg("Transcripción automática lista — revisa antes de analizar.");
-      }
     }
 
     init();
+    return () => {
+      if (recTimerRef.current) clearInterval(recTimerRef.current);
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
+    };
   }, []);
-
-  const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
-
-  const handleRecordingComplete = useCallback(async (blob: Blob) => {
-    setErrorMsg("");
-    const file = new File([blob], "grabacion.webm", { type: blob.type });
-    await transcribeAudioFile(file);
-  }, [orgId]);
 
   // Track edits to auto-transcribed text
   const handleTranscriptionChange = useCallback((value: string) => {
@@ -188,6 +195,133 @@ export default function NuevaLlamadaPage() {
     }
   }, [transcriptionSource, transcriptionOriginal]);
 
+  // ─── Inline recording ──────────────────────────────────────
+
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, "0");
+    const s = (secs % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
+  const drawWaveform = useCallback(() => {
+    const canvas = canvasRef.current;
+    const analyser = analyserRef.current;
+    if (!canvas || !analyser) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    const draw = () => {
+      animFrameRef.current = requestAnimationFrame(draw);
+      analyser.getByteFrequencyData(dataArray);
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      const barCount = 32;
+      const barWidth = Math.floor(w / barCount) - 2;
+      const step = Math.floor(bufferLength / barCount);
+      for (let i = 0; i < barCount; i++) {
+        const value = dataArray[i * step] / 255;
+        const barHeight = Math.max(2, value * h * 0.85);
+        const x = i * (barWidth + 2);
+        const y = (h - barHeight) / 2;
+        ctx.fillStyle = value > 0.4 ? "#c87840" : "rgba(200,120,64,0.3)";
+        ctx.beginPath();
+        ctx.roundRect(x, y, barWidth, barHeight, 2);
+        ctx.fill();
+      }
+    };
+    draw();
+  }, []);
+
+  useEffect(() => {
+    if (recMode === "recording" && analyserRef.current && canvasRef.current) {
+      drawWaveform();
+    }
+  }, [recMode, drawWaveform]);
+
+  const startRecording = async () => {
+    setRecError("");
+    try {
+      let stream: MediaStream;
+      if (mobile) {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } else {
+        stream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
+        stream.getVideoTracks().forEach(t => t.stop());
+        if (stream.getAudioTracks().length === 0) {
+          stream.getTracks().forEach(t => t.stop());
+          setRecError("No se seleccionó audio del sistema. Asegúrate de marcar \"Compartir audio\" en el popup.");
+          return;
+        }
+        stream.getAudioTracks()[0].onended = () => {
+          if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
+        };
+      }
+
+      const audioCtx = new AudioContext();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+      audioCtxRef.current = audioCtx;
+
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus" : "audio/mp4";
+      const recorder = new MediaRecorder(stream, { mimeType });
+      chunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        audioCtx.close();
+        if (recTimerRef.current) clearInterval(recTimerRef.current);
+        if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+        analyserRef.current = null;
+        audioCtxRef.current = null;
+        const blob = new Blob(chunksRef.current, { type: mimeType });
+        setRecMode("transcribing");
+        transcribeAudioBlob(blob, "Transcribiendo grabación...").then(() => setRecMode("off"));
+      };
+
+      recorder.start(1000);
+      mediaRecorderRef.current = recorder;
+      setRecMode("recording");
+      setRecElapsed(0);
+      recTimerRef.current = setInterval(() => setRecElapsed(p => p + 1), 1000);
+    } catch {
+      setRecError(
+        mobile
+          ? "No pudimos acceder al micrófono. Verifica los permisos de tu navegador."
+          : "No pudimos capturar el audio del sistema. Verifica que tu navegador soporte compartir audio."
+      );
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+      mediaRecorderRef.current.stop();
+    }
+    if (recTimerRef.current) clearInterval(recTimerRef.current);
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    analyserRef.current = null;
+    audioCtxRef.current?.close();
+    audioCtxRef.current = null;
+    setRecMode("off");
+    setRecElapsed(0);
+  };
+
+  // ─── Submit ────────────────────────────────────────────────
+
   const handleSubmit = async () => {
     if (!canSubmit || !userId || !orgId) return;
 
@@ -195,7 +329,6 @@ export default function NuevaLlamadaPage() {
     setErrorMsg("");
 
     try {
-      // Get scorecard (org-specific first, then global)
       const { data: scorecard } = await supabase
         .from("scorecards")
         .select("id")
@@ -207,7 +340,6 @@ export default function NuevaLlamadaPage() {
 
       if (!scorecard) throw new Error("scorecard");
 
-      // Submit to Worker — it creates analyses + analysis_jobs
       const res = await fetch(WORKER_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -237,7 +369,6 @@ export default function NuevaLlamadaPage() {
 
       const analysisId = data.analysis_id;
 
-      // Poll Worker for status
       const pollInterval = setInterval(async () => {
         try {
           const statusRes = await fetch(WORKER_URL, {
@@ -260,7 +391,6 @@ export default function NuevaLlamadaPage() {
         }
       }, 3000);
 
-      // Timeout after 2 minutes
       setTimeout(() => {
         clearInterval(pollInterval);
         setStatus((current) => {
@@ -302,6 +432,42 @@ export default function NuevaLlamadaPage() {
       </div>
     );
   }
+
+  // ─── Recording UI (replaces form while active) ─────────────
+
+  if (recMode !== "off") {
+    return (
+      <div className="container ear-container">
+        {recMode === "recording" && (
+          <div className="ear-recording">
+            <div className="ear-rec-indicator">
+              <span className="ear-rec-dot" />
+              <span className="ear-rec-label">
+                {mobile ? "Grabando con micrófono" : "Grabando audio del sistema"}
+              </span>
+            </div>
+            <span className="ear-timer">{formatTime(recElapsed)}</span>
+            <canvas ref={canvasRef} className="ear-waveform" width={280} height={60} />
+            <button className="ear-stop-btn" onClick={stopRecording}>
+              Terminar llamada
+            </button>
+            <button className="ear-retry-btn" onClick={cancelRecording}>
+              Cancelar
+            </button>
+          </div>
+        )}
+        {recMode === "transcribing" && (
+          <div className="ear-transcribing">
+            <span className="ear-spinner" />
+            <p className="ear-transcribing-text">Transcribiendo tu llamada...</p>
+            <p className="ear-transcribing-sub">Esto puede tomar hasta 2 minutos</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── Normal C2 form ────────────────────────────────────────
 
   return (
     <div className="container c2-container">
@@ -391,12 +557,17 @@ export default function NuevaLlamadaPage() {
               Buscar archivo
               <input type="file" accept=".txt,.doc,.docx,.mp3,.m4a,.wav,.ogg,.webm,.mp4" onChange={handleFileInput} hidden disabled={status === "analyzing" || isTranscribing} />
             </label>
-            <AudioRecorder
-              onRecordingComplete={handleRecordingComplete}
+            <button
+              className="c2-rec-btn"
+              onClick={startRecording}
               disabled={status === "analyzing" || isTranscribing || transcription.length > 0}
-            />
+              type="button"
+            >
+              Grabar llamada
+            </button>
             {fileMsg && <span className="c2-file-msg">{fileMsg}</span>}
           </div>
+          {recError && <p className="c2-rec-error">{recError}</p>}
           {isTranscribing && (
             <div className="c2-transcribing">
               <span className="c2-transcribing-spinner" />
