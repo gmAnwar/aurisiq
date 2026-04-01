@@ -82,6 +82,13 @@ export default function GrabarPage() {
     draw();
   }, []);
 
+  // Start waveform after canvas is rendered (stage === "recording")
+  useEffect(() => {
+    if (stage === "recording" && analyserRef.current && canvasRef.current) {
+      drawWaveform();
+    }
+  }, [stage, drawWaveform]);
+
   const startRecording = async () => {
     setErrorMsg("");
     setTranscription("");
@@ -145,7 +152,6 @@ export default function GrabarPage() {
       setStage("recording");
       setElapsed(0);
       timerRef.current = setInterval(() => setElapsed(p => p + 1), 1000);
-      drawWaveform();
     } catch {
       setErrorMsg("No pudimos capturar el audio del sistema. Verifica que tu navegador soporte compartir audio.");
     }
@@ -235,19 +241,29 @@ export default function GrabarPage() {
       )}
 
       {/* Review state */}
-      {stage === "review" && (
-        <div className="ear-review">
-          <h2 className="ear-review-title">Transcripción lista</h2>
-          <p className="ear-review-hint">Revisa el texto antes de analizar. Puedes editarlo en la siguiente pantalla.</p>
-          <div className="ear-review-text">{transcription}</div>
-          <button className="btn-submit btn-terracota" onClick={goToAnalysis} style={{ width: "100%", textAlign: "center" }}>
-            Analizar esta llamada
-          </button>
-          <button className="ear-retry-btn" onClick={() => { setStage("idle"); setTranscription(""); }}>
-            Grabar otra vez
-          </button>
-        </div>
-      )}
+      {stage === "review" && (() => {
+        const wordCount = transcription.trim().split(/\s+/).filter(Boolean).length;
+        const tooShort = wordCount < 50;
+        return (
+          <div className="ear-review">
+            <h2 className="ear-review-title">Transcripción lista</h2>
+            {tooShort ? (
+              <p className="ear-error">La transcripción es muy corta para analizar ({wordCount} palabras, mínimo 50). Graba una llamada más larga.</p>
+            ) : (
+              <p className="ear-review-hint">Revisa el texto antes de analizar. Puedes editarlo en la siguiente pantalla.</p>
+            )}
+            <div className="ear-review-text">{transcription}</div>
+            {!tooShort && (
+              <button className="btn-submit btn-terracota" onClick={goToAnalysis} style={{ width: "100%", textAlign: "center" }}>
+                Analizar esta llamada
+              </button>
+            )}
+            <button className="ear-retry-btn" onClick={() => { setStage("idle"); setTranscription(""); }}>
+              Grabar otra vez
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Error state */}
       {stage === "error" && (
