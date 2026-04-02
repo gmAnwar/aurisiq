@@ -60,11 +60,13 @@ export default function SpeechPage() {
       setStages(funnelStages);
 
       // Load all speech versions: published OR provisional for this org
-      const { data: allSpeech } = await supabase.from("speech_versions")
+      const { data: allSpeech, error: speechErr } = await supabase.from("speech_versions")
         .select("id, content, version_number, updated_at, funnel_stage_id, published, is_provisional")
         .eq("organization_id", session.organizationId)
         .eq("scorecard_id", scorecard.id)
         .or("published.eq.true,is_provisional.eq.true");
+
+      console.log("SPEECH LOAD: org=", session.organizationId, "sc=", scorecard.id, "found=", allSpeech?.length || 0, "err=", speechErr?.message || "none");
 
       const byStage: Record<string, StageSpeech> = {};
       for (const sv of allSpeech || []) {
@@ -160,25 +162,8 @@ export default function SpeechPage() {
         content[p.phase_name] = (p.phrases || []).slice(0, 3);
       }
 
-      // Save to DB as provisional
-      const { data: insertedRow, error: insertErr } = await supabase.from("speech_versions")
-        .insert({
-          organization_id: orgId,
-          scorecard_id: scorecardId,
-          funnel_stage_id: stageId === "_global" ? null : stageId,
-          content,
-          version_number: 0,
-          published: false,
-          is_provisional: true,
-        })
-        .select("id")
-        .single();
-
-      if (insertErr) {
-        console.error("SPEECH: ERROR saving to DB:", insertErr.message, insertErr.details, insertErr.code);
-      } else {
-        console.log("SPEECH: saved to DB with id:", insertedRow?.id, "is_provisional: true, funnel_stage_id:", stageId);
-      }
+      // Provisional is saved to DB by the Worker (service role bypasses RLS)
+      console.log("SPEECH: Worker generated and saved provisional for stage", stageId);
 
       const phases: PhaseGroup[] = scorecardPhaseNames.map(name => ({
         phase_name: name,

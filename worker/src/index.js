@@ -793,11 +793,41 @@ Responde SOLO con JSON válido en este formato exacto, sin texto adicional:
   // Parse JSON from Claude's response
   let result;
   try {
-    // Strip markdown code fences if present
     const cleaned = rawOutput.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
     result = JSON.parse(cleaned);
   } catch {
     return jsonResponse({ error: 'Failed to parse speech output' }, 500, origin);
+  }
+
+  // Save provisional to DB (service role bypasses RLS)
+  const content = {};
+  for (const p of result.phases || []) {
+    content[p.phase_name] = (p.phrases || []).slice(0, 3);
+  }
+
+  try {
+    // Check if provisional already exists for this stage
+    const stageQuery = funnel_stage_id
+      ? `funnel_stage_id=eq.${funnel_stage_id}`
+      : `funnel_stage_id=is.null`;
+    const existing = await supabaseSelect(
+      env, 'speech_versions',
+      `organization_id=eq.${organization_id}&scorecard_id=eq.${scorecardId}&${stageQuery}&is_provisional=eq.true&select=id&limit=1`
+    );
+
+    if (existing.length === 0) {
+      await supabaseInsert(env, 'speech_versions', {
+        organization_id,
+        scorecard_id: scorecardId,
+        funnel_stage_id: funnel_stage_id || null,
+        content,
+        version_number: 0,
+        published: false,
+        is_provisional: true,
+      });
+    }
+  } catch (saveErr) {
+    console.error('Failed to save provisional speech:', saveErr.message);
   }
 
   return jsonResponse(result, 200, origin);
