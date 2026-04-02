@@ -213,19 +213,20 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
         </div>
       )}
 
-      {/* Descalification reasons */}
-      {!isQualified && (
-        <div className="c3-section">
-          <p className="c3-section-label">Razones de seguimiento</p>
-          <div className="c3-descal-list">
+      {/* Descalification pills */}
+      <div className="c3-section">
+        {isQualified ? (
+          <span className="c3-pill c3-pill-green">Lead calificado</span>
+        ) : (
+          <div className="c3-pill-list">
             {(analysis.categoria_descalificacion || []).map((code, i) => (
-              <span key={i} className={i === 0 ? "c3-descal-primary" : "c3-descal-secondary"}>
+              <span key={i} className={`c3-pill ${i === 0 ? "c3-pill-primary" : "c3-pill-secondary"}`}>
                 {descalLabels[code] || code}
               </span>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* 3. SCORE + COACHING BY PHASE */}
       {analysis.score_general !== null && (

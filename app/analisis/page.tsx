@@ -288,8 +288,15 @@ export default function MiDiaPage() {
                 <a key={a.id} href={`/analisis/${a.id}`} className="c4-item">
                   <div className="c4-item-left">
                     <span className="c4-item-date">{prospectLabel}</span>
-                    <span className={`c4-item-source ${hasDescal ? "c1-descal-reason" : ""}`}>
-                      {hasDescal ? reasonLabel : `${time} · Lead calificado`}
+                    <span className="c4-item-source">
+                      {time} · {hasDescal ? (
+                        <>
+                          <span className="c1-pill-inline c1-pill-red">{descalMap[codes[0]] || codes[0]}</span>
+                          {codes.length > 1 && <span className="c1-pill-more">+{codes.length - 1}</span>}
+                        </>
+                      ) : (
+                        <span className="c1-pill-inline c1-pill-green">Lead calificado</span>
+                      )}
                     </span>
                     {a.manager_note && (
                       <span className="c1-note-badge">Tu gerente dejó un comentario</span>

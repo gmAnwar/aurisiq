@@ -1100,6 +1100,65 @@ body.has-nav {
   margin-top: 2px;
 }
 
+/* C3 Descalification pills */
+.c3-pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.c3-pill {
+  display: inline-block;
+  font-family: 'DM Sans', sans-serif;
+  border-radius: 6px;
+  padding: 4px 10px;
+}
+
+.c3-pill-primary {
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+  background: var(--red);
+}
+
+.c3-pill-secondary {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--red);
+  background: rgba(192,57,43,0.08);
+}
+
+.c3-pill-green {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green);
+  background: rgba(39,174,96,0.1);
+}
+
+/* C1 inline pills */
+.c1-pill-inline {
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.c1-pill-red {
+  color: var(--red);
+  background: rgba(192,57,43,0.08);
+}
+
+.c1-pill-green {
+  color: var(--green);
+  background: rgba(39,174,96,0.08);
+}
+
+.c1-pill-more {
+  font-size: 10px;
+  color: var(--ink-light);
+  margin-left: 2px;
+}
+
 /* C3 WhatsApp card */
 .c3-wa-card {
   background: #dcf8c6;
