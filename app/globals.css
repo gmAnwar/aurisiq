@@ -1771,6 +1771,41 @@ body.has-nav {
   color: var(--ink-mid);
 }
 
+/* C1 Yesterday */
+.c1-yesterday {
+  margin-top: 4px;
+}
+
+.c1-yesterday-summary {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-light);
+  cursor: pointer;
+  padding: 10px 0;
+  list-style: none;
+}
+
+.c1-yesterday-summary::-webkit-details-marker { display: none; }
+.c1-yesterday-summary::before {
+  content: "\25B6";
+  font-size: 9px;
+  margin-right: 6px;
+  display: inline-block;
+  transition: transform 0.2s;
+}
+
+.c1-yesterday[open] > .c1-yesterday-summary::before {
+  transform: rotate(90deg);
+}
+
+.c4-empty-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
 /* C1 Onboarding */
 .c1-onboarding {
   display: flex;

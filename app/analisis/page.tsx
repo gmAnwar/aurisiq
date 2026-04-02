@@ -145,6 +145,16 @@ export default function MiDiaPage() {
     if (key) prospectCounts[key] = (prospectCounts[key] || 0) + 1;
   }
 
+  // Qualified count today
+  const todayQualified = todayAnalyses.filter(a => !a.categoria_descalificacion || a.categoria_descalificacion.length === 0).length;
+
+  // Yesterday's calls
+  const yStart = new Date(new Date(tStart).getTime() - 86400000).toISOString();
+  const yesterdayAnalyses = analyses.filter(a => {
+    const t = new Date(a.created_at);
+    return t >= new Date(yStart) && t < new Date(tStart);
+  });
+
   // Score chart (last 10)
   const chartData = analyses.filter(a => a.score_general !== null).slice(0, 10).reverse();
 
@@ -235,19 +245,21 @@ export default function MiDiaPage() {
         </div>
       )}
 
-      {/* Daily stats — score avg only if 2+ */}
+      {/* Daily stats — 3 metrics */}
       {todayAnalyses.length > 0 && (
         <div className="c4-stats">
           <div className="c4-stat-card">
             <span className="c4-stat-value">{todayAnalyses.length}</span>
-            <span className="c4-stat-label">Llamadas hoy</span>
+            <span className="c4-stat-label">Llamadas</span>
           </div>
-          {dailyAvg !== null && (
-            <div className="c4-stat-card">
-              <span className="c4-stat-value">{dailyAvg}</span>
-              <span className="c4-stat-label">Score promedio</span>
-            </div>
-          )}
+          <div className="c4-stat-card">
+            <span className="c4-stat-value">{dailyAvg !== null ? dailyAvg : "—"}</span>
+            <span className="c4-stat-label">Score prom.</span>
+          </div>
+          <div className="c4-stat-card">
+            <span className="c4-stat-value">{todayQualified}/{todayAnalyses.length}</span>
+            <span className="c4-stat-label">Calificados</span>
+          </div>
         </div>
       )}
 
@@ -316,8 +328,10 @@ export default function MiDiaPage() {
 
       {todayAnalyses.length === 0 && (
         <div className="c4-empty">
-          <p>Aún no tienes llamadas hoy.</p>
-          <p>Analiza tu primera llamada del día.</p>
+          <p className="c4-empty-title">Aún no tienes llamadas hoy</p>
+          <a href="/analisis/nueva" className="btn-submit btn-terracota" style={{ textDecoration: "none", textAlign: "center", marginTop: 12 }}>
+            Hacer mi primera llamada del día
+          </a>
         </div>
       )}
 
@@ -336,9 +350,43 @@ export default function MiDiaPage() {
         </div>
       )}
 
+      {/* Yesterday */}
+      {yesterdayAnalyses.length > 0 && (
+        <details className="c1-yesterday">
+          <summary className="c1-yesterday-summary">Ayer — {yesterdayAnalyses.length} llamada{yesterdayAnalyses.length > 1 ? "s" : ""}</summary>
+          <div className="c4-list">
+            {yesterdayAnalyses.slice(0, 10).map((a) => {
+              const time = new Date(a.created_at).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+              const codes = a.categoria_descalificacion || [];
+              const hasDescal = codes.length > 0;
+              const label = [a.prospect_name, a.prospect_zone].filter(Boolean).join(" · ") || time;
+              return (
+                <a key={a.id} href={`/analisis/${a.id}`} className="c4-item">
+                  <div className="c4-item-left">
+                    <span className="c4-item-date">{label}</span>
+                    <span className="c4-item-source">
+                      {time} · {hasDescal ? (
+                        <span className="c1-pill-inline c1-pill-red">{descalMap[codes[0]] || codes[0]}</span>
+                      ) : (
+                        <span className="c1-pill-inline c1-pill-green">Calificado</span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="c4-item-right">
+                    {a.score_general !== null && (
+                      <span className={`c4-item-score c4-score-${a.clasificacion || "regular"}`}>{a.score_general}</span>
+                    )}
+                  </div>
+                </a>
+              );
+            })}
+          </div>
+        </details>
+      )}
+
       {/* CTA */}
       <a href="/analisis/nueva" className="btn-submit btn-terracota" style={{ textDecoration: "none", textAlign: "center" }}>
-        Grabar llamada
+        Nueva llamada
       </a>
 
       {/* Full history link */}
