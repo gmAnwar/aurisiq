@@ -964,7 +964,7 @@ export default function NuevaLlamadaPage() {
             <textarea
               id="transcription"
               className="input-field c2-textarea"
-              placeholder="Pega aquí la transcripción o arrastra un archivo .txt / .docx..."
+              placeholder="Pega aquí la transcripción o arrastra un archivo de texto o audio"
               value={transcription}
               onChange={(e) => {
                 if (e.target.value.length <= CHAR_LIMIT) {
