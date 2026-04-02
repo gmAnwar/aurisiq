@@ -161,15 +161,24 @@ export default function SpeechPage() {
       }
 
       // Save to DB as provisional
-      await supabase.from("speech_versions").insert({
-        organization_id: orgId,
-        scorecard_id: scorecardId,
-        funnel_stage_id: stageId === "_global" ? null : stageId,
-        content,
-        version_number: 0,
-        published: false,
-        is_provisional: true,
-      });
+      const { data: insertedRow, error: insertErr } = await supabase.from("speech_versions")
+        .insert({
+          organization_id: orgId,
+          scorecard_id: scorecardId,
+          funnel_stage_id: stageId === "_global" ? null : stageId,
+          content,
+          version_number: 0,
+          published: false,
+          is_provisional: true,
+        })
+        .select("id")
+        .single();
+
+      if (insertErr) {
+        console.error("SPEECH: ERROR saving to DB:", insertErr.message, insertErr.details, insertErr.code);
+      } else {
+        console.log("SPEECH: saved to DB with id:", insertedRow?.id, "is_provisional: true, funnel_stage_id:", stageId);
+      }
 
       const phases: PhaseGroup[] = scorecardPhaseNames.map(name => ({
         phase_name: name,
