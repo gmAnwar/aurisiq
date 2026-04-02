@@ -59,9 +59,10 @@ export default function SpeechPage() {
       const funnelStages = stagesRes.data || [];
       setStages(funnelStages);
 
-      // Load all speech versions: published OR provisional
+      // Load all speech versions: published OR provisional for this org
       const { data: allSpeech } = await supabase.from("speech_versions")
         .select("id, content, version_number, updated_at, funnel_stage_id, published, is_provisional")
+        .eq("organization_id", session.organizationId)
         .eq("scorecard_id", scorecard.id)
         .or("published.eq.true,is_provisional.eq.true");
 
@@ -103,14 +104,21 @@ export default function SpeechPage() {
     if (!orgId || !scorecardId) return;
 
     // Double-check DB: don't generate if published or provisional already exists
-    const stageFilter = stageId === "_global" ? "funnel_stage_id.is.null" : `funnel_stage_id.eq.${stageId}`;
-    const { data: existing } = await supabase.from("speech_versions")
+    let checkQuery = supabase.from("speech_versions")
       .select("id, content, version_number, updated_at, is_provisional, published")
       .eq("organization_id", orgId)
       .eq("scorecard_id", scorecardId)
-      .or(`${stageFilter}`)
       .or("published.eq.true,is_provisional.eq.true")
+      .order("published", { ascending: false })
       .limit(1);
+    if (stageId === "_global") {
+      checkQuery = checkQuery.is("funnel_stage_id", null);
+    } else {
+      checkQuery = checkQuery.eq("funnel_stage_id", stageId);
+    }
+    const { data: existing } = await checkQuery;
+
+    console.log("SPEECH: checking DB for stage", stageId, "found:", existing?.length || 0);
 
     if (existing && existing.length > 0) {
       // Already exists in DB — load it into state instead of generating
@@ -132,6 +140,7 @@ export default function SpeechPage() {
       return;
     }
 
+    console.log("SPEECH: nothing found in DB, calling Worker to generate for stage", stageId);
     setGeneratingStage(stageId);
     try {
       const res = await fetch(WORKER_URL, {

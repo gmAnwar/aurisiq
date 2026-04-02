@@ -765,11 +765,15 @@ async function handleGenerateSpeech(body, env, origin) {
     return jsonResponse({ error: 'Scorecard has no phases' }, 400, origin);
   }
 
+  // Get org name for the prompt
+  const orgs = await supabaseSelect(env, 'organizations', `id=eq.${organization_id}&select=name`);
+  const orgName = orgs.length > 0 ? orgs[0].name : 'la empresa';
+
   const phaseList = phases.map(p => `- ${p.phase_name} (${p.score_max} pts)`).join('\n');
 
-  const systemPrompt = `Eres AurisIQ. Genera frases modelo para un Speech Ideal de ventas basándote EXCLUSIVAMENTE en el contexto del scorecard que se te proporciona. El scorecard describe exactamente qué hace esta empresa y qué debe decir la captadora en cada fase. NO inventes el contexto del negocio — úsalo del scorecard. Las frases deben sonar naturales, en español mexicano, y ser directamente usables en una llamada real. No uses placeholders genéricos.`;
+  const systemPrompt = `Eres AurisIQ. Genera frases modelo para un Speech Ideal de ventas basándote EXCLUSIVAMENTE en el contexto del scorecard. El scorecard describe exactamente qué hace esta empresa y qué debe decir la captadora en cada fase. NO inventes el contexto del negocio — úsalo del scorecard. NO inventes nombres de empresas — la empresa se llama "${orgName}", usa SOLO este nombre en los ejemplos. Las frases deben sonar naturales, en español mexicano, y ser directamente usables en una llamada real.`;
 
-  const userPrompt = `A continuación el scorecard completo que describe el negocio, las fases de la conversación, y los criterios de evaluación:
+  const userPrompt = `La empresa se llama "${orgName}". A continuación el scorecard completo:
 
 ---
 ${scorecard.prompt_template}
@@ -779,7 +783,7 @@ Genera 3 frases ejemplo por cada fase${stageName ? ` para la etapa "${stageName}
 
 ${phaseList}
 
-Cada frase debe ser algo que la captadora diría literalmente en esa fase, basándote en lo que el scorecard describe como comportamiento excelente.
+Cada frase debe ser algo que la captadora de ${orgName} diría literalmente en esa fase. Usa SOLO el nombre "${orgName}" — NO inventes otros nombres de empresa.
 
 Responde SOLO con JSON válido en este formato exacto, sin texto adicional:
 {"phases": [{"phase_name": "Nombre de Fase", "phrases": ["frase 1", "frase 2", "frase 3"]}]}`;
