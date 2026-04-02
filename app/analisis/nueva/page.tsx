@@ -722,13 +722,15 @@ export default function NuevaLlamadaPage() {
           </div>
         )}
 
-        <button
-          className="btn-submit btn-terracota"
-          disabled={!canSubmit}
-          onClick={handleSubmit}
-        >
-          Analizar
-        </button>
+        {status !== "analyzing" && (
+          <button
+            className="btn-submit btn-terracota"
+            disabled={!canSubmit}
+            onClick={handleSubmit}
+          >
+            Analizar
+          </button>
+        )}
       </div>
     </div>
   );
