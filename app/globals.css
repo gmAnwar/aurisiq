@@ -3098,6 +3098,22 @@ body.has-nav {
   margin-bottom: 12px;
 }
 
+.g5-edit-icon {
+  font-size: 10px;
+  color: var(--ink-light);
+  opacity: 0;
+  transition: opacity 0.15s;
+  margin-left: 4px;
+}
+
+.c5-field-phrase-main:hover .g5-edit-icon,
+.c5-field-phrase-alt:hover .g5-edit-icon,
+.c5-phrase:hover .g5-edit-icon { opacity: 1; }
+
+.g5-inline-edit {
+  padding: 4px 0;
+}
+
 .g5-cancel-btn {
   font-family: 'DM Sans', sans-serif;
   font-size: 12px;

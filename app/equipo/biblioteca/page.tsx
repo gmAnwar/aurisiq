@@ -4,81 +4,87 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
 
-interface SpeechPhase {
-  phase_name: string;
-  phrases: string[];
-}
+interface SpeechField { field_name: string; phrases: string[]; }
+interface SpeechPhase { phase_name: string; transition?: string; fields?: SpeechField[]; phrases?: string[]; }
+interface FunnelStage { id: string; name: string; }
 
-interface FunnelStage {
+interface SpeechRow {
   id: string;
-  name: string;
+  content: unknown;
+  version_number: number;
+  created_at: string;
+  published: boolean;
+  is_provisional: boolean;
+  funnel_stage_id: string | null;
 }
 
-interface SpeechData {
-  phases: SpeechPhase[];
-  versionNum: number;
-  updatedAt: string | null;
-  isProvisional?: boolean;
+function parseSpeechContent(content: unknown): SpeechPhase[] {
+  if (!content) return [];
+  const c = content as Record<string, unknown>;
+  if (Array.isArray(c.phases)) {
+    return (c.phases as SpeechPhase[]).map(p => ({
+      phase_name: p.phase_name, transition: p.transition || "", fields: p.fields || [], phrases: p.phrases || [],
+    }));
+  }
+  return Object.entries(c).map(([name, phrases]) => ({
+    phase_name: name, fields: [], phrases: Array.isArray(phrases) ? phrases as string[] : [],
+  }));
 }
 
 export default function BibliotecaPage() {
   const [stages, setStages] = useState<FunnelStage[]>([]);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
-  const [speechByStage, setSpeechByStage] = useState<Record<string, SpeechData>>({});
-  const [editing, setEditing] = useState(false);
-  const [editPhases, setEditPhases] = useState<SpeechPhase[]>([]);
+  const [speechByStage, setSpeechByStage] = useState<Record<string, { id: string; phases: SpeechPhase[]; versionNum: number; updatedAt: string | null; isProvisional: boolean }>>({});
+  const [editingField, setEditingField] = useState<string | null>(null); // "phaseIdx-fieldIdx-phraseIdx"
+  const [editValue, setEditValue] = useState("");
   const [scorecardId, setScorecardId] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
-  const [scorecardPhases, setScorecardPhases] = useState<{ phase_name: string }[]>([]);
+  const [gerenteName, setGerenteName] = useState("");
   const [files, setFiles] = useState<{ name: string; created_at: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState("");
+
+  const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
 
   useEffect(() => {
     async function load() {
       const session = await requireAuth(["gerente", "super_admin"]);
       if (!session) return;
-      const me = { organization_id: session.organizationId };
-      setOrgId(me.organization_id);
+      setOrgId(session.organizationId);
+      setGerenteName(session.name);
 
       const [scRes, stagesRes] = await Promise.all([
         supabase.from("scorecards").select("id, phases, name")
-          .or(`organization_id.eq.${me.organization_id},organization_id.is.null`)
+          .or(`organization_id.eq.${session.organizationId},organization_id.is.null`)
           .eq("active", true).order("organization_id", { ascending: false, nullsFirst: false }).limit(1).single(),
         supabase.from("funnel_stages").select("id, name")
-          .eq("organization_id", me.organization_id).order("order_index"),
+          .eq("organization_id", session.organizationId).order("order_index"),
       ]);
 
       const sc = scRes.data;
       if (!sc) { setLoading(false); return; }
       setScorecardId(sc.id);
-      const scPhases = (sc.phases || []) as { phase_name: string }[];
-      setScorecardPhases(scPhases);
 
       const funnelStages = stagesRes.data || [];
       setStages(funnelStages);
 
-      // Load published + provisional speech versions
+      // Load published + provisional — MUST filter by organization_id
       const { data: allSpeech } = await supabase.from("speech_versions")
         .select("id, content, version_number, created_at, funnel_stage_id, published, is_provisional")
+        .eq("organization_id", session.organizationId)
         .eq("scorecard_id", sc.id)
         .or("published.eq.true,is_provisional.eq.true");
 
-      const byStage: Record<string, SpeechData> = {};
-      for (const sv of allSpeech || []) {
+      const byStage: Record<string, { id: string; phases: SpeechPhase[]; versionNum: number; updatedAt: string | null; isProvisional: boolean }> = {};
+      for (const sv of (allSpeech || []) as SpeechRow[]) {
         const key = sv.funnel_stage_id || "_global";
-        // Published takes priority over provisional
         if (byStage[key] && !byStage[key].isProvisional) continue;
-        const content = sv.content as Record<string, string[]>;
         byStage[key] = {
-          phases: scPhases.map(sp => ({
-            phase_name: sp.phase_name,
-            phrases: content[sp.phase_name] || [],
-          })),
+          id: sv.id,
+          phases: parseSpeechContent(sv.content),
           versionNum: sv.version_number,
           updatedAt: sv.created_at,
           isProvisional: sv.is_provisional && !sv.published,
@@ -86,17 +92,11 @@ export default function BibliotecaPage() {
       }
       setSpeechByStage(byStage);
 
-      // Default: select first stage, or global if no stages
-      if (funnelStages.length > 0) {
-        setSelectedStageId(funnelStages[0].id);
-      } else {
-        setSelectedStageId("_global");
-      }
+      if (funnelStages.length > 0) setSelectedStageId(funnelStages[0].id);
+      else setSelectedStageId("_global");
 
-      // Load files from storage
       const { data: fileList } = await supabase.storage
-        .from("biblioteca")
-        .list(me.organization_id, { limit: 50, sortBy: { column: "created_at", order: "desc" } });
+        .from("biblioteca").list(session.organizationId, { limit: 50, sortBy: { column: "created_at", order: "desc" } });
       setFiles((fileList || []).map(f => ({ name: f.name, created_at: f.created_at || "" })));
 
       setLoading(false);
@@ -104,159 +104,88 @@ export default function BibliotecaPage() {
     load();
   }, []);
 
-  const currentSpeech = selectedStageId ? speechByStage[selectedStageId] : null;
-  const currentPhases = currentSpeech?.phases || scorecardPhases.map(sp => ({ phase_name: sp.phase_name, phrases: [] }));
-  const currentVersion = currentSpeech?.versionNum || 0;
-  const currentUpdated = currentSpeech?.updatedAt || null;
+  const current = selectedStageId ? speechByStage[selectedStageId] : null;
   const selectedStageName = stages.find(s => s.id === selectedStageId)?.name || "Global";
+  const hasFields = current?.phases.some(p => p.fields && p.fields.length > 0);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !orgId) return;
-    setUploading(true);
-    setUploadMsg("");
+  // Inline edit helpers
+  const startEdit = (key: string, value: string) => { setEditingField(key); setEditValue(value); };
 
-    const path = `${orgId}/${file.name}`;
-    const { error: upErr } = await supabase.storage.from("biblioteca").upload(path, file, { upsert: true });
-
-    if (upErr) {
-      setUploadMsg(`Error: ${upErr.message}`);
-    } else {
-      setUploadMsg(`"${file.name}" subido correctamente.`);
-      setFiles(prev => [{ name: file.name, created_at: new Date().toISOString() }, ...prev]);
-    }
-    setUploading(false);
-    e.target.value = "";
-  };
-
-  const startEdit = () => {
-    setEditPhases(currentPhases.map(p => ({ ...p, phrases: [...p.phrases] })));
-    setEditing(true);
-  };
-
-  const updatePhrase = (phaseIdx: number, phraseIdx: number, value: string) => {
-    setEditPhases(prev => prev.map((p, i) => i === phaseIdx
-      ? { ...p, phrases: p.phrases.map((ph, j) => j === phraseIdx ? value : ph) }
-      : p
-    ));
-  };
-
-  const addPhrase = (phaseIdx: number) => {
-    setEditPhases(prev => prev.map((p, i) => i === phaseIdx
-      ? { ...p, phrases: [...p.phrases, ""] }
-      : p
-    ));
-  };
-
-  const removePhrase = (phaseIdx: number, phraseIdx: number) => {
-    setEditPhases(prev => prev.map((p, i) => i === phaseIdx
-      ? { ...p, phrases: p.phrases.filter((_, j) => j !== phraseIdx) }
-      : p
-    ));
-  };
-
-  const publish = async () => {
-    if (!scorecardId || !orgId || !selectedStageId) return;
+  const saveEdit = async () => {
+    if (!editingField || !current) return;
     setSaving(true);
-
-    const content: Record<string, string[]> = {};
-    for (const p of editPhases) {
-      content[p.phase_name] = p.phrases.filter(ph => ph.trim().length > 0);
-    }
-
-    const stageFilter = selectedStageId === "_global" ? null : selectedStageId;
-
-    // Unpublish existing + delete provisionals for this stage
-    let unpublishQuery = supabase.from("speech_versions")
-      .update({ published: false, is_provisional: false })
-      .eq("scorecard_id", scorecardId)
-      .or("published.eq.true,is_provisional.eq.true");
-    if (stageFilter) {
-      unpublishQuery = unpublishQuery.eq("funnel_stage_id", stageFilter);
-    } else {
-      unpublishQuery = unpublishQuery.is("funnel_stage_id", null);
-    }
-    await unpublishQuery;
-
-    const newVersion = currentVersion + 1;
-    await supabase.from("speech_versions").insert({
-      organization_id: orgId,
-      scorecard_id: scorecardId,
-      funnel_stage_id: stageFilter,
-      content,
-      version_number: newVersion,
-      published: true,
-      created_by: (await supabase.auth.getSession()).data.session?.user.id,
+    const [pi, fi, phi] = editingField.split("-").map(Number);
+    const updatedPhases = current.phases.map((p, i) => {
+      if (i !== pi) return p;
+      if (hasFields && p.fields) {
+        return { ...p, fields: p.fields.map((f, j) => {
+          if (j !== fi) return f;
+          return { ...f, phrases: f.phrases.map((ph, k) => k === phi ? editValue : ph) };
+        })};
+      }
+      return { ...p, phrases: (p.phrases || []).map((ph, j) => j === phi ? editValue : ph) };
     });
 
-    const newPhases = editPhases.map(p => ({ ...p, phrases: content[p.phase_name] || [] }));
+    // Build content in the same format
+    const content = hasFields ? { phases: updatedPhases } : (() => {
+      const c: Record<string, string[]> = {};
+      for (const p of updatedPhases) c[p.phase_name] = p.phrases || [];
+      return c;
+    })();
+
+    await supabase.from("speech_versions").update({
+      content,
+      is_provisional: false,
+    }).eq("id", current.id);
+
     setSpeechByStage(prev => ({
       ...prev,
-      [selectedStageId]: { phases: newPhases, versionNum: newVersion, updatedAt: new Date().toISOString(), isProvisional: false },
+      [selectedStageId!]: { ...current, phases: updatedPhases, isProvisional: false, updatedAt: new Date().toISOString() },
     }));
-    setEditing(false);
+    setEditingField(null);
     setSaving(false);
   };
 
-  const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
-
-  const generateProvisional = async () => {
+  const regenerate = async () => {
     if (!orgId || !selectedStageId) return;
     setGenerating(true);
     try {
       const res = await fetch(WORKER_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "generate_speech",
-          organization_id: orgId,
-          funnel_stage_id: selectedStageId === "_global" ? null : selectedStageId,
-        }),
+        body: JSON.stringify({ action: "generate_speech", organization_id: orgId, funnel_stage_id: selectedStageId === "_global" ? null : selectedStageId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error generando speech");
-
-      const generated: SpeechPhase[] = (data.phases || []).map((p: { phase_name: string; phrases: string[] }) => ({
-        phase_name: p.phase_name,
-        phrases: (p.phrases || []).slice(0, 3),
-      }));
-      // Fill missing phases from scorecard
-      const result = scorecardPhases.map(sp => {
-        const match = generated.find(g => g.phase_name === sp.phase_name);
-        return match || { phase_name: sp.phase_name, phrases: [] };
-      });
-      setEditPhases(result);
-      setEditing(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error generando speech provisional");
-    }
+      if (!res.ok || !data.phases) throw new Error("Error");
+      // Reload page to get fresh data from DB (Worker saves it)
+      window.location.reload();
+    } catch { /* ignore */ }
     setGenerating(false);
   };
 
-  if (loading) {
-    return (<div className="g1-wrapper"><div className="g1-container">
-      <div className="skeleton-block skeleton-title" />
-      <div className="skeleton-block skeleton-textarea" />
-    </div></div>);
-  }
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !orgId) return;
+    setUploading(true); setUploadMsg("");
+    const { error: upErr } = await supabase.storage.from("biblioteca").upload(`${orgId}/${file.name}`, file, { upsert: true });
+    if (upErr) setUploadMsg(`Error: ${upErr.message}`);
+    else { setUploadMsg(`"${file.name}" subido.`); setFiles(prev => [{ name: file.name, created_at: new Date().toISOString() }, ...prev]); }
+    setUploading(false); e.target.value = "";
+  };
 
-  if (error) {
-    return (<div className="g1-wrapper"><div className="g1-container">
-      <div className="message-box message-error"><p>{error}</p></div>
-    </div></div>);
-  }
+  if (loading) return (<div className="g1-wrapper"><div className="g1-container"><div className="skeleton-block skeleton-title" /><div className="skeleton-block skeleton-textarea" /></div></div>);
 
   return (
     <div className="g1-wrapper">
       <div className="g1-container">
         <div className="g1-header">
-          <h1 className="g1-title">Biblioteca y Speech Ideal</h1>
+          <h1 className="g1-title">Speech Ideal</h1>
           <p className="g1-subtitle">
-            {currentSpeech?.isProvisional
-              ? `${selectedStageName} — Generado por IA · Revisar y publicar`
-              : currentVersion > 0
-                ? `${selectedStageName} — Versión ${currentVersion} — ${new Date(currentUpdated!).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}`
-                : `${selectedStageName} — Sin versión publicada aún`}
+            {current?.isProvisional
+              ? `${selectedStageName} — Generado por IA · Click en cualquier frase para editar`
+              : current
+                ? `${selectedStageName} — Versión ${current.versionNum} · ${new Date(current.updatedAt!).toLocaleDateString("es-MX", { day: "numeric", month: "long" })}`
+                : `${selectedStageName} — Sin speech aún`}
           </p>
         </div>
 
@@ -264,82 +193,99 @@ export default function BibliotecaPage() {
         {stages.length > 0 && (
           <div className="g5-stage-tabs">
             {stages.map(stage => (
-              <button
-                key={stage.id}
+              <button key={stage.id}
                 className={`g5-stage-tab ${selectedStageId === stage.id ? "g5-stage-tab-active" : ""}`}
-                onClick={() => { if (!editing) setSelectedStageId(stage.id); }}
-                disabled={editing}
+                onClick={() => setSelectedStageId(stage.id)}
               >
                 {stage.name}
-                {speechByStage[stage.id] && <span className="g5-tab-dot" />}
+                {speechByStage[stage.id] && !speechByStage[stage.id].isProvisional && <span className="g5-tab-dot" />}
               </button>
             ))}
           </div>
         )}
 
-        {!editing ? (
-          <>
-            <div className="c5-phases">
-              {currentPhases.map((p, i) => (
-                <div key={i} className="c5-phase-card">
-                  <h3 className="c5-phase-name">{p.phase_name}</h3>
-                  {p.phrases.length > 0 ? (
-                    <ul className="c5-phrase-list">
-                      {p.phrases.map((ph, j) => <li key={j} className="c5-phrase">{ph}</li>)}
-                    </ul>
-                  ) : (
-                    <p className="c5-no-phrases">Sin frases publicadas para esta fase</p>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 24, flexWrap: "wrap" }}>
-              <button className="btn-submit" onClick={startEdit}>
-                Editar speech de {selectedStageName}
-              </button>
-              {currentVersion === 0 && (
-                <button className="btn-submit g5-generate-btn" onClick={generateProvisional} disabled={generating}>
-                  {generating ? "Generando..." : "Generar speech provisional con IA"}
-                </button>
-              )}
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="g5-edit-phases">
-              {editPhases.map((p, pi) => (
-                <div key={pi} className="g5-edit-card">
-                  <h3 className="c5-phase-name">{p.phase_name}</h3>
-                  {p.phrases.map((ph, phi) => (
-                    <div key={phi} className="g5-phrase-row">
-                      <input
-                        className="input-field"
-                        value={ph}
-                        onChange={(e) => updatePhrase(pi, phi, e.target.value)}
-                        placeholder="Frase clave..."
-                      />
-                      <button className="g5-remove-btn" onClick={() => removePhrase(pi, phi)}>x</button>
-                    </div>
-                  ))}
-                  {p.phrases.length < 3 && (
-                    <button className="g5-add-btn" onClick={() => addPhrase(pi)}>+ Agregar frase ({p.phrases.length}/3)</button>
-                  )}
-                  {p.phrases.length >= 3 && (
-                    <span className="c2-hint">Máximo 3 frases por fase</span>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="g5-edit-actions">
-              <button className="btn-submit" onClick={publish} disabled={saving}>
-                {saving ? "Publicando..." : `Publicar — ${selectedStageName}`}
-              </button>
-              <button className="g5-cancel-btn" onClick={() => setEditing(false)}>Cancelar</button>
-            </div>
-          </>
+        {/* Provisional badge */}
+        {current?.isProvisional && (
+          <div className="c5-provisional-badge" style={{ marginBottom: 12 }}>Provisional · Las captadoras ya ven este speech. Edita las frases para personalizarlo.</div>
         )}
 
-        {/* Biblioteca de archivos */}
+        {/* Speech content — field-based with inline edit */}
+        {current && hasFields && (
+          <div className="c5-phases">
+            {current.phases.map((phase, pi) => (
+              <div key={pi} className="c5-phase-card">
+                <h3 className="c5-phase-name">{phase.phase_name}</h3>
+                {phase.transition && <p className="c5-transition">{phase.transition}</p>}
+                {phase.fields && phase.fields.map((field, fi) => (
+                  <div key={fi} className="c5-field">
+                    <span className="c5-field-name" style={{ padding: "6px 0", display: "block" }}>{field.field_name}</span>
+                    {field.phrases.map((ph, phi) => {
+                      const key = `${pi}-${fi}-${phi}`;
+                      return editingField === key ? (
+                        <div key={phi} className="g5-inline-edit">
+                          <textarea className="input-field" rows={2} value={editValue} onChange={e => setEditValue(e.target.value)} style={{ fontSize: 11 }} />
+                          <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                            <button className="g4-note-save" onClick={saveEdit} disabled={saving}>{saving ? "..." : "Guardar"}</button>
+                            <button className="g4-note-cancel" onClick={() => setEditingField(null)}>Cancelar</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p key={phi} className={phi === 0 ? "c5-field-phrase-main" : "c5-field-phrase-alt"} style={{ cursor: "pointer" }} onClick={() => startEdit(key, ph)}>
+                          {ph} <span className="g5-edit-icon">✎</span>
+                        </p>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Old format — flat phrases */}
+        {current && !hasFields && (
+          <div className="c5-phases">
+            {current.phases.map((p, pi) => (
+              <div key={pi} className="c5-phase-card">
+                <h3 className="c5-phase-name">{p.phase_name}</h3>
+                {(p.phrases || []).map((ph, phi) => {
+                  const key = `${pi}-0-${phi}`;
+                  return editingField === key ? (
+                    <div key={phi} className="g5-inline-edit">
+                      <textarea className="input-field" rows={2} value={editValue} onChange={e => setEditValue(e.target.value)} style={{ fontSize: 11 }} />
+                      <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                        <button className="g4-note-save" onClick={saveEdit} disabled={saving}>{saving ? "..." : "Guardar"}</button>
+                        <button className="g4-note-cancel" onClick={() => setEditingField(null)}>Cancelar</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <li key={phi} className="c5-phrase" style={{ cursor: "pointer" }} onClick={() => startEdit(key, ph)}>
+                      {ph} <span className="g5-edit-icon">✎</span>
+                    </li>
+                  );
+                })}
+                {(!p.phrases || p.phrases.length === 0) && <p className="c5-no-phrases">Sin frases</p>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!current && (
+          <div className="c5-empty-card">
+            <div className="c5-empty-title">Sin speech para esta etapa</div>
+            <div className="c5-empty-sub">Genera uno con IA basado en el scorecard.</div>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
+          <button className="btn-submit g5-generate-btn" onClick={regenerate} disabled={generating}>
+            {generating ? "Generando..." : "Regenerar con IA"}
+          </button>
+        </div>
+
+        {/* Biblioteca */}
         <div className="g1-section" style={{ marginTop: 24 }}>
           <h2 className="g1-section-title">Biblioteca de materiales</h2>
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
@@ -347,9 +293,9 @@ export default function BibliotecaPage() {
               {uploading ? "Subiendo..." : "Subir archivo"}
               <input type="file" accept=".pdf,.doc,.docx,.txt,.pptx" onChange={handleFileUpload} hidden disabled={uploading} />
             </label>
-            <span className="c2-file-hint">Guiones, materiales de entrenamiento, documentos</span>
+            <span className="c2-file-hint">Guiones, materiales de entrenamiento</span>
           </div>
-          {uploadMsg && <p className={`c2-hint ${uploadMsg.startsWith("Error") ? "c2-char-warning" : ""}`} style={{ marginBottom: 8 }}>{uploadMsg}</p>}
+          {uploadMsg && <p className="c2-hint" style={{ marginBottom: 8 }}>{uploadMsg}</p>}
           {files.length > 0 ? (
             <div className="g7-list">
               {files.map((f, i) => (
@@ -360,7 +306,7 @@ export default function BibliotecaPage() {
               ))}
             </div>
           ) : (
-            <p className="g1-empty">Sin materiales subidos. Sube guiones o documentos de entrenamiento para el equipo.</p>
+            <p className="g1-empty">Sin materiales subidos.</p>
           )}
         </div>
 
