@@ -18,6 +18,7 @@ interface Analysis {
   prospect_name: string | null;
   prospect_zone: string | null;
   property_type: string | null;
+  manager_note: string | null;
 }
 
 export default function MiDiaPage() {
@@ -43,7 +44,7 @@ export default function MiDiaPage() {
 
       const [analysesRes, sourcesRes, userRes, descalRes, objRes] = await Promise.all([
         supabase.from("analyses")
-          .select("id, score_general, clasificacion, created_at, fuente_lead_id, patron_error, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type")
+          .select("id, score_general, clasificacion, created_at, fuente_lead_id, patron_error, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, manager_note")
           .eq("user_id", session.userId).eq("status", "completado")
           .order("created_at", { ascending: false }).limit(50),
         supabase.from("lead_sources").select("id, name").eq("organization_id", session.organizationId),
@@ -235,6 +236,9 @@ export default function MiDiaPage() {
                     <span className={`c4-item-source ${hasDescal ? "c1-descal-reason" : ""}`}>
                       {hasDescal ? reasonLabel : `${time} · Lead calificado`}
                     </span>
+                    {a.manager_note && (
+                      <span className="c1-note-badge">Tu gerente dejó un comentario</span>
+                    )}
                   </div>
                   <div className="c4-item-right">
                     {a.score_general !== null && (

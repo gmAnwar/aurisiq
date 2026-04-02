@@ -1063,6 +1063,43 @@ body.has-nav {
   margin-top: 8px;
 }
 
+/* C3 Manager note */
+.c3-manager-note {
+  background: var(--gold-dim);
+  border: 1px solid rgba(200,168,75,0.2);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.c3-manager-note-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gold);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.c3-manager-note-text {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+/* C1 Note badge */
+.c1-note-badge {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--gold);
+  display: block;
+  margin-top: 2px;
+}
+
 /* C3 Prospect card */
 .c3-prospect-card {
   background: var(--cream-dark);

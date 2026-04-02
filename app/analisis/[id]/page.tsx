@@ -30,6 +30,7 @@ interface Analysis {
   property_type: string | null;
   sale_reason: string | null;
   checklist_results: ChecklistItem[] | null;
+  manager_note: string | null;
   created_at: string;
 }
 
@@ -48,7 +49,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
 
       const { data: a, error: aErr } = await supabase
         .from("analyses")
-        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, sale_reason, checklist_results, created_at")
+        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, sale_reason, checklist_results, manager_note, created_at")
         .eq("id", id)
         .single();
 
@@ -129,6 +130,14 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
 
   return (
     <div className="container c3-container">
+
+      {/* 0. MANAGER NOTE */}
+      {analysis.manager_note && (
+        <div className="c3-manager-note">
+          <span className="c3-manager-note-label">Nota de tu gerente</span>
+          <p className="c3-manager-note-text">{analysis.manager_note}</p>
+        </div>
+      )}
 
       {/* 1. PROSPECT CARD */}
       <div className="c3-prospect-card">
