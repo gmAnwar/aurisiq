@@ -1721,6 +1721,19 @@ body.has-nav {
   font-style: italic;
 }
 
+/* C5 Transition phrase */
+.c5-transition {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--ink-light);
+  line-height: 1.5;
+  margin: 0 0 10px 0;
+  padding: 8px 10px;
+  background: rgba(200,120,64,0.05);
+  border-radius: 6px;
+}
+
 /* C5 Field bullets + accordion */
 .c5-fields {
   display: flex;

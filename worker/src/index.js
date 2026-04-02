@@ -781,15 +781,22 @@ REGLAS:
 ${scorecard.prompt_template}
 ---
 
-Genera 3 frases alternativas por cada CAMPO de cada fase${stageName ? ` para la etapa "${stageName}"` : ''}. Los campos por fase son:
+Genera un Speech Ideal${stageName ? ` para la etapa "${stageName}"` : ''}. Cada fase tiene una FRASE DE TRANSICIÓN (cómo la captadora pasa naturalmente de un tema al siguiente) y luego CAMPOS con 3 frases alternativas cada uno.
+
+Las frases deben sonar como una conversación real, no como un formulario. La captadora habla con un propietario que quiere vender su casa.
 
 FASE 1 — Apertura y Marco:
+Transición: El saludo ES la transición. La captadora se presenta, dice que llama de ${orgName}, explica el motivo de la llamada, y rompe el hielo antes de pedir datos.
+Campos:
+- Saludo y presentación (presentarse, decir de dónde llama, por qué llama — como conversación, no como formulario)
 - Nombre completo
 - Dirección de la propiedad
 - Dirección INE
-- Estado civil (casado/soltero)
+- Estado civil
 
 FASE 2 — Calificación de la Propiedad:
+Transición: Conectar naturalmente con "necesito hacerle unas preguntas sobre la documentación y el estado de la casa para poder evaluarla bien".
+Campos:
 - Libre de gravamen / crédito hipotecario
 - Pagos puntuales
 - Adeudos en tiempo consecutivo
@@ -800,27 +807,33 @@ FASE 2 — Calificación de la Propiedad:
 - Descripción del domicilio
 - Casa habitada o desocupada
 - Servicios a nombre de quién
-- ¿Tiene adeudos de servicios? (solo si tiene o no, NO el monto)
+- ¿Tiene adeudos de servicios? (solo si tiene o no, NO el monto exacto)
 - Financiamiento de adeudos
 
 FASE 3 — Expectativa y Precio:
+Transición: Conectar con "ya con esa información, ahora hablemos de lo más importante: el precio y sus expectativas".
+Campos:
 - Motivo de venta
 - Expectativa del cliente
 - Precio estimado de venta
 - Precio estimado de captación
 
 FASE 4 — Avance a Visita:
+Transición: Conectar con "su propiedad tiene potencial, el siguiente paso es que vaya a conocerla en persona".
+Campos:
 - Disponibilidad
 - Proponer fecha y hora concretas
 
 FASE 5 — Lectura del Propietario:
+Transición: Conectar con "antes de despedirnos quiero comentarle algo importante sobre cómo trabajamos en ${orgName}".
+Campos:
 - Leer urgencia
 - Leer disposición
 - Leer resistencia
-- Promesa de venta (mencionar compromiso de vender en 30 días y baja de comisión si no se cumple)
+- Promesa de venta (${orgName} se compromete a vender en 30 días, si no baja la comisión)
 
 Responde SOLO con JSON válido, sin texto adicional:
-{"phases": [{"phase_name": "Apertura y Marco", "fields": [{"field_name": "Nombre completo", "phrases": ["frase1", "frase2", "frase3"]}, ...]}, ...]}`;
+{"phases": [{"phase_name": "Apertura y Marco", "transition": "frase de transición natural", "fields": [{"field_name": "Saludo y presentación", "phrases": ["frase1", "frase2", "frase3"]}, ...]}, ...]}`;
 
   const rawOutput = await callClaude(env, systemPrompt, userPrompt);
 

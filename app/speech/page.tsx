@@ -11,6 +11,7 @@ interface SpeechField {
 
 interface SpeechPhase {
   phase_name: string;
+  transition?: string;
   fields?: SpeechField[];
   // Legacy format support
   phrases?: string[];
@@ -121,10 +122,11 @@ export default function SpeechPage() {
     if (!content) return [];
     const c = content as Record<string, unknown>;
 
-    // New format: has "phases" array with fields
+    // New format: has "phases" array with fields + transition
     if (Array.isArray(c.phases)) {
       return (c.phases as SpeechPhase[]).map(p => ({
         phase_name: p.phase_name,
+        transition: p.transition || "",
         fields: p.fields || [],
         phrases: p.phrases || [],
       }));
@@ -267,6 +269,11 @@ export default function SpeechPage() {
           {current.phases.map((phase, i) => (
             <div key={i} className="c5-phase-card">
               <h3 className="c5-phase-name">{phase.phase_name}</h3>
+
+              {/* Transition phrase */}
+              {phase.transition && (
+                <p className="c5-transition">{phase.transition}</p>
+              )}
 
               {/* New format: fields with bullets + accordion */}
               {hasFields && phase.fields && phase.fields.length > 0 && (
