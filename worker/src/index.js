@@ -769,28 +769,61 @@ async function handleGenerateSpeech(body, env, origin) {
   const orgs = await supabaseSelect(env, 'organizations', `id=eq.${organization_id}&select=name`);
   const orgName = orgs.length > 0 ? orgs[0].name : 'la empresa';
 
-  const phaseList = phases.map(p => `- ${p.phase_name} (${p.score_max} pts)`).join('\n');
+  const systemPrompt = `Eres AurisIQ. Genera frases modelo para un Speech Ideal de captación inmobiliaria. La empresa se llama "${orgName}". Usa SOLO este nombre — NO inventes otros nombres de empresa. Las frases deben sonar naturales, en español mexicano, y ser directamente usables en una llamada real. Cada frase es algo que la captadora diría literalmente al propietario.
 
-  const systemPrompt = `Eres AurisIQ. Genera frases modelo para un Speech Ideal de ventas basándote EXCLUSIVAMENTE en el contexto del scorecard. El scorecard describe exactamente qué hace esta empresa y qué debe decir la captadora en cada fase. NO inventes el contexto del negocio — úsalo del scorecard. NO inventes nombres de empresas — la empresa se llama "${orgName}", usa SOLO este nombre en los ejemplos. Las frases deben sonar naturales, en español mexicano, y ser directamente usables en una llamada real.`;
+REGLAS:
+- Sobre adeudos de servicios: la captadora pregunta SI tiene adeudos (sí/no), pero NO saca saldos exactos en la primera llamada. Ejemplo correcto: "¿Tiene algún adeudo de luz, agua o predial?" Ejemplo INCORRECTO: "¿Cuánto debe de luz?"
+- La Fase 5 DEBE incluir la promesa comercial: "${orgName} se compromete a vender la propiedad en 30 días, y si no se vende en ese plazo, baja la comisión.`;
 
-  const userPrompt = `La empresa se llama "${orgName}". A continuación el scorecard completo:
+  const userPrompt = `La empresa se llama "${orgName}". Scorecard:
 
 ---
 ${scorecard.prompt_template}
 ---
 
-Genera 3 frases ejemplo por cada fase${stageName ? ` para la etapa "${stageName}"` : ''}. Las fases son:
+Genera 3 frases alternativas por cada CAMPO de cada fase${stageName ? ` para la etapa "${stageName}"` : ''}. Los campos por fase son:
 
-${phaseList}
+FASE 1 — Apertura y Marco:
+- Nombre completo
+- Dirección de la propiedad
+- Dirección INE
+- Estado civil (casado/soltero)
 
-Cada frase debe ser algo que la captadora de ${orgName} diría literalmente en esa fase. Usa SOLO el nombre "${orgName}" — NO inventes otros nombres de empresa.
+FASE 2 — Calificación de la Propiedad:
+- Libre de gravamen / crédito hipotecario
+- Pagos puntuales
+- Adeudos en tiempo consecutivo
+- Crédito individual o conyugal
+- NSS
+- NC (Número de Crédito)
+- Papelería / escrituras
+- Descripción del domicilio
+- Casa habitada o desocupada
+- Servicios a nombre de quién
+- ¿Tiene adeudos de servicios? (solo si tiene o no, NO el monto)
+- Financiamiento de adeudos
 
-Responde SOLO con JSON válido en este formato exacto, sin texto adicional:
-{"phases": [{"phase_name": "Nombre de Fase", "phrases": ["frase 1", "frase 2", "frase 3"]}]}`;
+FASE 3 — Expectativa y Precio:
+- Motivo de venta
+- Expectativa del cliente
+- Precio estimado de venta
+- Precio estimado de captación
+
+FASE 4 — Avance a Visita:
+- Disponibilidad
+- Proponer fecha y hora concretas
+
+FASE 5 — Lectura del Propietario:
+- Leer urgencia
+- Leer disposición
+- Leer resistencia
+- Promesa de venta (mencionar compromiso de vender en 30 días y baja de comisión si no se cumple)
+
+Responde SOLO con JSON válido, sin texto adicional:
+{"phases": [{"phase_name": "Apertura y Marco", "fields": [{"field_name": "Nombre completo", "phrases": ["frase1", "frase2", "frase3"]}, ...]}, ...]}`;
 
   const rawOutput = await callClaude(env, systemPrompt, userPrompt);
 
-  // Parse JSON from Claude's response
   let result;
   try {
     const cleaned = rawOutput.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
@@ -799,11 +832,8 @@ Responde SOLO con JSON válido en este formato exacto, sin texto adicional:
     return jsonResponse({ error: 'Failed to parse speech output' }, 500, origin);
   }
 
-  // Save provisional to DB (service role bypasses RLS)
-  const content = {};
-  for (const p of result.phases || []) {
-    content[p.phase_name] = (p.phrases || []).slice(0, 3);
-  }
+  // Save to DB in new field-based format
+  const content = result;
 
   try {
     // Check if provisional already exists for this stage

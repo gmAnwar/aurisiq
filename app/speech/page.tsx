@@ -4,9 +4,16 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
 
-interface PhaseGroup {
-  phase_name: string;
+interface SpeechField {
+  field_name: string;
   phrases: string[];
+}
+
+interface SpeechPhase {
+  phase_name: string;
+  fields?: SpeechField[];
+  // Legacy format support
+  phrases?: string[];
 }
 
 interface FunnelStage {
@@ -15,10 +22,32 @@ interface FunnelStage {
 }
 
 interface StageSpeech {
-  phases: PhaseGroup[];
+  phases: SpeechPhase[];
   versionNumber: number;
   lastUpdated: string | null;
   isProvisional: boolean;
+}
+
+function FieldItem({ field }: { field: SpeechField }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!field.phrases || field.phrases.length === 0) return null;
+
+  return (
+    <div className="c5-field">
+      <button className="c5-field-btn" onClick={() => setExpanded(!expanded)}>
+        <span className="c5-field-name">{field.field_name}</span>
+        <span className="c5-field-arrow">{expanded ? "\u2191" : "\u2193"}</span>
+      </button>
+      <p className="c5-field-phrase-main">{field.phrases[0]}</p>
+      {expanded && field.phrases.length > 1 && (
+        <div className="c5-field-alts">
+          {field.phrases.slice(1).map((ph, i) => (
+            <p key={i} className="c5-field-phrase-alt">{ph}</p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function SpeechPage() {
@@ -29,7 +58,6 @@ export default function SpeechPage() {
   const [generatingStage, setGeneratingStage] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
   const [scorecardId, setScorecardId] = useState<string | null>(null);
-  const [scorecardPhaseNames, setScorecardPhaseNames] = useState<string[]>([]);
 
   const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
 
@@ -53,32 +81,22 @@ export default function SpeechPage() {
       if (!scorecard) { setLoading(false); return; }
       setScorecardId(scorecard.id);
 
-      const phaseNames: string[] = (scorecard.phases || []).map((sp: { phase_name: string }) => sp.phase_name);
-      setScorecardPhaseNames(phaseNames);
-
       const funnelStages = stagesRes.data || [];
       setStages(funnelStages);
 
-      // Load all speech versions: published OR provisional for this org
-      const { data: allSpeech, error: speechErr } = await supabase.from("speech_versions")
+      // Load all speech versions: published OR provisional
+      const { data: allSpeech } = await supabase.from("speech_versions")
         .select("id, content, version_number, created_at, funnel_stage_id, published, is_provisional")
         .eq("organization_id", session.organizationId)
         .eq("scorecard_id", scorecard.id)
         .or("published.eq.true,is_provisional.eq.true");
 
-      console.log("SPEECH LOAD: org=", session.organizationId, "sc=", scorecard.id, "found=", allSpeech?.length || 0, "err=", speechErr?.message || "none");
-
       const byStage: Record<string, StageSpeech> = {};
       for (const sv of allSpeech || []) {
         const key = sv.funnel_stage_id || "_global";
-        // Published takes priority over provisional
         if (byStage[key] && !byStage[key].isProvisional) continue;
-        const content = sv.content as Record<string, string[]>;
         byStage[key] = {
-          phases: phaseNames.map(name => ({
-            phase_name: name,
-            phrases: content[name] || [],
-          })),
+          phases: parseSpeechContent(sv.content),
           versionNumber: sv.version_number,
           lastUpdated: sv.created_at,
           isProvisional: sv.is_provisional && !sv.published,
@@ -95,17 +113,37 @@ export default function SpeechPage() {
 
       setLoading(false);
     }
-
     load();
   }, []);
 
+  // Parse both old format {"PhaseName": ["phrase",...]} and new {"phases": [{phase_name, fields}]}
+  function parseSpeechContent(content: unknown): SpeechPhase[] {
+    if (!content) return [];
+    const c = content as Record<string, unknown>;
+
+    // New format: has "phases" array with fields
+    if (Array.isArray(c.phases)) {
+      return (c.phases as SpeechPhase[]).map(p => ({
+        phase_name: p.phase_name,
+        fields: p.fields || [],
+        phrases: p.phrases || [],
+      }));
+    }
+
+    // Old format: {"Phase Name": ["phrase1", "phrase2"]}
+    return Object.entries(c).map(([name, phrases]) => ({
+      phase_name: name,
+      fields: [],
+      phrases: Array.isArray(phrases) ? phrases as string[] : [],
+    }));
+  }
+
   const current = selectedStageId ? speechByStage[selectedStageId] : null;
 
-  // Generate provisional and save to DB (only when no speech exists for this stage)
   const generateProvisional = async (stageId: string) => {
     if (!orgId || !scorecardId) return;
 
-    // Double-check DB: don't generate if published or provisional already exists
+    // Check DB first
     let checkQuery = supabase.from("speech_versions")
       .select("id, content, version_number, created_at, is_provisional, published")
       .eq("organization_id", orgId)
@@ -120,20 +158,12 @@ export default function SpeechPage() {
     }
     const { data: existing } = await checkQuery;
 
-    console.log("SPEECH: checking DB for stage", stageId, "found:", existing?.length || 0);
-
     if (existing && existing.length > 0) {
-      // Already exists in DB — load it into state instead of generating
       const sv = existing[0];
-      const content = sv.content as Record<string, string[]>;
-      const phases: PhaseGroup[] = scorecardPhaseNames.map(name => ({
-        phase_name: name,
-        phrases: content[name] || [],
-      }));
       setSpeechByStage(prev => ({
         ...prev,
         [stageId]: {
-          phases,
+          phases: parseSpeechContent(sv.content),
           versionNumber: sv.version_number,
           lastUpdated: sv.created_at,
           isProvisional: sv.is_provisional && !sv.published,
@@ -142,7 +172,6 @@ export default function SpeechPage() {
       return;
     }
 
-    console.log("SPEECH: nothing found in DB, calling Worker to generate for stage", stageId);
     setGeneratingStage(stageId);
     try {
       const res = await fetch(WORKER_URL, {
@@ -157,30 +186,21 @@ export default function SpeechPage() {
       const data = await res.json();
       if (!res.ok || !data.phases) throw new Error("Error generando speech");
 
-      const content: Record<string, string[]> = {};
-      for (const p of data.phases as { phase_name: string; phrases: string[] }[]) {
-        content[p.phase_name] = (p.phrases || []).slice(0, 3);
-      }
-
-      // Provisional is saved to DB by the Worker (service role bypasses RLS)
-      console.log("SPEECH: Worker generated and saved provisional for stage", stageId);
-
-      const phases: PhaseGroup[] = scorecardPhaseNames.map(name => ({
-        phase_name: name,
-        phrases: content[name] || [],
-      }));
-
       setSpeechByStage(prev => ({
         ...prev,
-        [stageId]: { phases, versionNumber: 0, lastUpdated: new Date().toISOString(), isProvisional: true },
+        [stageId]: {
+          phases: parseSpeechContent(data),
+          versionNumber: 0,
+          lastUpdated: new Date().toISOString(),
+          isProvisional: true,
+        },
       }));
     } catch {
-      // Silently fail — user sees empty state
+      // Silently fail
     }
     setGeneratingStage(null);
   };
 
-  // Auto-generate when selecting a stage without any speech
   useEffect(() => {
     if (!selectedStageId || !orgId || current || generatingStage) return;
     generateProvisional(selectedStageId);
@@ -191,10 +211,11 @@ export default function SpeechPage() {
       <div className="container c5-container">
         <div className="skeleton-block skeleton-title" />
         <div className="skeleton-block skeleton-textarea" />
-        <div className="skeleton-block skeleton-textarea" />
       </div>
     );
   }
+
+  const hasFields = current?.phases.some(p => p.fields && p.fields.length > 0);
 
   return (
     <div className="container c5-container">
@@ -208,7 +229,6 @@ export default function SpeechPage() {
         )}
       </div>
 
-      {/* Stage tabs */}
       {stages.length > 0 && (
         <div className="g5-stage-tabs">
           {stages.map(stage => (
@@ -224,7 +244,6 @@ export default function SpeechPage() {
         </div>
       )}
 
-      {/* Generating */}
       {generatingStage && !current && (
         <div className="c5-empty-card">
           <div className="c5-empty-title">Generando speech provisional...</div>
@@ -232,7 +251,6 @@ export default function SpeechPage() {
         </div>
       )}
 
-      {/* No speech and not generating */}
       {!current && !generatingStage && (
         <div className="c5-empty-card">
           <div className="c5-empty-title">Sin speech disponible</div>
@@ -240,24 +258,35 @@ export default function SpeechPage() {
         </div>
       )}
 
-      {/* Provisional badge */}
       {current?.isProvisional && (
         <div className="c5-provisional-badge">Provisional · Pendiente de revisión por tu gerente</div>
       )}
 
-      {/* Show speech content */}
       {current && (
         <div className="c5-phases">
-          {current.phases.map((group, i) => (
+          {current.phases.map((phase, i) => (
             <div key={i} className="c5-phase-card">
-              <h3 className="c5-phase-name">{group.phase_name}</h3>
-              {group.phrases.length > 0 ? (
+              <h3 className="c5-phase-name">{phase.phase_name}</h3>
+
+              {/* New format: fields with bullets + accordion */}
+              {hasFields && phase.fields && phase.fields.length > 0 && (
+                <div className="c5-fields">
+                  {phase.fields.map((field, j) => (
+                    <FieldItem key={j} field={field} />
+                  ))}
+                </div>
+              )}
+
+              {/* Old format: flat phrases */}
+              {!hasFields && phase.phrases && phase.phrases.length > 0 && (
                 <ul className="c5-phrase-list">
-                  {group.phrases.map((phrase, j) => (
+                  {phase.phrases.map((phrase, j) => (
                     <li key={j} className="c5-phrase">{phrase}</li>
                   ))}
                 </ul>
-              ) : (
+              )}
+
+              {!hasFields && (!phase.phrases || phase.phrases.length === 0) && (!phase.fields || phase.fields.length === 0) && (
                 <p className="c5-no-phrases">Sin frases destacadas aún</p>
               )}
             </div>
