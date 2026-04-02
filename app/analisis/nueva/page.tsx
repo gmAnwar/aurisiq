@@ -63,6 +63,7 @@ export default function NuevaLlamadaPage() {
   const [guideOpen, setGuideOpen] = useState(false);
   const [guidePhases, setGuidePhases] = useState<GuidePhase[]>([]);
   const [guideLoading, setGuideLoading] = useState(false);
+  const [missedFields, setMissedFields] = useState<string[]>([]);
   const pauseStartRef = useRef<number>(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -612,6 +613,40 @@ export default function NuevaLlamadaPage() {
   // Reset guide when stage changes
   useEffect(() => { setGuidePhases([]); }, [selectedStage]);
 
+  // Fetch missed fields from last 5 analyses for this stage
+  useEffect(() => {
+    if (!selectedStage || !userId) { setMissedFields([]); return; }
+    (async () => {
+      const { data } = await supabase.from("analyses")
+        .select("checklist_results")
+        .eq("user_id", userId)
+        .eq("funnel_stage_id", selectedStage)
+        .eq("status", "completado")
+        .not("checklist_results", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (!data || data.length === 0) { setMissedFields([]); return; }
+
+      const missCounts: Record<string, number> = {};
+      for (const a of data) {
+        const items = a.checklist_results as { field: string; covered: boolean }[] | null;
+        if (!items) continue;
+        for (const item of items) {
+          if (!item.covered) missCounts[item.field] = (missCounts[item.field] || 0) + 1;
+        }
+      }
+
+      const sorted = Object.entries(missCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .filter(([, count]) => count >= 2)
+        .map(([field]) => field);
+
+      setMissedFields(sorted);
+    })();
+  }, [selectedStage, userId]);
+
   // ─── Submit ────────────────────────────────────────────────
 
   const handleSubmit = async () => {
@@ -857,6 +892,9 @@ export default function NuevaLlamadaPage() {
               </option>
             ))}
           </select>
+          {missedFields.length > 0 && !transcription && recMode === "off" && (
+            <p className="c2-missed-tip">En tus últimas llamadas se te olvidó preguntar: {missedFields.join(", ")}</p>
+          )}
         </div>
 
         <div className="input-group">
