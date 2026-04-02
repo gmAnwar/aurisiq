@@ -277,7 +277,7 @@ export default function NuevaLlamadaPage() {
         const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         allStreamsRef.current.push(micStream);
         recordStream = micStream;
-        label = "Grabando con micrófono";
+        label = "Grabando...";
       } else {
         // Desktop: combine microphone + system audio
         const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -306,7 +306,7 @@ export default function NuevaLlamadaPage() {
           displaySource.connect(destination);
           audioCtxRef.current = audioCtx;
           recordStream = destination.stream;
-          label = "Grabando micrófono + audio del sistema";
+          label = "Grabando...";
 
           // Stop recording if user ends display share
           displayStream.getAudioTracks()[0].onended = () => {
@@ -314,9 +314,9 @@ export default function NuevaLlamadaPage() {
           };
         } else {
           // Fallback: microphone only
-          setRecError("Solo se capturará tu micrófono");
+          setRecError("Grabación activa");
           recordStream = micStream;
-          label = "Grabando solo micrófono — pon tu llamada en altavoz";
+          label = "Grabando...";
         }
       }
 
@@ -668,8 +668,8 @@ export default function NuevaLlamadaPage() {
           </div>
           <p className="c2-rec-hint">
             {mobile
-              ? "Pon tu llamada en altavoz. El micrófono del celular capturará la conversación."
-              : "Se abrirán dos permisos: primero tu micrófono, después selecciona la pestaña de tu llamada y activa \"Compartir audio de la pestaña\"."}
+              ? "Pon tu llamada en altavoz y presiona grabar."
+              : "Selecciona la pestaña de tu llamada cuando se abra el selector."}
           </p>
           {recError && <p className="c2-rec-error">{recError}</p>}
           {isTranscribing && (

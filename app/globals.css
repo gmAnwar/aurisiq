@@ -151,8 +151,8 @@ body > * { position: relative; z-index: 1; }
   border-radius: 18px;
 }
 
-/* Desktop sidebar (gerente/dirección) */
-@media (min-width: 768px) {
+/* Desktop sidebar — 520px breakpoint so sidebar stays with DevTools open */
+@media (min-width: 520px) {
   .navbar.navbar-sidebar {
     position: fixed;
     top: 0;
@@ -189,7 +189,7 @@ body > * { position: relative; z-index: 1; }
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 519px) {
   .navbar {
     top: auto;
     bottom: 0;
@@ -225,7 +225,7 @@ body > * { position: relative; z-index: 1; }
 }
 
 /* Mobile: position at right end */
-@media (max-width: 767px) {
+@media (max-width: 519px) {
   .navbar-user-panel {
     position: fixed;
     top: auto;
@@ -275,7 +275,7 @@ body > * { position: relative; z-index: 1; }
   max-width: 100px;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 519px) {
   .navbar-user-name { display: none; }
   .navbar-user-btn { padding: 8px; }
 }
@@ -305,7 +305,7 @@ body > * { position: relative; z-index: 1; }
 }
 
 /* Mobile / top-bar: menu opens DOWN-LEFT */
-@media (max-width: 767px) {
+@media (max-width: 519px) {
   .navbar-user-menu {
     bottom: 100%;
     right: 0;
@@ -379,14 +379,14 @@ body.has-nav {
   padding-top: 50px;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 519px) {
   body.has-nav {
     padding-top: 0;
     padding-bottom: 70px;
   }
 }
 
-@media (min-width: 768px) {
+@media (min-width: 520px) {
   body.has-sidebar {
     padding-top: 0;
     padding-left: 180px;
