@@ -283,7 +283,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
       {/* 4. NEXT STEP + WHATSAPP MESSAGE */}
       {accion && (() => {
         // Parse WhatsApp message from accion text
-        const msgMatch = accion.match(/[Mm]ensaje\s*(?:sugerido)?[:\s]+(.+)/s);
+        const msgMatch = accion.match(/[Mm]ensaje\s*(?:sugerido)?[:\s]+([\s\S]+)/);
         const actionPart = msgMatch ? accion.slice(0, msgMatch.index).trim() : accion;
         const whatsappMsg = msgMatch ? msgMatch[1].trim().replace(/^[""]|[""]$/g, "") : null;
         return (
