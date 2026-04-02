@@ -51,6 +51,9 @@ export default function NuevaLlamadaPage() {
   const [analysisPct, setAnalysisPct] = useState(0);
   const [analysisPhase, setAnalysisPhase] = useState("");
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [transcribePct, setTranscribePct] = useState(0);
+  const [transcribePhase, setTranscribePhase] = useState("");
+  const transcribeProgressRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -205,6 +208,7 @@ export default function NuevaLlamadaPage() {
     init();
     return () => {
       if (recTimerRef.current) clearInterval(recTimerRef.current);
+      if (transcribeProgressRef.current) clearInterval(transcribeProgressRef.current);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
     };
@@ -351,7 +355,32 @@ export default function NuevaLlamadaPage() {
         audioCtxRef.current = null;
         const blob = new Blob(chunksRef.current, { type: mimeType });
         setRecMode("transcribing");
-        transcribeAudioBlob(blob, "Transcribiendo grabación...").then(() => setRecMode("off"));
+        setTranscribePct(0);
+        setTranscribePhase("Procesando audio...");
+
+        // Simulated transcription progress
+        const tPhases = [
+          { at: 0, text: "Procesando audio..." },
+          { at: 20, text: "Transcribiendo conversación..." },
+          { at: 50, text: "Identificando participantes..." },
+          { at: 80, text: "Finalizando texto..." },
+          { at: 95, text: "Transcripción lista" },
+        ];
+        const tStart = Date.now();
+        transcribeProgressRef.current = setInterval(() => {
+          const el = (Date.now() - tStart) / 1000;
+          const p = Math.min(94, Math.floor(el * 0.8));
+          const cur = [...tPhases].reverse().find(ph => p >= ph.at);
+          if (cur) setTranscribePhase(cur.text);
+          setTranscribePct(p);
+        }, 500);
+
+        transcribeAudioBlob(blob, "Transcribiendo grabación...").then(() => {
+          if (transcribeProgressRef.current) clearInterval(transcribeProgressRef.current);
+          setTranscribePct(100);
+          setTranscribePhase("Transcripción lista");
+          setTimeout(() => setRecMode("off"), 400);
+        });
       };
 
       recorder.start(1000);
@@ -556,10 +585,19 @@ export default function NuevaLlamadaPage() {
           </div>
         )}
         {recMode === "transcribing" && (
-          <div className="ear-transcribing">
-            <span className="ear-spinner" />
-            <p className="ear-transcribing-text">Transcribiendo tu llamada...</p>
-            <p className="ear-transcribing-sub">Esto puede tomar hasta 2 minutos</p>
+          <div className="ear-recording">
+            <div className="ear-rec-indicator">
+              <span className="ear-rec-dot" style={{ animationDuration: "2s" }} />
+              <span className="ear-rec-label">Procesando</span>
+            </div>
+            <span className="ear-timer">{formatTime(recElapsed)}</span>
+            <canvas ref={canvasRef} className="ear-waveform" width={280} height={60} />
+            <div className="c2-progress-section" style={{ width: "100%", maxWidth: 320 }}>
+              <div className="c2-progress-bg">
+                <div className="c2-progress-fill" style={{ width: `${transcribePct}%` }} />
+              </div>
+              <p className="c2-progress-phase">{transcribePhase}</p>
+            </div>
           </div>
         )}
       </div>
