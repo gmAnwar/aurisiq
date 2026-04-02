@@ -35,6 +35,7 @@ export default function MiDiaPage() {
   const [monthlyTarget, setMonthlyTarget] = useState<number | null>(null);
   const [monthlyDone, setMonthlyDone] = useState(0);
   const [orgTz, setOrgTz] = useState("America/Monterrey");
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -112,6 +113,11 @@ export default function MiDiaPage() {
         }
       }
 
+      // Show onboarding for first-time captadoras
+      if (all.length === 0 && !localStorage.getItem("aurisiq_onboarded")) {
+        setShowOnboarding(true);
+      }
+
       setLoading(false);
     }
     load();
@@ -149,6 +155,46 @@ export default function MiDiaPage() {
         <div className="skeleton-block skeleton-select" />
         <div className="skeleton-block skeleton-textarea" />
         <div className="skeleton-block skeleton-select" />
+      </div>
+    );
+  }
+
+  if (showOnboarding) {
+    return (
+      <div className="container c4-container">
+        <div className="c1-onboarding">
+          <h1 className="c1-onboarding-title">Bienvenida a AurisIQ</h1>
+          <p className="c1-onboarding-sub">Tu herramienta de coaching para llamadas de captación</p>
+          <div className="c1-onboarding-steps">
+            <div className="c1-onboarding-step">
+              <span className="c1-onboarding-num">1</span>
+              <span>Graba o sube tu llamada</span>
+            </div>
+            <div className="c1-onboarding-step">
+              <span className="c1-onboarding-num">2</span>
+              <span>Recibe análisis y coaching al instante</span>
+            </div>
+            <div className="c1-onboarding-step">
+              <span className="c1-onboarding-num">3</span>
+              <span>Mejora tu score llamada a llamada</span>
+            </div>
+          </div>
+          <a
+            href="/analisis/nueva"
+            className="btn-submit btn-terracota"
+            style={{ textDecoration: "none", textAlign: "center", width: "100%" }}
+            onClick={() => localStorage.setItem("aurisiq_onboarded", "true")}
+          >
+            Hacer mi primera llamada
+          </a>
+          <a
+            href="/speech"
+            className="c5-back-link"
+            onClick={() => localStorage.setItem("aurisiq_onboarded", "true")}
+          >
+            Ver mi guía de speech
+          </a>
+        </div>
       </div>
     );
   }
