@@ -209,6 +209,7 @@ function parseClaudeOutput(rawText) {
     prospect_zone: null,
     property_type: null,
     sale_reason: null,
+    prospect_phone: null,
     checklist_results: null,
     phases: [],
   };
@@ -271,6 +272,11 @@ function parseClaudeOutput(rawText) {
   if (typeMatch) result.property_type = typeMatch[1].trim();
   const reasonMatch = rawText.match(/MOTIVO_VENTA:\s*(.+?)(?:\n|$)/i);
   if (reasonMatch) result.sale_reason = reasonMatch[1].trim();
+  const phoneMatch = rawText.match(/PROSPECTO_TELEFONO:\s*(.+?)(?:\n|$)/i);
+  if (phoneMatch) {
+    const digits = phoneMatch[1].replace(/\D/g, '');
+    if (digits.length >= 10) result.prospect_phone = digits.slice(-10);
+  }
 
   // Checklist
   const checklistMatch = rawText.match(/CHECKLIST:\s*(\[[\s\S]*?\])/i);
@@ -428,7 +434,8 @@ async function processAnalysis(env, analysisId, body, scorecard) {
     promptWithDescal += `\n\n---\nTONO Y FORMATO DEL PATRÓN DE ERROR\nEl bloque PATRÓN DE ERROR PRINCIPAL debe ser BREVE: máximo 2-3 oraciones concretas y accionables. No es un análisis completo — es un tip rápido. Usa tono de coaching positivo. Empieza con "Para tu siguiente llamada, enfócate en...", "Un área de oportunidad es...", "Esta semana puedes mejorar en...". NUNCA uses "cometió un error", "falla más común", "error costoso". El objetivo es motivar, no señalar fallos.\n\nIDIOMA: Responde completamente en español. No uses anglicismos ni palabras en inglés (no "follow-up", "lead", "goodwill", "call to action", "closing"). Usa los equivalentes en español: seguimiento, prospecto, confianza, llamado a la acción, cierre.`;
 
     // Prospect extraction + checklist
-    promptWithDescal += `\n\n---\nEXTRACCION DE DATOS DEL PROSPECTO\nAl final de tu respuesta, incluye estas líneas:\nPROSPECTO_NOMBRE: [nombre del prospecto si se menciona, o "No identificado"]\nPROSPECTO_ZONA: [colonia, zona o municipio si se menciona, o "No identificada"]\nTIPO_PROPIEDAD: [casa, departamento, terreno, local, o "No identificado"]\nMOTIVO_VENTA: [razón por la que vende, o "No mencionado"]\n\nCHECKLIST: [JSON array con cada campo evaluado]\nFormato: [{"field":"Nombre completo","covered":true},{"field":"Dirección de la propiedad","covered":true},...]\nLos 26 campos del checklist son: Nombre completo, Dirección de la propiedad, Dirección INE, Estado civil, Libre de gravamen, Pagos puntuales, Adeudos en tiempo consecutivo, Crédito individual o conyugal, NSS, NC, Papelería/escrituras, Descripción del domicilio, Casa habitada o desocupada, Servicios a nombre de quién, Adeudos de servicios, Financiamiento de adeudos, Motivo de venta, Expectativa del cliente, Precio estimado de venta, Precio estimado de captación, Disponibilidad para visita, Fecha y hora propuesta, Lectura de urgencia, Lectura de disposición, Lectura de resistencia, Promesa de venta.\nMarca covered=true si la captadora PREGUNTÓ o mencionó ese punto, covered=false si no.`;
+    promptWithDescal += `\n\n---\nEXTRACCION DE DATOS DEL PROSPECTO\nAl final de tu respuesta, incluye estas líneas:\nPROSPECTO_NOMBRE: [nombre del prospecto si se menciona, o "No identificado"]\nPROSPECTO_ZONA: [colonia, zona o municipio si se menciona, o "No identificada"]\nTIPO_PROPIEDAD: [casa, departamento, terreno, local, o "No identificado"]\nMOTIVO_VENTA: [razón por la que vende, o "No mencionado"]
+PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en la transcripción, o "No detectado"]\n\nCHECKLIST: [JSON array con cada campo evaluado]\nFormato: [{"field":"Nombre completo","covered":true},{"field":"Dirección de la propiedad","covered":true},...]\nLos 26 campos del checklist son: Nombre completo, Dirección de la propiedad, Dirección INE, Estado civil, Libre de gravamen, Pagos puntuales, Adeudos en tiempo consecutivo, Crédito individual o conyugal, NSS, NC, Papelería/escrituras, Descripción del domicilio, Casa habitada o desocupada, Servicios a nombre de quién, Adeudos de servicios, Financiamiento de adeudos, Motivo de venta, Expectativa del cliente, Precio estimado de venta, Precio estimado de captación, Disponibilidad para visita, Fecha y hora propuesta, Lectura de urgencia, Lectura de disposición, Lectura de resistencia, Promesa de venta.\nMarca covered=true si la captadora PREGUNTÓ o mencionó ese punto, covered=false si no.`;
 
     if (descalCats.length > 0) {
       const catList = descalCats.map(c => `- ${c.code}: ${c.label}`).join('\n');
@@ -489,6 +496,7 @@ async function processAnalysis(env, analysisId, body, scorecard) {
       prospect_zone: parsed.prospect_zone,
       property_type: parsed.property_type,
       sale_reason: parsed.sale_reason,
+      prospect_phone: parsed.prospect_phone,
       checklist_results: parsed.checklist_results,
       related_analysis_id: relatedId,
       status: 'completado',

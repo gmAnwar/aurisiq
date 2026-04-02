@@ -29,6 +29,7 @@ interface Analysis {
   prospect_zone: string | null;
   property_type: string | null;
   sale_reason: string | null;
+  prospect_phone: string | null;
   checklist_results: ChecklistItem[] | null;
   manager_note: string | null;
   related_analysis_id: string | null;
@@ -58,7 +59,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
 
       const { data: a, error: aErr } = await supabase
         .from("analyses")
-        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, sale_reason, checklist_results, manager_note, related_analysis_id, created_at")
+        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, sale_reason, prospect_phone, checklist_results, manager_note, related_analysis_id, created_at")
         .eq("id", id)
         .single();
 
@@ -171,6 +172,9 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
         </div>
         {analysis.sale_reason && analysis.sale_reason !== "No mencionado" && (
           <p className="c3-prospect-reason">Motivo de venta: {analysis.sale_reason}</p>
+        )}
+        {analysis.prospect_phone && (
+          <p className="c3-prospect-reason">Tel: {analysis.prospect_phone}</p>
         )}
       </div>
 
@@ -286,7 +290,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
             <p className="c3-section-label">Siguiente paso con este prospecto</p>
             {actionPart && <div className="c3-next-step">{actionPart}</div>}
             {whatsappMsg && (
-              <WhatsAppCard message={whatsappMsg} />
+              <WhatsAppCard message={whatsappMsg} phone={analysis.prospect_phone} />
             )}
           </div>
         );
@@ -315,7 +319,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
   );
 }
 
-function WhatsAppCard({ message }: { message: string }) {
+function WhatsAppCard({ message, phone }: { message: string; phone?: string | null }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -326,7 +330,9 @@ function WhatsAppCard({ message }: { message: string }) {
     } catch { /* ignore */ }
   };
 
-  const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+  const waUrl = phone
+    ? `https://wa.me/52${phone}?text=${encodeURIComponent(message)}`
+    : null;
 
   return (
     <div className="c3-wa-card">
@@ -335,9 +341,11 @@ function WhatsAppCard({ message }: { message: string }) {
         <button className="c3-wa-copy" onClick={handleCopy}>
           {copied ? "Copiado" : "Copiar mensaje"}
         </button>
-        <a href={waUrl} target="_blank" rel="noopener noreferrer" className="c3-wa-open">
-          Abrir WhatsApp
-        </a>
+        {waUrl && (
+          <a href={waUrl} target="_blank" rel="noopener noreferrer" className="c3-wa-open">
+            Abrir WhatsApp
+          </a>
+        )}
       </div>
     </div>
   );

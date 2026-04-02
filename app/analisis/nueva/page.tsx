@@ -81,7 +81,7 @@ export default function NuevaLlamadaPage() {
   const wordCount = transcription.trim().split(/\s+/).filter(Boolean).length;
   const MIN_WORDS = transcriptionSource === "audio" ? 50 : 200;
 
-  const AUDIO_EXTENSIONS = [".mp3", ".m4a", ".wav", ".ogg", ".webm", ".mp4"];
+  const AUDIO_EXTENSIONS = [".mp3", ".m4a", ".wav", ".ogg", ".opus", ".webm", ".mp4"];
   const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
 
   const transcribeAudioBlob = async (blob: Blob, label?: string) => {
@@ -992,7 +992,7 @@ export default function NuevaLlamadaPage() {
           <div className="c2-file-row">
             <label className="c2-file-btn">
               Buscar archivo
-              <input type="file" accept=".txt,.doc,.docx,.mp3,.m4a,.wav,.ogg,.webm,.mp4" onChange={handleFileInput} hidden disabled={status === "analyzing" || isTranscribing} />
+              <input type="file" accept=".txt,.doc,.docx,.mp3,.m4a,.wav,.ogg,.opus,.webm,.mp4,audio/ogg,audio/opus" onChange={handleFileInput} hidden disabled={status === "analyzing" || isTranscribing} />
             </label>
             <button
               className="c2-rec-btn"
