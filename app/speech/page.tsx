@@ -101,6 +101,37 @@ export default function SpeechPage() {
   // Generate provisional and save to DB (only when no speech exists for this stage)
   const generateProvisional = async (stageId: string) => {
     if (!orgId || !scorecardId) return;
+
+    // Double-check DB: don't generate if published or provisional already exists
+    const stageFilter = stageId === "_global" ? "funnel_stage_id.is.null" : `funnel_stage_id.eq.${stageId}`;
+    const { data: existing } = await supabase.from("speech_versions")
+      .select("id, content, version_number, updated_at, is_provisional, published")
+      .eq("organization_id", orgId)
+      .eq("scorecard_id", scorecardId)
+      .or(`${stageFilter}`)
+      .or("published.eq.true,is_provisional.eq.true")
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      // Already exists in DB — load it into state instead of generating
+      const sv = existing[0];
+      const content = sv.content as Record<string, string[]>;
+      const phases: PhaseGroup[] = scorecardPhaseNames.map(name => ({
+        phase_name: name,
+        phrases: content[name] || [],
+      }));
+      setSpeechByStage(prev => ({
+        ...prev,
+        [stageId]: {
+          phases,
+          versionNumber: sv.version_number,
+          lastUpdated: sv.updated_at,
+          isProvisional: sv.is_provisional && !sv.published,
+        },
+      }));
+      return;
+    }
+
     setGeneratingStage(stageId);
     try {
       const res = await fetch(WORKER_URL, {
