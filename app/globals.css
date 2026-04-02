@@ -3516,6 +3516,20 @@ body.has-nav {
 /* Install banner */
 /* C2 Guide drawer */
 /* C2 Missed fields tip */
+/* C2 Daily counter */
+.c2-daily-counter {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-light);
+  margin-bottom: 4px;
+}
+
+.c2-daily-done {
+  color: var(--green);
+  font-weight: 600;
+}
+
 .c2-missed-tip {
   font-family: 'DM Sans', sans-serif;
   font-size: 11px;

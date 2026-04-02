@@ -64,6 +64,8 @@ export default function NuevaLlamadaPage() {
   const [guidePhases, setGuidePhases] = useState<GuidePhase[]>([]);
   const [guideLoading, setGuideLoading] = useState(false);
   const [missedFields, setMissedFields] = useState<string[]>([]);
+  const [dailyTarget, setDailyTarget] = useState<number | null>(null);
+  const [dailyDone, setDailyDone] = useState(0);
   const pauseStartRef = useRef<number>(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -220,6 +222,26 @@ export default function NuevaLlamadaPage() {
       }
 
       setLoading(false);
+
+      // Daily counter: objective + today's count
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const [objRes, todayRes] = await Promise.all([
+        supabase.from("objectives").select("target_value")
+          .eq("organization_id", session.organizationId).eq("is_active", true)
+          .eq("type", "volume").in("period_type", ["monthly"])
+          .or(`target_user_id.eq.${session.userId},target_user_id.is.null`)
+          .order("target_user_id", { ascending: false, nullsFirst: false })
+          .limit(1),
+        supabase.from("analyses").select("id")
+          .eq("user_id", session.userId).eq("status", "completado")
+          .gte("created_at", todayStart.toISOString()),
+      ]);
+      if (objRes.data && objRes.data.length > 0) {
+        const monthly = objRes.data[0].target_value;
+        setDailyTarget(Math.max(1, Math.ceil(monthly / 22)));
+      }
+      setDailyDone(todayRes.data?.length || 0);
 
       // Restore draft from sessionStorage
       const savedText = sessionStorage.getItem("c2_transcription");
@@ -869,6 +891,13 @@ export default function NuevaLlamadaPage() {
       )}
 
       <div className="c2-header">
+        {dailyTarget !== null && (
+          <p className={`c2-daily-counter ${dailyDone >= dailyTarget ? "c2-daily-done" : ""}`}>
+            {dailyDone >= dailyTarget
+              ? `${dailyDone} de ${dailyTarget} — objetivo cumplido`
+              : `${dailyDone} de ${dailyTarget} llamadas hoy`}
+          </p>
+        )}
         <h1 className="c2-title">Nueva Llamada</h1>
         <p className="c2-subtitle">Pega la transcripción de tu llamada para analizarla</p>
       </div>
