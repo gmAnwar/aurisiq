@@ -64,7 +64,7 @@ export default function BibliotecaPage() {
 
       // Load published + provisional speech versions
       const { data: allSpeech } = await supabase.from("speech_versions")
-        .select("id, content, version_number, updated_at, funnel_stage_id, published, is_provisional")
+        .select("id, content, version_number, created_at, funnel_stage_id, published, is_provisional")
         .eq("scorecard_id", sc.id)
         .or("published.eq.true,is_provisional.eq.true");
 
@@ -80,7 +80,7 @@ export default function BibliotecaPage() {
             phrases: content[sp.phase_name] || [],
           })),
           versionNum: sv.version_number,
-          updatedAt: sv.updated_at,
+          updatedAt: sv.created_at,
           isProvisional: sv.is_provisional && !sv.published,
         };
       }

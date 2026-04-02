@@ -61,7 +61,7 @@ export default function SpeechPage() {
 
       // Load all speech versions: published OR provisional for this org
       const { data: allSpeech, error: speechErr } = await supabase.from("speech_versions")
-        .select("id, content, version_number, updated_at, funnel_stage_id, published, is_provisional")
+        .select("id, content, version_number, created_at, funnel_stage_id, published, is_provisional")
         .eq("organization_id", session.organizationId)
         .eq("scorecard_id", scorecard.id)
         .or("published.eq.true,is_provisional.eq.true");
@@ -80,7 +80,7 @@ export default function SpeechPage() {
             phrases: content[name] || [],
           })),
           versionNumber: sv.version_number,
-          lastUpdated: sv.updated_at,
+          lastUpdated: sv.created_at,
           isProvisional: sv.is_provisional && !sv.published,
         };
       }
@@ -107,7 +107,7 @@ export default function SpeechPage() {
 
     // Double-check DB: don't generate if published or provisional already exists
     let checkQuery = supabase.from("speech_versions")
-      .select("id, content, version_number, updated_at, is_provisional, published")
+      .select("id, content, version_number, created_at, is_provisional, published")
       .eq("organization_id", orgId)
       .eq("scorecard_id", scorecardId)
       .or("published.eq.true,is_provisional.eq.true")
@@ -135,7 +135,7 @@ export default function SpeechPage() {
         [stageId]: {
           phases,
           versionNumber: sv.version_number,
-          lastUpdated: sv.updated_at,
+          lastUpdated: sv.created_at,
           isProvisional: sv.is_provisional && !sv.published,
         },
       }));
