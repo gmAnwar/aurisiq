@@ -2517,6 +2517,49 @@ body.has-nav {
   line-height: 1.4;
 }
 
+/* G3 improved header + metadata */
+.g3-prospect-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.g3-score-big {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 36px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.g3-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.g3-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.g3-meta-tag {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  color: var(--ink-light);
+  background: var(--cream-dark);
+  border-radius: 4px;
+  padding: 3px 8px;
+}
+
+.g3-meta-warn {
+  color: var(--red);
+  background: rgba(192,57,43,0.08);
+}
+
 /* G1 Rank number */
 .g1-rank {
   font-family: 'DM Sans', sans-serif;
