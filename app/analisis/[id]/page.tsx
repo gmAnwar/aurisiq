@@ -11,6 +11,11 @@ interface Phase {
   score_max: number;
 }
 
+interface ChecklistItem {
+  field: string;
+  covered: boolean;
+}
+
 interface Analysis {
   id: string;
   score_general: number | null;
@@ -20,12 +25,12 @@ interface Analysis {
   objecion_principal: string | null;
   siguiente_accion: string | null;
   categoria_descalificacion: string[] | null;
+  prospect_name: string | null;
+  prospect_zone: string | null;
+  property_type: string | null;
+  sale_reason: string | null;
+  checklist_results: ChecklistItem[] | null;
   created_at: string;
-}
-
-interface DescalCategory {
-  code: string;
-  label: string;
 }
 
 export default function ResultadoPage({ params }: { params: Promise<{ id: string }> }) {
@@ -43,7 +48,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
 
       const { data: a, error: aErr } = await supabase
         .from("analyses")
-        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, created_at")
+        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, sale_reason, checklist_results, created_at")
         .eq("id", id)
         .single();
 
@@ -63,26 +68,15 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
 
       setPhases(ph || []);
 
-      // Load descalification labels if needed
       if (a.categoria_descalificacion && a.categoria_descalificacion.length > 0) {
-        const { data: userData } = await supabase
-          .from("users")
-          .select("organization_id")
-          .eq("id", session.userId)
-          .single();
+        const { data: cats } = await supabase
+          .from("descalification_categories")
+          .select("code, label")
+          .eq("organization_id", session.organizationId);
 
-        if (userData) {
-          const { data: cats } = await supabase
-            .from("descalification_categories")
-            .select("code, label")
-            .eq("organization_id", userData.organization_id);
-
-          const map: Record<string, string> = {};
-          for (const c of cats || []) {
-            map[c.code] = c.label;
-          }
-          setDescalLabels(map);
-        }
+        const map: Record<string, string> = {};
+        for (const c of cats || []) map[c.code] = c.label;
+        setDescalLabels(map);
       }
 
       setLoading(false);
@@ -97,8 +91,6 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
         <div className="skeleton-block skeleton-title" />
         <div className="skeleton-block skeleton-textarea" />
         <div className="skeleton-block skeleton-select" />
-        <div className="skeleton-block skeleton-select" />
-        <div className="skeleton-block skeleton-button" />
       </div>
     );
   }
@@ -117,67 +109,86 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
   }
 
   const isQualified = !analysis.categoria_descalificacion || analysis.categoria_descalificacion.length === 0;
-  const primaryDescal = analysis.categoria_descalificacion?.[0];
-  const secondaryDescal = analysis.categoria_descalificacion?.slice(1) || [];
-
-  // Clean all text fields
   const mejora = stripJson(analysis.patron_error) || null;
   const accion = stripJson(analysis.siguiente_accion) || null;
-  const critico = stripJson(analysis.momento_critico) || null;
   const objecion = stripJson(analysis.objecion_principal) || null;
+
+  const checklist = analysis.checklist_results || [];
+  const covered = checklist.filter(c => c.covered).length;
+  const total = checklist.length || 26;
+
+  const date = new Date(analysis.created_at);
+  const timeStr = date.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+  const dateStr = date.toLocaleDateString("es-MX", { day: "numeric", month: "long" });
+
+  const prospectLabel = [
+    analysis.prospect_name || "Prospecto",
+    analysis.prospect_zone,
+    analysis.property_type ? analysis.property_type.charAt(0).toUpperCase() + analysis.property_type.slice(1) : null,
+  ].filter(Boolean).join(" · ");
 
   return (
     <div className="container c3-container">
-      {/* Result header — positive language */}
-      <div className={`c3-result-badge ${isQualified ? "c3-badge-qualified" : "c3-badge-followup"}`}>
-        {isQualified ? "Lead calificado" : "Lead requiere seguimiento"}
+
+      {/* 1. PROSPECT CARD */}
+      <div className="c3-prospect-card">
+        <h1 className="c3-prospect-name">{prospectLabel}</h1>
+        <p className="c3-prospect-meta">{dateStr} · {timeStr}</p>
+        <div className={`c3-result-badge ${isQualified ? "c3-badge-qualified" : "c3-badge-followup"}`}>
+          {isQualified ? "Lead calificado" : "Requiere seguimiento"}
+        </div>
+        {analysis.sale_reason && analysis.sale_reason !== "No mencionado" && (
+          <p className="c3-prospect-reason">Motivo de venta: {analysis.sale_reason}</p>
+        )}
       </div>
 
-      {/* Best phrase */}
-      {accion && (
+      {/* 2. WHAT YOU ACHIEVED */}
+      {checklist.length > 0 && (
         <div className="c3-section">
-          <p className="c3-section-label">Lo que funcionó mejor</p>
-          <p className="c3-highlight">{accion}</p>
+          <p className="c3-section-label">Qué lograste</p>
+          <div className="c3-achievement">
+            <span className="c3-achievement-count">{covered} de {total}</span>
+            <span className="c3-achievement-text">datos del checklist obtenidos</span>
+          </div>
+          <div className="c3-achievement-bar-bg">
+            <div className="c3-achievement-bar-fill" style={{ width: `${Math.round((covered / total) * 100)}%` }} />
+          </div>
         </div>
       )}
 
-      {/* Single concrete improvement */}
-      {mejora && (
-        <div className="c3-section">
-          <p className="c3-section-label">Para tu siguiente llamada</p>
-          <p className="c3-improvement">{mejora}</p>
-        </div>
-      )}
-
-      {/* Descalification reasons with labels */}
+      {/* Descalification reasons */}
       {!isQualified && (
         <div className="c3-section">
           <p className="c3-section-label">Razones de seguimiento</p>
           <div className="c3-descal-list">
-            {primaryDescal && (
-              <span className="c3-descal-primary">
-                {descalLabels[primaryDescal] || "Razón no reconocida"}
-              </span>
-            )}
-            {secondaryDescal.map((code, i) => (
-              <span key={i} className="c3-descal-secondary">
-                {descalLabels[code] || "Razón no reconocida"}
+            {(analysis.categoria_descalificacion || []).map((code, i) => (
+              <span key={i} className={i === 0 ? "c3-descal-primary" : "c3-descal-secondary"}>
+                {descalLabels[code] || code}
               </span>
             ))}
           </div>
         </div>
       )}
 
-      {/* Phase breakdown — sorted worst to best */}
+      {/* 3. SCORE + COACHING BY PHASE */}
+      {analysis.score_general !== null && (
+        <div className="c3-section">
+          <div className="c3-score-inline">
+            <span className="c3-score-value">{analysis.score_general}</span>
+            {analysis.clasificacion && (
+              <span className={`c3-clasificacion c3-clas-${analysis.clasificacion}`}>
+                {analysis.clasificacion}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {phases.length > 0 && (
         <div className="c3-section">
-          <p className="c3-section-label">Desglose por fase — de menor a mayor</p>
+          <p className="c3-section-label">Desglose por fase</p>
           <div className="c3-phases">
-            {[...phases].sort((a, b) => {
-              const pctA = a.score_max > 0 ? a.score / a.score_max : 0;
-              const pctB = b.score_max > 0 ? b.score / b.score_max : 0;
-              return pctA - pctB;
-            }).map((p, i) => {
+            {phases.map((p, i) => {
               const pct = p.score_max > 0 ? (p.score / p.score_max) * 100 : 0;
               const color = pct >= 80 ? "var(--green)" : pct >= 60 ? "var(--gold)" : "var(--red)";
               return (
@@ -196,37 +207,48 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
         </div>
       )}
 
-      {/* Expandable sections */}
-      {critico && (
-        <details className="c3-expandable">
-          <summary className="c3-expand-summary">Momento crítico</summary>
-          <div className="c3-expand-content">{critico}</div>
-        </details>
+      {/* Coaching */}
+      {mejora && (
+        <div className="c3-section">
+          <p className="c3-section-label">Para tu siguiente llamada</p>
+          <p className="c3-improvement">{mejora}</p>
+        </div>
       )}
 
       {objecion && (
-        <details className="c3-expandable">
-          <summary className="c3-expand-summary">Objeción principal</summary>
-          <div className="c3-expand-content">{objecion}</div>
-        </details>
+        <div className="c3-section">
+          <p className="c3-section-label">Objeción detectada</p>
+          <p className="c3-highlight">{objecion}</p>
+        </div>
       )}
 
-      {/* Score at the bottom — not as headline */}
-      {analysis.score_general !== null && (
-        <div className="c3-score-footer">
-          <span className="c3-score-label">Score general</span>
-          <span className="c3-score-value">{analysis.score_general}</span>
-          {analysis.clasificacion && (
-            <span className={`c3-clasificacion c3-clas-${analysis.clasificacion}`}>
-              {analysis.clasificacion}
-            </span>
-          )}
+      {/* 4. NEXT STEP */}
+      {accion && (
+        <div className="c3-section">
+          <p className="c3-section-label">Siguiente paso con este prospecto</p>
+          <div className="c3-next-step">{accion}</div>
         </div>
+      )}
+
+      {/* 5. CHECKLIST VISUAL */}
+      {checklist.length > 0 && (
+        <details className="c3-expandable">
+          <summary className="c3-expand-summary">Ver checklist completo ({covered}/{total})</summary>
+          <div className="c3-checklist">
+            {checklist.map((item, i) => (
+              <div key={i} className={`c3-check-item ${item.covered ? "c3-check-yes" : "c3-check-no"}`}>
+                <span className="c3-check-icon">{item.covered ? "\u2713" : "\u2717"}</span>
+                <span className="c3-check-label">{item.field}</span>
+              </div>
+            ))}
+          </div>
+        </details>
       )}
 
       <a href="/analisis/nueva" className="btn-submit btn-terracota" style={{ textDecoration: "none", textAlign: "center", marginTop: 24 }}>
         Analizar otra llamada
       </a>
+      <a href="/analisis" className="c5-back-link">Volver a Mi día</a>
     </div>
   );
 }

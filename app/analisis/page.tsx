@@ -15,6 +15,9 @@ interface Analysis {
   patron_error: string | null;
   siguiente_accion: string | null;
   categoria_descalificacion: string[] | null;
+  prospect_name: string | null;
+  prospect_zone: string | null;
+  property_type: string | null;
 }
 
 export default function MiDiaPage() {
@@ -40,7 +43,7 @@ export default function MiDiaPage() {
 
       const [analysesRes, sourcesRes, userRes, descalRes, objRes] = await Promise.all([
         supabase.from("analyses")
-          .select("id, score_general, clasificacion, created_at, fuente_lead_id, patron_error, siguiente_accion, categoria_descalificacion")
+          .select("id, score_general, clasificacion, created_at, fuente_lead_id, patron_error, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type")
           .eq("user_id", session.userId).eq("status", "completado")
           .order("created_at", { ascending: false }).limit(50),
         supabase.from("lead_sources").select("id, name").eq("organization_id", session.organizationId),
@@ -224,12 +227,13 @@ export default function MiDiaPage() {
               const reasonLabel = hasDescal
                 ? codes.map(c => descalMap[c] || c).join(", ")
                 : "Lead calificado";
+              const prospectLabel = [a.prospect_name, a.prospect_zone, a.property_type].filter(Boolean).join(" · ") || time;
               return (
                 <a key={a.id} href={`/analisis/${a.id}`} className="c4-item">
                   <div className="c4-item-left">
-                    <span className="c4-item-date">{time}</span>
+                    <span className="c4-item-date">{prospectLabel}</span>
                     <span className={`c4-item-source ${hasDescal ? "c1-descal-reason" : ""}`}>
-                      {reasonLabel}
+                      {hasDescal ? reasonLabel : `${time} · Lead calificado`}
                     </span>
                   </div>
                   <div className="c4-item-right">

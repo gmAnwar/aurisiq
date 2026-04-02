@@ -205,6 +205,11 @@ function parseClaudeOutput(rawText) {
     siguiente_accion: null,
     lead_status: null,
     descalificacion: [],
+    prospect_name: null,
+    prospect_zone: null,
+    property_type: null,
+    sale_reason: null,
+    checklist_results: null,
     phases: [],
   };
 
@@ -256,6 +261,24 @@ function parseClaudeOutput(rawText) {
     /Estado del lead:\s*(converted|lost_captadora|lost_external|pending)/i
   );
   if (leadMatch) result.lead_status = leadMatch[1].toLowerCase();
+
+  // Prospect extraction
+  const nameMatch = rawText.match(/PROSPECTO_NOMBRE:\s*(.+?)(?:\n|$)/i);
+  if (nameMatch) result.prospect_name = nameMatch[1].trim();
+  const zoneMatch = rawText.match(/PROSPECTO_ZONA:\s*(.+?)(?:\n|$)/i);
+  if (zoneMatch) result.prospect_zone = zoneMatch[1].trim();
+  const typeMatch = rawText.match(/TIPO_PROPIEDAD:\s*(.+?)(?:\n|$)/i);
+  if (typeMatch) result.property_type = typeMatch[1].trim();
+  const reasonMatch = rawText.match(/MOTIVO_VENTA:\s*(.+?)(?:\n|$)/i);
+  if (reasonMatch) result.sale_reason = reasonMatch[1].trim();
+
+  // Checklist
+  const checklistMatch = rawText.match(/CHECKLIST:\s*(\[[\s\S]*?\])/i);
+  if (checklistMatch) {
+    try {
+      result.checklist_results = JSON.parse(checklistMatch[1]);
+    } catch { /* ignore */ }
+  }
 
   // Descalification — parse JSON array from Claude output
   const descalMatch = rawText.match(/DESCALIFICACION:\s*(\[.*?\])/i);
@@ -404,6 +427,9 @@ async function processAnalysis(env, analysisId, body, scorecard) {
     // Tone guidance for patron_error — coaching-positive, never aggressive
     promptWithDescal += `\n\n---\nTONO Y FORMATO DEL PATRÓN DE ERROR\nEl bloque PATRÓN DE ERROR PRINCIPAL debe ser BREVE: máximo 2-3 oraciones concretas y accionables. No es un análisis completo — es un tip rápido. Usa tono de coaching positivo. Empieza con "Para tu siguiente llamada, enfócate en...", "Un área de oportunidad es...", "Esta semana puedes mejorar en...". NUNCA uses "cometió un error", "falla más común", "error costoso". El objetivo es motivar, no señalar fallos.\n\nIDIOMA: Responde completamente en español. No uses anglicismos ni palabras en inglés (no "follow-up", "lead", "goodwill", "call to action", "closing"). Usa los equivalentes en español: seguimiento, prospecto, confianza, llamado a la acción, cierre.`;
 
+    // Prospect extraction + checklist
+    promptWithDescal += `\n\n---\nEXTRACCION DE DATOS DEL PROSPECTO\nAl final de tu respuesta, incluye estas líneas:\nPROSPECTO_NOMBRE: [nombre del prospecto si se menciona, o "No identificado"]\nPROSPECTO_ZONA: [colonia, zona o municipio si se menciona, o "No identificada"]\nTIPO_PROPIEDAD: [casa, departamento, terreno, local, o "No identificado"]\nMOTIVO_VENTA: [razón por la que vende, o "No mencionado"]\n\nCHECKLIST: [JSON array con cada campo evaluado]\nFormato: [{"field":"Nombre completo","covered":true},{"field":"Dirección de la propiedad","covered":true},...]\nLos 26 campos del checklist son: Nombre completo, Dirección de la propiedad, Dirección INE, Estado civil, Libre de gravamen, Pagos puntuales, Adeudos en tiempo consecutivo, Crédito individual o conyugal, NSS, NC, Papelería/escrituras, Descripción del domicilio, Casa habitada o desocupada, Servicios a nombre de quién, Adeudos de servicios, Financiamiento de adeudos, Motivo de venta, Expectativa del cliente, Precio estimado de venta, Precio estimado de captación, Disponibilidad para visita, Fecha y hora propuesta, Lectura de urgencia, Lectura de disposición, Lectura de resistencia, Promesa de venta.\nMarca covered=true si la captadora PREGUNTÓ o mencionó ese punto, covered=false si no.`;
+
     if (descalCats.length > 0) {
       const catList = descalCats.map(c => `- ${c.code}: ${c.label}`).join('\n');
       promptWithDescal += `\n\n---\nDESCALIFICACION DE LEADS\nAnaliza la transcripción y determina si el lead fue descalificado. Usa SOLO los siguientes códigos del catálogo de la organización:\n${catList}\n\nAl final de tu respuesta, incluye una línea con el formato:\nDESCALIFICACION: ["codigo1", "codigo2"]\nSi el lead calificó (no hay razón de descalificación), escribe:\nDESCALIFICACION: []\nMáximo 3 códigos. Usa SOLO códigos del catálogo anterior.`;
@@ -447,6 +473,11 @@ async function processAnalysis(env, analysisId, body, scorecard) {
       siguiente_accion: parsed.siguiente_accion,
       conversion_discrepancy: discrepancy,
       categoria_descalificacion: validDescal.length > 0 ? validDescal : [],
+      prospect_name: parsed.prospect_name,
+      prospect_zone: parsed.prospect_zone,
+      property_type: parsed.property_type,
+      sale_reason: parsed.sale_reason,
+      checklist_results: parsed.checklist_results,
       status: 'completado',
     });
 
