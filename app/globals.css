@@ -967,6 +967,43 @@ body.has-nav {
   color: var(--cap);
 }
 
+/* C2 Analysis progress bar */
+.c2-progress-section {
+  padding: 16px 0;
+}
+
+.c2-progress-bg {
+  width: 100%;
+  height: 8px;
+  background: var(--cream-dark);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.c2-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--gold-light, #d4b85c));
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.c2-progress-phase {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: var(--ink-light);
+  margin-top: 8px;
+  text-align: center;
+}
+
+/* C2 Recording hint */
+.c2-rec-hint {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  color: var(--ink-light);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
 .loader-terracota {
   border-color: rgba(200,120,64,0.2);
   border-top-color: var(--cap);

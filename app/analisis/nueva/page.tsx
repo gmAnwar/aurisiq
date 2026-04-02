@@ -48,6 +48,9 @@ export default function NuevaLlamadaPage() {
   const [recError, setRecError] = useState("");
   const [recLabel, setRecLabel] = useState("");
   const [mobile, setMobile] = useState(false);
+  const [analysisPct, setAnalysisPct] = useState(0);
+  const [analysisPhase, setAnalysisPhase] = useState("");
+  const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -293,7 +296,7 @@ export default function NuevaLlamadaPage() {
           // Fallback: microphone only
           setRecError("Solo se capturará tu micrófono");
           recordStream = micStream;
-          label = "Grabando solo micrófono";
+          label = "Grabando solo micrófono — pon tu llamada en altavoz";
         }
       }
 
@@ -368,6 +371,30 @@ export default function NuevaLlamadaPage() {
 
     setStatus("analyzing");
     setErrorMsg("");
+    setAnalysisPct(0);
+    setAnalysisPhase("Enviando transcripción...");
+
+    // Simulated progress bar
+    const phases = [
+      { at: 0, text: "Enviando transcripción..." },
+      { at: 15, text: "Analizando con IA..." },
+      { at: 40, text: "Evaluando fases del scorecard..." },
+      { at: 85, text: "Generando coaching personalizado..." },
+      { at: 95, text: "Listo — redirigiendo a resultados..." },
+    ];
+    let pct = 0;
+    const startTime = Date.now();
+    progressRef.current = setInterval(() => {
+      const elapsed = (Date.now() - startTime) / 1000;
+      // Advance ~1% per second up to 94%, then hold
+      pct = Math.min(94, Math.floor(elapsed * 1.2));
+      if (elapsed > 60) setAnalysisPhase("Tomando más de lo esperado...");
+      else {
+        const current = [...phases].reverse().find(p => pct >= p.at);
+        if (current) setAnalysisPhase(current.text);
+      }
+      setAnalysisPct(pct);
+    }, 500);
 
     try {
       const { data: scorecard } = await supabase
@@ -421,9 +448,13 @@ export default function NuevaLlamadaPage() {
 
           if (statusData.status === "completado") {
             clearInterval(pollInterval);
-            window.location.href = `/analisis/${analysisId}`;
+            if (progressRef.current) clearInterval(progressRef.current);
+            setAnalysisPct(100);
+            setAnalysisPhase("Listo — redirigiendo a resultados...");
+            setTimeout(() => { window.location.href = `/analisis/${analysisId}`; }, 600);
           } else if (statusData.status === "error") {
             clearInterval(pollInterval);
+            if (progressRef.current) clearInterval(progressRef.current);
             setStatus("error");
             setErrorMsg(statusData.error_message || "Hubo un problema al analizar tu llamada. Intenta de nuevo.");
           }
@@ -444,6 +475,7 @@ export default function NuevaLlamadaPage() {
       }, 120000);
 
     } catch (err: unknown) {
+      if (progressRef.current) clearInterval(progressRef.current);
       setStatus("error");
       const message = err instanceof Error ? err.message : "error";
       if (message === "scorecard") {
@@ -606,6 +638,11 @@ export default function NuevaLlamadaPage() {
             </button>
             {fileMsg && <span className="c2-file-msg">{fileMsg}</span>}
           </div>
+          <p className="c2-rec-hint">
+            {mobile
+              ? "Pon tu llamada en altavoz. El micrófono del celular capturará la conversación."
+              : "Se abrirán dos permisos: primero tu micrófono, después selecciona la pestaña de tu llamada y activa \"Compartir audio de la pestaña\"."}
+          </p>
           {recError && <p className="c2-rec-error">{recError}</p>}
           {isTranscribing && (
             <div className="c2-transcribing">
@@ -638,9 +675,11 @@ export default function NuevaLlamadaPage() {
         </div>
 
         {status === "analyzing" && (
-          <div className="c2-analyzing">
-            <span className="loader loader-terracota" />
-            <p className="c2-analyzing-text">Analizando tu llamada...</p>
+          <div className="c2-progress-section">
+            <div className="c2-progress-bg">
+              <div className="c2-progress-fill" style={{ width: `${analysisPct}%` }} />
+            </div>
+            <p className="c2-progress-phase">{analysisPhase}</p>
           </div>
         )}
 
