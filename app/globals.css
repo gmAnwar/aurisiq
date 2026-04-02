@@ -3435,6 +3435,86 @@ body.has-nav {
 }
 
 /* Install banner */
+/* C2 Guide drawer */
+.c2-guide-link {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cap);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+  text-align: left;
+}
+
+.c2-guide-link:disabled {
+  color: var(--ink-light);
+  cursor: not-allowed;
+}
+
+.c2-guide-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 300;
+}
+
+.c2-guide-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(380px, 85vw);
+  background: var(--cream);
+  z-index: 301;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px 0 24px rgba(0,0,0,0.15);
+}
+
+.c2-guide-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+
+.c2-guide-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.c2-guide-close {
+  font-size: 24px;
+  color: var(--ink-light);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.c2-guide-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.c2-guide-phase {
+  margin-bottom: 16px;
+}
+
+.c2-guide-loading, .c2-guide-empty {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--ink-light);
+  text-align: center;
+  padding: 24px 0;
+}
+
 .install-banner {
   position: fixed;
   top: 0;

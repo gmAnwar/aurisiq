@@ -5,6 +5,9 @@ import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
 import { computeEditPercentage } from "../../../lib/text";
 
+interface GuideField { field_name: string; phrases: string[]; }
+interface GuidePhase { phase_name: string; transition?: string; fields?: GuideField[]; phrases?: string[]; }
+
 interface LeadSource {
   id: string;
   name: string;
@@ -57,6 +60,9 @@ export default function NuevaLlamadaPage() {
   const [pauseCount, setPauseCount] = useState(0);
   const [totalPausedSecs, setTotalPausedSecs] = useState(0);
   const [hasDraft, setHasDraft] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [guidePhases, setGuidePhases] = useState<GuidePhase[]>([]);
+  const [guideLoading, setGuideLoading] = useState(false);
   const pauseStartRef = useRef<number>(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -540,6 +546,52 @@ export default function NuevaLlamadaPage() {
     setRecError("");
   };
 
+  // ─── Guide drawer ──────────────────────────────────────────
+
+  const openGuide = async () => {
+    if (!selectedStage || !orgId) return;
+    setGuideOpen(true);
+    if (guidePhases.length > 0) return; // already loaded
+    setGuideLoading(true);
+
+    // Get scorecard
+    const { data: sc } = await supabase.from("scorecards")
+      .select("id")
+      .or(`organization_id.eq.${orgId},organization_id.is.null`)
+      .eq("active", true)
+      .order("organization_id", { ascending: false, nullsFirst: false })
+      .limit(1).single();
+
+    if (!sc) { setGuideLoading(false); return; }
+
+    // Get speech for this stage (published or provisional)
+    let q = supabase.from("speech_versions")
+      .select("content")
+      .eq("organization_id", orgId)
+      .eq("scorecard_id", sc.id)
+      .or("published.eq.true,is_provisional.eq.true")
+      .order("published", { ascending: false })
+      .limit(1);
+    q = q.eq("funnel_stage_id", selectedStage);
+
+    const { data } = await q;
+    if (data && data.length > 0) {
+      const content = data[0].content as Record<string, unknown>;
+      if (Array.isArray(content.phases)) {
+        setGuidePhases(content.phases as GuidePhase[]);
+      } else {
+        // Old format
+        setGuidePhases(Object.entries(content).map(([name, phrases]) => ({
+          phase_name: name, phrases: Array.isArray(phrases) ? phrases as string[] : [],
+        })));
+      }
+    }
+    setGuideLoading(false);
+  };
+
+  // Reset guide when stage changes
+  useEffect(() => { setGuidePhases([]); }, [selectedStage]);
+
   // ─── Submit ────────────────────────────────────────────────
 
   const handleSubmit = async () => {
@@ -839,6 +891,14 @@ export default function NuevaLlamadaPage() {
           {editPct > 40 && (
             <p className="c2-edit-warning">Has editado una parte importante del texto ({editPct}%) — el análisis refleja tu versión.</p>
           )}
+          <button
+            className="c2-guide-link"
+            onClick={openGuide}
+            disabled={!selectedStage}
+            type="button"
+          >
+            {selectedStage ? "Ver mi guía antes de llamar" : "Selecciona una etapa para ver tu guía"}
+          </button>
           <div className="c2-file-row">
             <label className="c2-file-btn">
               Buscar archivo
@@ -920,6 +980,63 @@ export default function NuevaLlamadaPage() {
           </button>
         )}
       </div>
+
+      {/* Guide drawer */}
+      {guideOpen && (
+        <>
+          <div className="c2-guide-backdrop" onClick={() => setGuideOpen(false)} />
+          <div className="c2-guide-drawer">
+            <div className="c2-guide-header">
+              <span className="c2-guide-title">Tu guía de llamada</span>
+              <button className="c2-guide-close" onClick={() => setGuideOpen(false)}>&times;</button>
+            </div>
+            <div className="c2-guide-body">
+              {guideLoading && <p className="c2-guide-loading">Cargando guía...</p>}
+              {!guideLoading && guidePhases.length === 0 && (
+                <p className="c2-guide-empty">No hay guía disponible para esta etapa.</p>
+              )}
+              {guidePhases.map((phase, i) => (
+                <div key={i} className="c2-guide-phase">
+                  <h3 className="c5-phase-name">{phase.phase_name}</h3>
+                  {phase.transition && <p className="c5-transition">{phase.transition}</p>}
+                  {phase.fields && phase.fields.length > 0 ? (
+                    <div className="c5-fields">
+                      {phase.fields.map((field, j) => (
+                        <GuideFieldItem key={j} field={field} />
+                      ))}
+                    </div>
+                  ) : phase.phrases && phase.phrases.length > 0 ? (
+                    <ul className="c5-phrase-list">
+                      {phase.phrases.map((ph, j) => <li key={j} className="c5-phrase">{ph}</li>)}
+                    </ul>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function GuideFieldItem({ field }: { field: GuideField }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!field.phrases || field.phrases.length === 0) return null;
+  return (
+    <div className="c5-field">
+      <button className="c5-field-btn" onClick={() => setExpanded(!expanded)}>
+        <span className="c5-field-name">{field.field_name}</span>
+        <span className="c5-field-arrow">{expanded ? "\u2191" : "\u2193"}</span>
+      </button>
+      <p className="c5-field-phrase-main">{field.phrases[0]}</p>
+      {expanded && field.phrases.length > 1 && (
+        <div className="c5-field-alts">
+          {field.phrases.slice(1).map((ph, i) => (
+            <p key={i} className="c5-field-phrase-alt">{ph}</p>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
