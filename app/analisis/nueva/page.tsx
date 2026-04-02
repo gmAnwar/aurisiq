@@ -11,7 +11,7 @@ interface LeadSource {
 }
 
 type Status = "idle" | "analyzing" | "error";
-type RecMode = "off" | "recording" | "transcribing";
+type RecMode = "off" | "recording" | "paused" | "transcribing";
 
 interface FunnelStage {
   id: string;
@@ -54,6 +54,10 @@ export default function NuevaLlamadaPage() {
   const [transcribePct, setTranscribePct] = useState(0);
   const [transcribePhase, setTranscribePhase] = useState("");
   const transcribeProgressRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [pauseCount, setPauseCount] = useState(0);
+  const [totalPausedSecs, setTotalPausedSecs] = useState(0);
+  const [hasDraft, setHasDraft] = useState(false);
+  const pauseStartRef = useRef<number>(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -62,6 +66,8 @@ export default function NuevaLlamadaPage() {
   const animFrameRef = useRef<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const allStreamsRef = useRef<MediaStream[]>([]);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const intentionalStopRef = useRef(false);
 
   const wordCount = transcription.trim().split(/\s+/).filter(Boolean).length;
   const MIN_WORDS = transcriptionSource === "audio" ? 50 : 200;
@@ -205,12 +211,19 @@ export default function NuevaLlamadaPage() {
       }
     }
 
+    // Check for draft recording in IndexedDB
+    checkDraft();
+
     init();
     return () => {
       if (recTimerRef.current) clearInterval(recTimerRef.current);
       if (transcribeProgressRef.current) clearInterval(transcribeProgressRef.current);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
+      releaseWakeLock();
+      // Save draft if recording is active on unmount
+      if (mediaRecorderRef.current?.state === "recording") {
+        mediaRecorderRef.current.stop(); // triggers onstop which saves chunks
+      }
     };
   }, []);
 
@@ -268,6 +281,100 @@ export default function NuevaLlamadaPage() {
       drawWaveform();
     }
   }, [recMode, drawWaveform]);
+
+  // ─── Wake Lock ──────────────────────────────────────────────
+  const acquireWakeLock = async () => {
+    try {
+      if ("wakeLock" in navigator) {
+        wakeLockRef.current = await (navigator as unknown as { wakeLock: { request: (t: string) => Promise<WakeLockSentinel> } }).wakeLock.request("screen");
+      }
+    } catch { /* ignore — not supported or denied */ }
+  };
+
+  const releaseWakeLock = () => {
+    wakeLockRef.current?.release();
+    wakeLockRef.current = null;
+  };
+
+  // ─── IndexedDB Draft ───────────────────────────────────────
+  const DB_NAME = "aurisiq_drafts";
+  const STORE_NAME = "recordings";
+
+  const openDB = (): Promise<IDBDatabase> => new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore(STORE_NAME); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+
+  const saveDraft = async (blob: Blob) => {
+    try {
+      const db = await openDB();
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      tx.objectStore(STORE_NAME).put(blob, "draft");
+      db.close();
+    } catch { /* ignore */ }
+  };
+
+  const loadDraft = async (): Promise<Blob | null> => {
+    try {
+      const db = await openDB();
+      return new Promise((resolve) => {
+        const tx = db.transaction(STORE_NAME, "readonly");
+        const req = tx.objectStore(STORE_NAME).get("draft");
+        req.onsuccess = () => { db.close(); resolve(req.result || null); };
+        req.onerror = () => { db.close(); resolve(null); };
+      });
+    } catch { return null; }
+  };
+
+  const deleteDraft = async () => {
+    try {
+      const db = await openDB();
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      tx.objectStore(STORE_NAME).delete("draft");
+      db.close();
+      setHasDraft(false);
+    } catch { /* ignore */ }
+  };
+
+  const checkDraft = async () => {
+    const draft = await loadDraft();
+    if (draft && draft.size > 1024) setHasDraft(true);
+  };
+
+  const useDraft = async () => {
+    const draft = await loadDraft();
+    if (draft) {
+      await deleteDraft();
+      await transcribeAudioBlob(draft, "Transcribiendo grabación pendiente...");
+    }
+  };
+
+  // ─── Pause / Resume ────────────────────────────────────────
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.pause();
+      if (recTimerRef.current) clearInterval(recTimerRef.current);
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      pauseStartRef.current = Date.now();
+      setPauseCount(c => c + 1);
+      setRecMode("paused");
+      releaseWakeLock();
+    }
+  };
+
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current?.state === "paused") {
+      mediaRecorderRef.current.resume();
+      const pausedMs = Date.now() - pauseStartRef.current;
+      setTotalPausedSecs(t => t + Math.round(pausedMs / 1000));
+      recTimerRef.current = setInterval(() => setRecElapsed(p => p + 1), 1000);
+      setRecMode("recording");
+      drawWaveform();
+      acquireWakeLock();
+    }
+  };
 
   const startRecording = async () => {
     setRecError("");
@@ -353,7 +460,16 @@ export default function NuevaLlamadaPage() {
         if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
         analyserRef.current = null;
         audioCtxRef.current = null;
+        releaseWakeLock();
         const blob = new Blob(chunksRef.current, { type: mimeType });
+
+        // If page unmount (not intentional stop), save as draft
+        if (!intentionalStopRef.current && blob.size > 1024) {
+          saveDraft(blob);
+          return;
+        }
+        intentionalStopRef.current = false;
+
         setRecMode("transcribing");
         setTranscribePct(0);
         setTranscribePhase("Procesando audio...");
@@ -387,19 +503,30 @@ export default function NuevaLlamadaPage() {
       mediaRecorderRef.current = recorder;
       setRecMode("recording");
       setRecElapsed(0);
+      setPauseCount(0);
+      setTotalPausedSecs(0);
       recTimerRef.current = setInterval(() => setRecElapsed(p => p + 1), 1000);
+      acquireWakeLock();
     } catch {
       setRecError("No pudimos acceder al micrófono. Verifica los permisos de tu navegador.");
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
+    intentionalStopRef.current = true;
+    const state = mediaRecorderRef.current?.state;
+    if (state === "recording" || state === "paused") {
+      if (state === "paused") mediaRecorderRef.current!.resume(); // must resume before stop
+      mediaRecorderRef.current!.stop();
+    }
   };
 
   const cancelRecording = () => {
-    if (mediaRecorderRef.current?.state === "recording") {
-      mediaRecorderRef.current.stop();
+    intentionalStopRef.current = true;
+    const state = mediaRecorderRef.current?.state;
+    if (state === "recording" || state === "paused") {
+      if (state === "paused") mediaRecorderRef.current!.resume();
+      mediaRecorderRef.current!.stop();
     }
     allStreamsRef.current.forEach(s => s.getTracks().forEach(t => t.stop()));
     allStreamsRef.current = [];
@@ -473,6 +600,8 @@ export default function NuevaLlamadaPage() {
           edit_percentage: transcriptionOriginal && transcription.trim() !== transcriptionOriginal
             ? editPct : 0,
           has_audio: transcriptionSource === "audio",
+          pause_count: pauseCount,
+          total_paused_seconds: totalPausedSecs,
         }),
       });
 
@@ -568,17 +697,27 @@ export default function NuevaLlamadaPage() {
   if (recMode !== "off") {
     return (
       <div className="container ear-container">
-        {recMode === "recording" && (
+        {(recMode === "recording" || recMode === "paused") && (
           <div className="ear-recording">
             <div className="ear-rec-indicator">
-              <span className="ear-rec-dot" />
-              <span className="ear-rec-label">{recLabel}</span>
+              <span className="ear-rec-dot" style={recMode === "paused" ? { animation: "none", opacity: 0.3 } : undefined} />
+              <span className="ear-rec-label">{recMode === "paused" ? "En pausa" : recLabel}</span>
             </div>
             <span className="ear-timer">{formatTime(recElapsed)}</span>
             <canvas ref={canvasRef} className="ear-waveform" width={280} height={60} />
-            <button className="ear-stop-btn" onClick={stopRecording}>
-              Terminar llamada
-            </button>
+            {pauseCount > 0 && (
+              <span className="ear-pause-info">{pauseCount} pausa{pauseCount > 1 ? "s" : ""}</span>
+            )}
+            <div className="ear-btn-row">
+              {recMode === "recording" ? (
+                <button className="ear-pause-btn" onClick={pauseRecording}>Pausar</button>
+              ) : (
+                <button className="ear-resume-btn" onClick={resumeRecording}>Continuar</button>
+              )}
+              <button className="ear-stop-btn" onClick={stopRecording}>
+                Terminar llamada
+              </button>
+            </div>
             <button className="ear-retry-btn" onClick={cancelRecording}>
               Cancelar
             </button>
@@ -608,6 +747,17 @@ export default function NuevaLlamadaPage() {
 
   return (
     <div className="container c2-container">
+      {/* Draft banner */}
+      {hasDraft && (
+        <div className="c2-draft-banner">
+          <p className="c2-draft-text">Tienes una grabación pendiente</p>
+          <div className="c2-draft-actions">
+            <button className="c2-draft-btn c2-draft-use" onClick={useDraft}>Transcribir</button>
+            <button className="c2-draft-btn c2-draft-discard" onClick={deleteDraft}>Descartar</button>
+          </div>
+        </div>
+      )}
+
       <div className="c2-header">
         <h1 className="c2-title">Nueva Llamada</h1>
         <p className="c2-subtitle">Pega la transcripción de tu llamada para analizarla</p>
