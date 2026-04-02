@@ -2456,6 +2456,76 @@ body.has-nav {
   gap: 7px;
 }
 
+/* G1 Today card */
+.g1-today-card {
+  background: white;
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: var(--shadow);
+  margin-bottom: 14px;
+}
+
+.g1-today-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--ink-light);
+}
+
+.g1-today-stats {
+  display: flex;
+  gap: 16px;
+  margin-top: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.g1-today-delta {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  display: block;
+  margin-top: 4px;
+}
+
+/* G1 Insights */
+.g1-insights {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.g1-insight-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.g1-insight-icon { font-size: 14px; flex-shrink: 0; }
+
+.g1-insight-text {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+/* G1 Rank number */
+.g1-rank {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-light);
+  min-width: 22px;
+}
+
 .g1-traffic-card {
   display: flex;
   align-items: center;
