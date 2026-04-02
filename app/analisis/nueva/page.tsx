@@ -105,17 +105,37 @@ export default function NuevaLlamadaPage() {
         body: JSON.stringify({ action: "transcribe", audio_base64: base64, organization_id: orgId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error al transcribir");
-      setTranscription(data.text);
-      setTranscriptionOriginal(data.text);
+      if (!res.ok) throw new Error(data.error || "No pudimos transcribir el audio. Intenta grabar de nuevo en un lugar con menos ruido.");
+
+      let text = data.text || "";
+      const textWords = text.trim().split(/\s+/).filter(Boolean).length;
+
+      // Low quality: short transcription for long recording (>2 min recorded)
+      if (textWords < 50 && recElapsed > 120) {
+        setFileMsg("La calidad del audio parece baja. Revisa que el micrófono esté captando la conversación. Puedes editar la transcripción o grabar de nuevo.");
+      } else if (textWords === 0) {
+        setFileMsg("No pudimos transcribir el audio. Intenta grabar de nuevo en un lugar con menos ruido.");
+        setIsTranscribing(false);
+        return;
+      } else {
+        setFileMsg("Transcripción automática lista — revisa antes de analizar.");
+      }
+
+      // Truncate if too long
+      if (text.length > 15000) {
+        text = text.slice(0, 15000);
+        setFileMsg("La transcripción es muy larga. Se mostrarán los primeros 15,000 caracteres. Revisa que incluya las partes más importantes de la llamada.");
+      }
+
+      setTranscription(text);
+      setTranscriptionOriginal(text);
       setTranscriptionSource("audio");
       setEditPct(0);
-      setFileMsg("Transcripción automática lista — revisa antes de analizar.");
-      sessionStorage.setItem("c2_transcription", data.text);
-      sessionStorage.setItem("c2_original", data.text);
+      sessionStorage.setItem("c2_transcription", text);
+      sessionStorage.setItem("c2_original", text);
       sessionStorage.setItem("c2_source_type", "audio");
     } catch (err) {
-      setFileMsg(err instanceof Error ? err.message : "Error al transcribir el audio.");
+      setFileMsg(err instanceof Error ? err.message : "No pudimos transcribir el audio. Intenta grabar de nuevo en un lugar con menos ruido.");
     }
     setIsTranscribing(false);
   };
@@ -757,6 +777,9 @@ export default function NuevaLlamadaPage() {
             </div>
             <span className="ear-timer">{formatTime(recElapsed)}</span>
             <canvas ref={canvasRef} className="ear-waveform" width={280} height={60} />
+            {recElapsed > 1800 && (
+              <p className="ear-long-warning">Llevas más de 30 minutos grabando. Transcripciones muy largas pueden tardar más en analizar.</p>
+            )}
             {pauseCount > 0 && (
               <span className="ear-pause-info">{pauseCount} pausa{pauseCount > 1 ? "s" : ""}</span>
             )}
