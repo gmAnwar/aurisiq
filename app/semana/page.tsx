@@ -13,11 +13,17 @@ interface Analysis {
   created_at: string;
   objecion_principal: string | null;
   siguiente_accion: string | null;
+  prospect_name: string | null;
+  prospect_zone: string | null;
+  property_type: string | null;
+  categoria_descalificacion: string[] | null;
+  checklist_results: { field: string; covered: boolean }[] | null;
 }
 
 export default function MiSemanaPage() {
   const [weekAnalyses, setWeekAnalyses] = useState<Analysis[]>([]);
-  const [prevWeekAnalyses, setPrevWeekAnalyses] = useState<{ id: string; score_general: number | null }[]>([]);
+  const [prevAvg, setPrevAvg] = useState<number | null>(null);
+  const [descalMap, setDescalMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,163 +35,206 @@ export default function MiSemanaPage() {
       const ws = getWeekStart(tz);
       const pws = getPrevWeekStart(tz);
 
-      const [weekRes, prevRes] = await Promise.all([
+      const [weekRes, prevRes, descalRes] = await Promise.all([
         supabase.from("analyses")
-          .select("id, score_general, clasificacion, created_at, objecion_principal, siguiente_accion")
+          .select("id, score_general, clasificacion, created_at, objecion_principal, siguiente_accion, prospect_name, prospect_zone, property_type, categoria_descalificacion, checklist_results")
           .eq("user_id", session.userId).eq("status", "completado")
           .gte("created_at", ws)
           .order("created_at", { ascending: false }),
         supabase.from("analyses")
-          .select("id, score_general")
+          .select("score_general")
           .eq("user_id", session.userId).eq("status", "completado")
           .gte("created_at", pws).lt("created_at", ws),
+        supabase.from("descalification_categories")
+          .select("code, label")
+          .eq("organization_id", session.organizationId),
       ]);
 
       setWeekAnalyses(weekRes.data || []);
-      setPrevWeekAnalyses(prevRes.data || []);
+
+      const dm: Record<string, string> = {};
+      for (const c of descalRes.data || []) dm[c.code] = c.label;
+      setDescalMap(dm);
+
+      const prevScores = (prevRes.data || []).filter(a => a.score_general !== null).map(a => a.score_general!);
+      setPrevAvg(prevScores.length >= 2 ? Math.round(prevScores.reduce((a, b) => a + b, 0) / prevScores.length) : null);
+
       setLoading(false);
     }
     load();
   }, []);
 
   const weekScores = weekAnalyses.filter(a => a.score_general !== null).map(a => a.score_general!);
-  const weekAvg = weekScores.length >= 2 ? Math.round(weekScores.reduce((a, b) => a + b, 0) / weekScores.length) : null;
-  const prevScores = prevWeekAnalyses.filter(a => a.score_general !== null).map(a => a.score_general!);
-  const prevAvg = prevScores.length >= 2 ? Math.round(prevScores.reduce((a, b) => a + b, 0) / prevScores.length) : null;
+  const weekAvg = weekScores.length >= 1 ? Math.round(weekScores.reduce((a, b) => a + b, 0) / weekScores.length) : null;
   const delta = weekAvg !== null && prevAvg !== null ? weekAvg - prevAvg : null;
+  const qualified = weekAnalyses.filter(a => !a.categoria_descalificacion || a.categoria_descalificacion.length === 0).length;
 
-  // Best call
-  const best = weekAnalyses.filter(a => a.score_general !== null).sort((a, b) => b.score_general! - a.score_general!)[0] || null;
-
-  // Most frequent objection
-  const objCounts: Record<string, { count: number; response: string | null }> = {};
-  for (const a of weekAnalyses) {
-    if (a.objecion_principal) {
-      const cleaned = stripJson(a.objecion_principal.replace(/^\*+\s*/, ""));
-      if (cleaned) {
-        if (!objCounts[cleaned]) objCounts[cleaned] = { count: 0, response: null };
-        objCounts[cleaned].count++;
-        if (a.siguiente_accion && !objCounts[cleaned].response) objCounts[cleaned].response = stripJson(a.siguiente_accion);
-      }
-    }
-  }
-  const topObj = Object.entries(objCounts).sort((a, b) => b[1].count - a[1].count)[0] || null;
-
-  // Daily chart — group by day of week
+  // Daily chart data — group by day
   const dayNames = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
-  const dailyScores: Record<number, number[]> = {};
+  const dailyData: Record<number, number[]> = {};
   for (const a of weekAnalyses) {
     if (a.score_general !== null) {
       const day = new Date(a.created_at).getDay();
-      if (!dailyScores[day]) dailyScores[day] = [];
-      dailyScores[day].push(a.score_general);
+      if (!dailyData[day]) dailyData[day] = [];
+      dailyData[day].push(a.score_general);
     }
   }
-  const dailyChart = Object.entries(dailyScores).map(([day, scores]) => ({
-    day: dayNames[parseInt(day)],
-    avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length),
-    count: scores.length,
-  }));
+
+  // Build 7-day chart points
+  const today = new Date().getDay();
+  const chartPoints: { day: string; avg: number | null; min: number; max: number; count: number }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = (today - i + 7) % 7;
+    const scores = dailyData[d] || [];
+    chartPoints.push({
+      day: dayNames[d],
+      avg: scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null,
+      min: scores.length > 0 ? Math.min(...scores) : 0,
+      max: scores.length > 0 ? Math.max(...scores) : 0,
+      count: scores.length,
+    });
+  }
+
+  // Top 3 missed fields from checklist
+  const missCounts: Record<string, number> = {};
+  for (const a of weekAnalyses) {
+    if (!a.checklist_results) continue;
+    for (const item of a.checklist_results) {
+      if (!item.covered) missCounts[item.field] = (missCounts[item.field] || 0) + 1;
+    }
+  }
+  const topMissed = Object.entries(missCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .filter(([, count]) => count >= 2);
 
   if (loading) {
     return (
       <div className="container c4-container">
         <div className="skeleton-block skeleton-title" />
-        <div className="skeleton-block skeleton-select" />
         <div className="skeleton-block skeleton-textarea" />
       </div>
     );
   }
 
+  // SVG chart
+  const chartW = 320;
+  const chartH = 120;
+  const pad = 24;
+  const plotW = chartW - pad * 2;
+  const plotH = chartH - pad;
+  const hasChart = chartPoints.some(p => p.avg !== null);
+
+  const svgPoints = chartPoints.map((p, i) => ({
+    x: pad + (i / 6) * plotW,
+    y: p.avg !== null ? pad + plotH - (p.avg / 100) * plotH : null,
+    minY: p.count > 1 ? pad + plotH - (p.min / 100) * plotH : null,
+    maxY: p.count > 1 ? pad + plotH - (p.max / 100) * plotH : null,
+  }));
+
+  const linePath = svgPoints.filter(p => p.y !== null).map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
+
   return (
     <div className="container c4-container">
-      <div className="c4-header">
-        <h1 className="c4-greeting">Mi Semana</h1>
-      </div>
+      <h1 className="c4-greeting">Mi Semana</h1>
 
-      {/* Stats */}
+      {/* Summary card */}
       <div className="c4-stats">
         <div className="c4-stat-card">
           <span className="c4-stat-value">{weekAnalyses.length}</span>
           <span className="c4-stat-label">Llamadas</span>
         </div>
-        {weekAvg !== null && (
-          <div className="c4-stat-card">
-            <span className="c4-stat-value">
-              {weekAvg}
-              {delta !== null && (
-                <span className={`c1-delta ${delta > 0 ? "g1-delta-up" : delta < 0 ? "g1-delta-down" : ""}`}>
-                  {delta > 0 ? "+" : ""}{delta}
-                </span>
-              )}
-            </span>
-            <span className="c4-stat-label">Score prom.</span>
-          </div>
-        )}
+        <div className="c4-stat-card">
+          <span className="c4-stat-value">
+            {weekAvg ?? "—"}
+            {delta !== null && (
+              <span className={`c1-delta ${delta > 0 ? "g1-delta-up" : delta < 0 ? "g1-delta-down" : ""}`}>
+                {delta > 0 ? "+" : ""}{delta}
+              </span>
+            )}
+          </span>
+          <span className="c4-stat-label">Score prom.</span>
+        </div>
+        <div className="c4-stat-card">
+          <span className="c4-stat-value">{qualified}/{weekAnalyses.length}</span>
+          <span className="c4-stat-label">Calificados</span>
+        </div>
       </div>
 
-      {/* Best call — dark card like legacy */}
-      {best && (
-        <a href={`/analisis/${best.id}`} className="c4-best-card" style={{ textDecoration: "none", display: "block" }}>
-          <div className="c4-best-lbl">Tu mejor llamada</div>
-          <div className="c4-best-score">{best.score_general}</div>
-          <div className="c4-best-date">
-            {new Date(best.created_at).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "short" })}
-          </div>
-          {best.siguiente_accion && (
-            <div className="c4-best-quote">{best.siguiente_accion}</div>
-          )}
-        </a>
-      )}
-
-      {/* Most frequent objection */}
-      {topObj && (
-        <div className="g1-section">
-          <p className="c4-list-title">Objeción más frecuente</p>
-          <div className="c1-tip">
-            <p className="c1-tip-text" style={{ fontWeight: 600 }}>{topObj[0]} ({topObj[1].count}x)</p>
-            {topObj[1].response && (
-              <p className="c1-tip-text" style={{ marginTop: 8, opacity: 0.8 }}>Mejor respuesta: {topObj[1].response}</p>
-            )}
-          </div>
+      {/* Score evolution chart */}
+      {hasChart && (
+        <div className="c4-chart-section">
+          <p className="c4-list-title">Evolución de score</p>
+          <svg viewBox={`0 0 ${chartW} ${chartH}`} className="c4-svg-chart">
+            {/* Grid lines */}
+            {[25, 50, 75].map(v => {
+              const y = pad + plotH - (v / 100) * plotH;
+              return <line key={v} x1={pad} y1={y} x2={chartW - pad} y2={y} stroke="rgba(0,0,0,0.06)" strokeWidth="1" />;
+            })}
+            {/* Range areas */}
+            {svgPoints.map((p, i) => (
+              p.minY !== null && p.maxY !== null && p.y !== null ? (
+                <rect key={`r${i}`} x={p.x - 3} y={p.maxY} width={6} height={p.minY - p.maxY} rx={2} fill="rgba(200,168,75,0.15)" />
+              ) : null
+            ))}
+            {/* Line */}
+            {linePath && <path d={linePath} fill="none" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
+            {/* Points */}
+            {svgPoints.map((p, i) => (
+              p.y !== null ? <circle key={i} cx={p.x} cy={p.y} r={4} fill="var(--gold)" /> : null
+            ))}
+            {/* Day labels */}
+            {chartPoints.map((p, i) => (
+              <text key={`l${i}`} x={svgPoints[i].x} y={chartH - 2} textAnchor="middle" fontSize="9" fill="var(--ink-light)" fontFamily="DM Sans">{p.day}</text>
+            ))}
+            {/* Score labels */}
+            {svgPoints.map((p, i) => (
+              p.y !== null ? (
+                <text key={`s${i}`} x={p.x} y={p.y - 8} textAnchor="middle" fontSize="9" fill="var(--ink)" fontWeight="600" fontFamily="DM Sans">
+                  {chartPoints[i].avg}
+                </text>
+              ) : null
+            ))}
+          </svg>
         </div>
       )}
 
-      {/* Daily chart */}
-      {dailyChart.length >= 3 && (
-        <div className="c1-chart-section">
-          <p className="c4-list-title">Score por día</p>
-          <div className="g2-evolution">
-            {dailyChart.map((d, i) => (
-              <div key={i} className="g2-evo-bar-wrap">
-                <div className="g2-evo-bar" style={{ height: `${d.avg}%` }} />
-                <span className="g2-evo-label">{d.avg}</span>
-                <span className="g2-evo-label" style={{ fontSize: 10 }}>{d.day}</span>
+      {/* Top 3 missed fields */}
+      {topMissed.length > 0 && (
+        <div className="c4-missed-section">
+          <p className="c4-list-title">Áreas de mejora esta semana</p>
+          <div className="c4-missed-list">
+            {topMissed.map(([field, count], i) => (
+              <div key={i} className="c4-missed-item">
+                <span className="c4-missed-field">{field}</span>
+                <span className="c4-missed-count">{count}x</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {weekAnalyses.length === 0 && (
-        <div className="c4-empty">
-          <p>No tienes análisis esta semana.</p>
-          <p>Empieza analizando tu primera llamada.</p>
-        </div>
-      )}
-
-      {/* Full history */}
+      {/* Weekly call list */}
       {weekAnalyses.length > 0 && (
         <div className="c4-list-section">
           <p className="c4-list-title">Todas las llamadas</p>
           <div className="c4-list">
             {weekAnalyses.map((a) => {
               const date = new Date(a.created_at);
+              const dayTime = `${date.toLocaleDateString("es-MX", { weekday: "short", day: "numeric" })} ${date.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}`;
+              const label = [a.prospect_name, a.prospect_zone, a.property_type].filter(Boolean).join(" · ") || dayTime;
+              const codes = a.categoria_descalificacion || [];
+              const hasDescal = codes.length > 0;
               return (
                 <a key={a.id} href={`/analisis/${a.id}`} className="c4-item">
                   <div className="c4-item-left">
-                    <span className="c4-item-date">
-                      {date.toLocaleDateString("es-MX", { weekday: "short", day: "numeric" })} {date.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
+                    <span className="c4-item-date">{label}</span>
+                    <span className="c4-item-source">
+                      {dayTime} · {hasDescal ? (
+                        <span className="c1-pill-inline c1-pill-red">{descalMap[codes[0]] || codes[0]}</span>
+                      ) : (
+                        <span className="c1-pill-inline c1-pill-green">Calificado</span>
+                      )}
                     </span>
                   </div>
                   <div className="c4-item-right">
@@ -199,6 +248,17 @@ export default function MiSemanaPage() {
           </div>
         </div>
       )}
+
+      {weekAnalyses.length === 0 && (
+        <div className="c4-empty">
+          <p className="c4-empty-title">No tienes análisis esta semana</p>
+          <a href="/analisis/nueva" className="btn-submit btn-terracota" style={{ textDecoration: "none", textAlign: "center", marginTop: 12 }}>
+            Hacer mi primera llamada
+          </a>
+        </div>
+      )}
+
+      <a href="/analisis" className="c5-back-link">Volver a Mi día</a>
     </div>
   );
 }

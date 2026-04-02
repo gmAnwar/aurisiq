@@ -1771,6 +1771,53 @@ body.has-nav {
   color: var(--ink-mid);
 }
 
+/* C4 SVG Chart */
+.c4-chart-section {
+  margin-bottom: 4px;
+}
+
+.c4-svg-chart {
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+/* C4 Missed fields */
+.c4-missed-section {
+  margin-bottom: 4px;
+}
+
+.c4-missed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.c4-missed-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.c4-missed-field {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.c4-missed-count {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--red);
+}
+
 /* C1 Yesterday */
 .c1-yesterday {
   margin-top: 4px;
