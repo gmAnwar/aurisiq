@@ -1100,6 +1100,50 @@ body.has-nav {
   margin-top: 2px;
 }
 
+/* C3 WhatsApp card */
+.c3-wa-card {
+  background: #dcf8c6;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-top: 10px;
+}
+
+.c3-wa-msg {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: #1a1410;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.c3-wa-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.c3-wa-copy {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: #075e54;
+  background: rgba(7,94,84,0.1);
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+.c3-wa-open {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: #075e54;
+  text-decoration: none;
+}
+
+.c3-wa-open:hover { text-decoration: underline; }
+
 /* C3 Related calls */
 .c3-related-list {
   display: flex;

@@ -275,13 +275,22 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
         </div>
       )}
 
-      {/* 4. NEXT STEP */}
-      {accion && (
-        <div className="c3-section">
-          <p className="c3-section-label">Siguiente paso con este prospecto</p>
-          <div className="c3-next-step">{accion}</div>
-        </div>
-      )}
+      {/* 4. NEXT STEP + WHATSAPP MESSAGE */}
+      {accion && (() => {
+        // Parse WhatsApp message from accion text
+        const msgMatch = accion.match(/[Mm]ensaje\s*(?:sugerido)?[:\s]+(.+)/s);
+        const actionPart = msgMatch ? accion.slice(0, msgMatch.index).trim() : accion;
+        const whatsappMsg = msgMatch ? msgMatch[1].trim().replace(/^[""]|[""]$/g, "") : null;
+        return (
+          <div className="c3-section">
+            <p className="c3-section-label">Siguiente paso con este prospecto</p>
+            {actionPart && <div className="c3-next-step">{actionPart}</div>}
+            {whatsappMsg && (
+              <WhatsAppCard message={whatsappMsg} />
+            )}
+          </div>
+        );
+      })()}
 
       {/* 5. CHECKLIST VISUAL */}
       {checklist.length > 0 && (
@@ -302,6 +311,34 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
         Analizar otra llamada
       </a>
       <a href="/analisis" className="c5-back-link">Volver a Mi día</a>
+    </div>
+  );
+}
+
+function WhatsAppCard({ message }: { message: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(message);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  };
+
+  const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+  return (
+    <div className="c3-wa-card">
+      <p className="c3-wa-msg">{message}</p>
+      <div className="c3-wa-actions">
+        <button className="c3-wa-copy" onClick={handleCopy}>
+          {copied ? "Copiado" : "Copiar mensaje"}
+        </button>
+        <a href={waUrl} target="_blank" rel="noopener noreferrer" className="c3-wa-open">
+          Abrir WhatsApp
+        </a>
+      </div>
     </div>
   );
 }
