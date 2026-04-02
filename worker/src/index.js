@@ -602,6 +602,8 @@ async function handleSubmit(body, env, ctx, origin) {
     transcription_edited: body.transcription_edited || null,
     edit_percentage: computeEditPct(body.transcription_original, body.transcription_edited),
     has_audio: body.has_audio || false,
+    pause_count: body.pause_count || 0,
+    total_paused_seconds: body.total_paused_seconds || 0,
   });
 
   // Fire-and-forget: process in background
