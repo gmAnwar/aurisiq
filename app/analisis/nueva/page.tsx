@@ -96,6 +96,9 @@ export default function NuevaLlamadaPage() {
       setTranscriptionSource("audio");
       setEditPct(0);
       setFileMsg("Transcripción automática lista — revisa antes de analizar.");
+      sessionStorage.setItem("c2_transcription", data.text);
+      sessionStorage.setItem("c2_original", data.text);
+      sessionStorage.setItem("c2_source_type", "audio");
     } catch (err) {
       setFileMsg(err instanceof Error ? err.message : "Error al transcribir el audio.");
     }
@@ -181,6 +184,22 @@ export default function NuevaLlamadaPage() {
       }
 
       setLoading(false);
+
+      // Restore draft from sessionStorage
+      const savedText = sessionStorage.getItem("c2_transcription");
+      const savedStage = sessionStorage.getItem("c2_stage");
+      const savedSource = sessionStorage.getItem("c2_source");
+      const savedNotes = sessionStorage.getItem("c2_notes");
+      const savedOriginal = sessionStorage.getItem("c2_original");
+      const savedSrc = sessionStorage.getItem("c2_source_type");
+      if (savedText) setTranscription(savedText);
+      if (savedStage) setSelectedStage(savedStage);
+      if (savedSource) setSelectedSource(savedSource);
+      if (savedNotes) setNotes(savedNotes);
+      if (savedOriginal) {
+        setTranscriptionOriginal(savedOriginal);
+        setTranscriptionSource((savedSrc as "manual" | "audio") || "manual");
+      }
     }
 
     init();
@@ -194,6 +213,7 @@ export default function NuevaLlamadaPage() {
   // Track edits to auto-transcribed text
   const handleTranscriptionChange = useCallback((value: string) => {
     setTranscription(value);
+    sessionStorage.setItem("c2_transcription", value);
     if (transcriptionSource === "audio" && transcriptionOriginal) {
       const pct = computeEditPercentage(transcriptionOriginal, value);
       setEditPct(pct);
@@ -451,7 +471,15 @@ export default function NuevaLlamadaPage() {
             if (progressRef.current) clearInterval(progressRef.current);
             setAnalysisPct(100);
             setAnalysisPhase("Listo — redirigiendo a resultados...");
-            setTimeout(() => { window.location.href = `/analisis/${analysisId}`; }, 600);
+            setTimeout(() => {
+              sessionStorage.removeItem("c2_transcription");
+              sessionStorage.removeItem("c2_stage");
+              sessionStorage.removeItem("c2_source");
+              sessionStorage.removeItem("c2_notes");
+              sessionStorage.removeItem("c2_original");
+              sessionStorage.removeItem("c2_source_type");
+              window.location.href = `/analisis/${analysisId}`;
+            }, 600);
           } else if (statusData.status === "error") {
             clearInterval(pollInterval);
             if (progressRef.current) clearInterval(progressRef.current);
@@ -556,7 +584,7 @@ export default function NuevaLlamadaPage() {
             id="funnel-stage"
             className="input-field c2-select"
             value={selectedStage}
-            onChange={(e) => setSelectedStage(e.target.value)}
+            onChange={(e) => { setSelectedStage(e.target.value); sessionStorage.setItem("c2_stage", e.target.value); }}
             disabled={status === "analyzing"}
           >
             <option value="">Selecciona la etapa</option>
@@ -576,7 +604,7 @@ export default function NuevaLlamadaPage() {
             id="fuente-lead"
             className="input-field c2-select"
             value={selectedSource}
-            onChange={(e) => setSelectedSource(e.target.value)}
+            onChange={(e) => { setSelectedSource(e.target.value); sessionStorage.setItem("c2_source", e.target.value); }}
             disabled={status === "analyzing"}
           >
             <option value="">Selecciona de dónde vino el prospecto</option>
@@ -666,7 +694,7 @@ export default function NuevaLlamadaPage() {
             className="input-field"
             placeholder="Ej: La grabación empezó al minuto 2, prospecto ya había hablado con otra captadora..."
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={(e) => { setNotes(e.target.value); sessionStorage.setItem("c2_notes", e.target.value); }}
             disabled={status === "analyzing"}
             rows={3}
             style={{ minHeight: 60, resize: "vertical" }}
