@@ -801,21 +801,21 @@ Campos:
 - Pagos puntuales
 - Adeudos en tiempo consecutivo
 - Crédito individual o conyugal
-- NSS
-- NC (Número de Crédito)
+- NSS (si no lo tiene a la mano, ofrecerle que lo pase después por WhatsApp)
+- NC — Número de Crédito (si no lo tiene a la mano, ofrecerle que lo pase después por WhatsApp)
 - Papelería / escrituras
 - Descripción del domicilio
 - Casa habitada o desocupada
 - Servicios a nombre de quién
-- ¿Tiene adeudos de servicios? (solo si tiene o no, NO el monto exacto)
+- ¿Tiene adeudos de servicios? (solo si tiene o no, NO el monto exacto — agregar "si no sabe el monto exacto no se preocupe, eso lo checamos nosotros después")
 - Financiamiento de adeudos
 
 FASE 3 — Expectativa y Precio:
 Transición: Conectar con "ya con esa información, ahora hablemos de lo más importante: el precio y sus expectativas".
 Campos:
 - Motivo de venta
-- Expectativa del cliente
-- Precio estimado de venta
+- Expectativa del cliente (preguntar de forma INDIRECTA, nunca "¿en cuánto quiere vender?" — usar: "¿tiene alguna idea de cuánto podrían valer las propiedades por su zona?", "¿ha checado precios de casas similares en su colonia?")
+- Precio estimado de venta (solo una noción inicial, el precio real se da en la visita)
 - Precio estimado de captación
 
 FASE 4 — Avance a Visita:
