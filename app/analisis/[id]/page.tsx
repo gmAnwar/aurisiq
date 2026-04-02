@@ -31,7 +31,15 @@ interface Analysis {
   sale_reason: string | null;
   checklist_results: ChecklistItem[] | null;
   manager_note: string | null;
+  related_analysis_id: string | null;
   created_at: string;
+}
+
+interface RelatedCall {
+  id: string;
+  score_general: number | null;
+  created_at: string;
+  funnel_stage_id: string | null;
 }
 
 export default function ResultadoPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,6 +49,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
   const [descalLabels, setDescalLabels] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [relatedCalls, setRelatedCalls] = useState<RelatedCall[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -49,7 +58,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
 
       const { data: a, error: aErr } = await supabase
         .from("analyses")
-        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, sale_reason, checklist_results, manager_note, created_at")
+        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, sale_reason, checklist_results, manager_note, related_analysis_id, created_at")
         .eq("id", id)
         .single();
 
@@ -78,6 +87,20 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
         const map: Record<string, string> = {};
         for (const c of cats || []) map[c.code] = c.label;
         setDescalLabels(map);
+      }
+
+      // Fetch related calls with same prospect
+      if (a.prospect_name && a.prospect_name !== "No identificado") {
+        const { data: related } = await supabase
+          .from("analyses")
+          .select("id, score_general, created_at, funnel_stage_id")
+          .eq("organization_id", session.organizationId)
+          .eq("status", "completado")
+          .neq("id", id)
+          .ilike("prospect_name", a.prospect_name)
+          .order("created_at", { ascending: false })
+          .limit(5);
+        setRelatedCalls(related || []);
       }
 
       setLoading(false);
@@ -150,6 +173,27 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
           <p className="c3-prospect-reason">Motivo de venta: {analysis.sale_reason}</p>
         )}
       </div>
+
+      {/* 1b. RELATED CALLS */}
+      {relatedCalls.length > 0 && (
+        <div className="c3-section">
+          <p className="c3-section-label">
+            Historial con {analysis.prospect_name || "este prospecto"} — esta es tu {relatedCalls.length + 1}a llamada
+          </p>
+          <div className="c3-related-list">
+            {relatedCalls.map(r => (
+              <a key={r.id} href={`/analisis/${r.id}`} className="c3-related-item">
+                <span className="c3-related-date">
+                  {new Date(r.created_at).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}
+                </span>
+                {r.score_general !== null && (
+                  <span className="c3-related-score">{r.score_general}</span>
+                )}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 2. WHAT YOU ACHIEVED */}
       {checklist.length > 0 && (

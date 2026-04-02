@@ -464,6 +464,18 @@ async function processAnalysis(env, analysisId, body, scorecard) {
     const validCodes = new Set(descalCats.map(c => c.code));
     const validDescal = parsed.descalificacion.filter(code => validCodes.has(code));
 
+    // Find related prospect (same name in same org, case-insensitive)
+    let relatedId = null;
+    if (parsed.prospect_name && parsed.prospect_name !== 'No identificado') {
+      try {
+        const related = await supabaseSelect(
+          env, 'analyses',
+          `organization_id=eq.${organization_id}&status=eq.completado&id=neq.${analysisId}&prospect_name=ilike.${encodeURIComponent(parsed.prospect_name.trim())}&select=id&order=created_at.desc&limit=1`
+        );
+        if (related.length > 0) relatedId = related[0].id;
+      } catch { /* ignore */ }
+    }
+
     await supabaseUpdate(env, 'analyses', 'id', analysisId, {
       score_general: parsed.score_general !== null ? Math.min(parsed.score_general, 100) : null,
       clasificacion: parsed.clasificacion,
@@ -478,6 +490,7 @@ async function processAnalysis(env, analysisId, body, scorecard) {
       property_type: parsed.property_type,
       sale_reason: parsed.sale_reason,
       checklist_results: parsed.checklist_results,
+      related_analysis_id: relatedId,
       status: 'completado',
     });
 

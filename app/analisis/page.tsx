@@ -131,8 +131,13 @@ export default function MiDiaPage() {
   const todayScores = todayAnalyses.filter(a => a.score_general !== null).map(a => a.score_general!);
   const dailyAvg = todayScores.length >= 2 ? Math.round(todayScores.reduce((a, b) => a + b, 0) / todayScores.length) : null;
 
-  // Last 5 calls today
+  // Last 5 calls today, with prospect call counts
   const last5 = todayAnalyses.slice(0, 5);
+  const prospectCounts: Record<string, number> = {};
+  for (const a of todayAnalyses) {
+    const key = a.prospect_name?.toLowerCase().trim();
+    if (key) prospectCounts[key] = (prospectCounts[key] || 0) + 1;
+  }
 
   // Score chart (last 10)
   const chartData = analyses.filter(a => a.score_general !== null).slice(0, 10).reverse();
@@ -228,7 +233,11 @@ export default function MiDiaPage() {
               const reasonLabel = hasDescal
                 ? codes.map(c => descalMap[c] || c).join(", ")
                 : "Lead calificado";
-              const prospectLabel = [a.prospect_name, a.prospect_zone, a.property_type].filter(Boolean).join(" · ") || time;
+              const nameKey = a.prospect_name?.toLowerCase().trim();
+              const callCount = nameKey ? (prospectCounts[nameKey] || 1) : 1;
+              const parts = [a.prospect_name, a.prospect_zone, a.property_type].filter(Boolean);
+              if (callCount > 1) parts.push(`${callCount} llamadas`);
+              const prospectLabel = parts.join(" · ") || time;
               return (
                 <a key={a.id} href={`/analisis/${a.id}`} className="c4-item">
                   <div className="c4-item-left">

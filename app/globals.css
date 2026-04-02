@@ -1100,6 +1100,39 @@ body.has-nav {
   margin-top: 2px;
 }
 
+/* C3 Related calls */
+.c3-related-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.c3-related-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--cream-dark);
+  border-radius: 8px;
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.c3-related-item:hover { background: #e0d8ca; }
+
+.c3-related-date {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  color: var(--ink);
+}
+
+.c3-related-score {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-mid);
+}
+
 /* C3 Prospect card */
 .c3-prospect-card {
   background: var(--cream-dark);
