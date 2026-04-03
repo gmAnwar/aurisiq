@@ -13,8 +13,8 @@ interface NavItem {
 const NAV_BY_ROLE: Record<string, NavItem[]> = {
   captadora: [
     { href: "/analisis", label: "Mi d\u00eda" },
-    { href: "/semana", label: "Mi semana" },
     { href: "/analisis/historial", label: "Mis an\u00e1lisis" },
+    { href: "/semana", label: "Mi semana" },
     { href: "/speech", label: "Mi Speech" },
   ],
   gerente: [
@@ -39,8 +39,8 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
   ],
   super_admin: [
     { href: "/analisis", label: "Mi d\u00eda" },
-    { href: "/semana", label: "Mi semana" },
     { href: "/analisis/historial", label: "Mis an\u00e1lisis" },
+    { href: "/semana", label: "Mi semana" },
     { href: "/speech", label: "Mi Speech" },
     { href: "/equipo", label: "Equipo" },
     { href: "/equipo/reportes", label: "Reportes" },
@@ -127,8 +127,15 @@ export default function NavBar({ role, userName, userEmail }: NavBarProps) {
         );
       })}
 
-      {/* Right section: user + CTA */}
+      {/* Right section: CTA + user */}
       <div className="navbar-right">
+        {/* CTA button */}
+        {showCta && (
+          <Link href="/analisis/nueva" className="navbar-cta">
+            + Nueva llamada
+          </Link>
+        )}
+
         {/* User panel */}
         <div className="navbar-user-panel">
           <button className="navbar-user-btn" onClick={() => setMenuOpen(!menuOpen)}>
@@ -150,13 +157,6 @@ export default function NavBar({ role, userName, userEmail }: NavBarProps) {
             </>
           )}
         </div>
-
-        {/* CTA button */}
-        {showCta && (
-          <Link href="/analisis/nueva" className="navbar-cta">
-            + Nueva llamada
-          </Link>
-        )}
       </div>
     </nav>
   );

@@ -245,7 +245,7 @@ body > * { position: relative; z-index: 1; }
 .navbar-sidebar .navbar-cta {
   width: 100%;
   text-align: center;
-  margin-top: 8px;
+  margin-bottom: 8px;
 }
 
 /* Mobile: hide CTA in nav, hide user name */
