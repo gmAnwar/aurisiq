@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
+import EditableName from "../../components/EditableName";
 
 interface Analysis {
   id: string;
@@ -56,6 +57,10 @@ export default function HistorialPage() {
     );
   }
 
+  const updateName = useCallback((id: string, newName: string) => {
+    setAnalyses(prev => prev.map(a => a.id === id ? { ...a, prospect_name: newName } : a));
+  }, []);
+
   return (
     <div className="container c4-container">
       <div className="c4-header">
@@ -79,12 +84,16 @@ export default function HistorialPage() {
             const codes = a.categoria_descalificacion || [];
             const qualified = codes.length === 0;
             const stageName = a.funnel_stage_id ? stages[a.funnel_stage_id] : null;
+            const hasName = a.prospect_name && a.prospect_name !== "No identificado";
             const label = [a.prospect_name, a.prospect_zone].filter(Boolean).join(" · ") || `${dateStr} ${timeStr}`;
 
             return (
               <Link key={a.id} href={`/analisis/${a.id}`} className="c4-item">
                 <div className="c4-item-left">
-                  <span className="c4-item-date">{label}</span>
+                  <span className="c4-item-date">
+                    {label}
+                    {!hasName && <> · <EditableName analysisId={a.id} currentName={a.prospect_name} onSave={(n) => updateName(a.id, n)} variant="link" /></>}
+                  </span>
                   <span className="c4-item-source">
                     {dateStr} · {timeStr}
                     {stageName && <> · {stageName}</>}

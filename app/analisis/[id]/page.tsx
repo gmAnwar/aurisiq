@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useCallback } from "react";
 import Link from "next/link";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
 import { stripJson } from "../../../lib/text";
+import EditableName from "../../components/EditableName";
 
 interface Phase {
   phase_name: string;
@@ -147,8 +148,11 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
   const timeStr = date.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
   const dateStr = date.toLocaleDateString("es-MX", { day: "numeric", month: "long" });
 
-  const prospectLabel = [
-    analysis.prospect_name || "Prospecto",
+  const handleNameSave = useCallback((newName: string) => {
+    setAnalysis(prev => prev ? { ...prev, prospect_name: newName } : prev);
+  }, []);
+
+  const prospectMeta = [
     analysis.prospect_zone,
     analysis.property_type ? analysis.property_type.charAt(0).toUpperCase() + analysis.property_type.slice(1) : null,
   ].filter(Boolean).join(" · ");
@@ -166,7 +170,10 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
 
       {/* 1. PROSPECT CARD */}
       <div className="c3-prospect-card">
-        <h1 className="c3-prospect-name">{prospectLabel}</h1>
+        <h1 className="c3-prospect-name">
+          <EditableName analysisId={analysis.id} currentName={analysis.prospect_name} onSave={handleNameSave} variant="heading" />
+          {prospectMeta && <span style={{ fontWeight: 400, fontSize: 14, color: "var(--ink-light)" }}> · {prospectMeta}</span>}
+        </h1>
         <p className="c3-prospect-meta">{dateStr} · {timeStr}</p>
         <div className={`c3-result-badge ${isQualified ? "c3-badge-qualified" : "c3-badge-followup"}`}>
           {isQualified ? "Lead calificado" : "Requiere seguimiento"}

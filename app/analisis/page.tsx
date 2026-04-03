@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
+import EditableName from "../components/EditableName";
 import { getOrgTimezone, todayStart, monthStart as getMonthStart, todayDisplay } from "../../lib/dates";
 import { stripJson } from "../../lib/text";
 
@@ -155,6 +156,10 @@ export default function MiDiaPage() {
       setLoading(false);
     }
     load();
+  }, []);
+
+  const updateName = useCallback((id: string, newName: string) => {
+    setAnalyses(prev => prev.map(a => a.id === id ? { ...a, prospect_name: newName } : a));
   }, []);
 
   const todayStr = todayDisplay(orgTz);
@@ -341,13 +346,17 @@ export default function MiDiaPage() {
                 : "Lead calificado";
               const nameKey = a.prospect_name?.toLowerCase().trim();
               const callCount = nameKey ? (prospectCounts[nameKey] || 1) : 1;
+              const hasName = a.prospect_name && a.prospect_name !== "No identificado";
               const parts = [a.prospect_name, a.prospect_zone, a.property_type].filter(Boolean);
               if (callCount > 1) parts.push(`${callCount} llamadas`);
               const prospectLabel = parts.join(" · ") || time;
               return (
                 <Link key={a.id} href={`/analisis/${a.id}`} className="c4-item">
                   <div className="c4-item-left">
-                    <span className="c4-item-date">{prospectLabel}</span>
+                    <span className="c4-item-date">
+                      {prospectLabel}
+                      {!hasName && <> · <EditableName analysisId={a.id} currentName={a.prospect_name} onSave={(n) => updateName(a.id, n)} variant="link" /></>}
+                    </span>
                     <span className="c4-item-source">
                       {time} · {hasDescal ? (
                         <>
