@@ -85,6 +85,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   const allStreamsRef = useRef<MediaStream[]>([]);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const intentionalStopRef = useRef(false);
+  const cancelledRef = useRef(false);
   const pauseStartRef = useRef<number>(0);
   const orgIdRef = useRef<string>("");
   const recElapsedRef = useRef(0);
@@ -255,6 +256,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   // ─── Start Recording ──────────────────────────────────────
   const startRecording = useCallback(async (orgId: string) => {
     setRecError("");
+    cancelledRef.current = false;
     orgIdRef.current = orgId;
     allStreamsRef.current = [];
 
@@ -351,6 +353,14 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         }
         intentionalStopRef.current = false;
 
+        // If cancelled, discard audio — don't transcribe
+        if (cancelledRef.current) {
+          cancelledRef.current = false;
+          setRecMode("off");
+          setRecElapsed(0);
+          return;
+        }
+
         // Start transcription
         setRecMode("transcribing");
         setTranscribePct(0);
@@ -415,6 +425,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
 
   // ─── Cancel Recording ─────────────────────────────────────
   const cancelRecording = useCallback(() => {
+    cancelledRef.current = true;
     intentionalStopRef.current = true;
     const state = mediaRecorderRef.current?.state;
     if (state === "recording" || state === "paused") {
