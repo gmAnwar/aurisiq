@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
 
@@ -301,7 +302,7 @@ export default function SpeechPage() {
         </div>
       )}
 
-      <a href="/analisis" className="c5-back-link">Volver a Mi día</a>
+      <Link href="/analisis" className="c5-back-link">Volver a Mi día</Link>
     </div>
   );
 }

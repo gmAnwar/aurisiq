@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
 import { getOrgTimezone, weekStart as getWeekStart, prevWeekStart as getPrevWeekStart } from "../../lib/dates";
@@ -252,13 +253,13 @@ export default function MiSemanaPage() {
       {weekAnalyses.length === 0 && (
         <div className="c4-empty">
           <p className="c4-empty-title">No tienes análisis esta semana</p>
-          <a href="/analisis/nueva" className="btn-submit btn-terracota" style={{ textDecoration: "none", textAlign: "center", marginTop: 12 }}>
+          <Link href="/analisis/nueva" className="btn-submit btn-terracota" style={{ textDecoration: "none", textAlign: "center", marginTop: 12 }}>
             Hacer mi primera llamada
-          </a>
+          </Link>
         </div>
       )}
 
-      <a href="/analisis" className="c5-back-link">Volver a Mi día</a>
+      <Link href="/analisis" className="c5-back-link">Volver a Mi día</Link>
     </div>
   );
 }

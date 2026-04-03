@@ -3085,6 +3085,35 @@ body.has-nav {
 .g5-generate-btn:hover { background: #e0d8ca !important; }
 .g5-generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.g5-provisional-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.g5-provisional-row .c5-provisional-badge {
+  margin-bottom: 0;
+}
+
+.g5-publish-btn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--green);
+  border: none;
+  border-radius: 6px;
+  padding: 6px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.g5-publish-btn:hover { background: #346a46; }
+.g5-publish-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
 .c5-provisional-badge {
   display: inline-block;
   font-family: 'DM Sans', sans-serif;
@@ -3607,6 +3636,155 @@ body.has-nav {
   margin-top: 8px;
   border-top: 1px solid rgba(255,255,255,0.06);
   padding-top: 10px;
+}
+
+/* =============================================
+   Recording Bar — Floating global indicator
+   ============================================= */
+.recording-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 44px;
+  background: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  z-index: 1100;
+  color: var(--cream);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  border-bottom: 2px solid var(--cap);
+  padding: 0 12px;
+  flex-wrap: nowrap;
+}
+
+.rb-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--red);
+  flex-shrink: 0;
+  animation: ear-pulse 1s infinite;
+}
+
+.rb-text {
+  white-space: nowrap;
+}
+
+.rb-timer {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 14px;
+  min-width: 42px;
+}
+
+.rb-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.rb-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.rb-btn-pause, .rb-btn-resume {
+  background: rgba(200,120,64,0.2);
+  color: var(--cap);
+}
+
+.rb-btn-pause:hover, .rb-btn-resume:hover {
+  background: rgba(200,120,64,0.35);
+}
+
+.rb-btn-stop {
+  background: var(--red);
+  color: #fff;
+}
+
+.rb-btn-stop:hover {
+  background: #a03030;
+}
+
+.rb-link {
+  background: none;
+  border: none;
+  color: var(--gold-light);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+  margin-left: 4px;
+}
+
+.rb-link:hover {
+  color: var(--gold);
+}
+
+.rb-progress {
+  width: 60px;
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.rb-progress-fill {
+  height: 100%;
+  background: var(--cap);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.rb-phase {
+  font-size: 11px;
+  color: var(--cream-mid);
+  white-space: nowrap;
+}
+
+/* Body padding adjustments when recording bar is visible */
+body.has-recording-bar.has-nav {
+  padding-top: 94px; /* 50px navbar + 44px bar */
+}
+
+@media (max-width: 519px) {
+  body.has-recording-bar {
+    padding-top: 44px;
+  }
+  body.has-recording-bar.has-nav {
+    padding-top: 44px;
+    padding-bottom: 70px;
+  }
+  .recording-bar {
+    gap: 6px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+  .rb-phase { display: none; }
+}
+
+@media (min-width: 520px) {
+  .recording-bar {
+    left: 180px;
+  }
+  body.has-sidebar.has-recording-bar {
+    padding-top: 44px;
+    padding-left: 180px;
+  }
 }
 
 /* =============================================

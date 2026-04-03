@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import AuthNav from './components/AuthNav';
 import InstallBanner from './components/InstallBanner';
+import RecordingShell from './components/RecordingShell';
 
 export const metadata: Metadata = {
   title: 'AurisIQ',
@@ -27,9 +28,11 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap" rel="stylesheet" />
       </head>
       <body>
-        <InstallBanner />
-        <AuthNav />
-        <main>{children}</main>
+        <RecordingShell>
+          <InstallBanner />
+          <AuthNav />
+          <main>{children}</main>
+        </RecordingShell>
         <script dangerouslySetInnerHTML={{ __html: `
           if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js').catch(() => {});

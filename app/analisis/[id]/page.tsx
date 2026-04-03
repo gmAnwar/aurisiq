@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
+import Link from "next/link";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
 import { stripJson } from "../../../lib/text";
@@ -126,9 +127,9 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
         <div className="message-box message-error">
           <p>{error || "Error al cargar el análisis."}</p>
         </div>
-        <a href="/analisis/nueva" className="btn-submit btn-terracota" style={{ textDecoration: "none", textAlign: "center", marginTop: 16 }}>
+        <Link href="/analisis/nueva" className="btn-submit btn-terracota" style={{ textDecoration: "none", textAlign: "center", marginTop: 16 }}>
           Nueva llamada
-        </a>
+        </Link>
       </div>
     );
   }
@@ -312,10 +313,10 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
         </details>
       )}
 
-      <a href="/analisis/nueva" className="btn-submit btn-terracota" style={{ textDecoration: "none", textAlign: "center", marginTop: 24 }}>
+      <Link href="/analisis/nueva" className="btn-submit btn-terracota" style={{ textDecoration: "none", textAlign: "center", marginTop: 24 }}>
         Analizar otra llamada
-      </a>
-      <a href="/analisis" className="c5-back-link">Volver a Mi día</a>
+      </Link>
+      <Link href="/analisis" className="c5-back-link">Volver a Mi día</Link>
     </div>
   );
 }

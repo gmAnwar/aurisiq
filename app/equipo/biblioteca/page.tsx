@@ -46,6 +46,8 @@ export default function BibliotecaPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
 
@@ -54,6 +56,7 @@ export default function BibliotecaPage() {
       const session = await requireAuth(["gerente", "super_admin"]);
       if (!session) return;
       setOrgId(session.organizationId);
+      setUserId(session.userId);
       setGerenteName(session.name);
 
       const [scRes, stagesRes] = await Promise.all([
@@ -165,6 +168,25 @@ export default function BibliotecaPage() {
     setGenerating(false);
   };
 
+  const publishSpeech = async () => {
+    if (!current || !selectedStageId || !userId) return;
+    setPublishing(true);
+    const { error } = await supabase.from("speech_versions").update({
+      published: true,
+      is_provisional: false,
+      published_by: userId,
+      published_at: new Date().toISOString(),
+    }).eq("id", current.id);
+
+    if (!error) {
+      setSpeechByStage(prev => ({
+        ...prev,
+        [selectedStageId]: { ...current, isProvisional: false, updatedAt: new Date().toISOString() },
+      }));
+    }
+    setPublishing(false);
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !orgId) return;
@@ -206,9 +228,14 @@ export default function BibliotecaPage() {
           </div>
         )}
 
-        {/* Provisional badge */}
+        {/* Provisional badge + publish button */}
         {current?.isProvisional && (
-          <div className="c5-provisional-badge" style={{ marginBottom: 12 }}>Provisional · Las captadoras ya ven este speech. Edita las frases para personalizarlo.</div>
+          <div className="g5-provisional-row">
+            <div className="c5-provisional-badge">Provisional · Las captadoras ya ven este speech. Edita las frases para personalizarlo.</div>
+            <button className="g5-publish-btn" onClick={publishSpeech} disabled={publishing}>
+              {publishing ? "Publicando..." : "Confirmar speech"}
+            </button>
+          </div>
         )}
 
         {/* Speech content — field-based with inline edit */}

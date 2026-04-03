@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
@@ -111,13 +112,13 @@ export default function NavBar({ role, userName, userEmail }: NavBarProps) {
         const isMobileVisible = mobileItems.some(m => m.href === item.href);
         const isGrabar = item.href === "/analisis/nueva";
         return (
-          <a
+          <Link
             key={item.href}
             href={item.href}
             className={`navbar-item ${isActive ? "navbar-active" : ""} ${!isMobileVisible ? "navbar-desktop-only" : ""} ${isGrabar ? "navbar-grabar" : ""}`}
           >
             {item.label}
-          </a>
+          </Link>
         );
       })}
 

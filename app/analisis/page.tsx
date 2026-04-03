@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
 import { getOrgTimezone, todayStart, monthStart as getMonthStart, todayDisplay } from "../../lib/dates";
@@ -189,21 +190,21 @@ export default function MiDiaPage() {
               <span>Mejora tu score llamada a llamada</span>
             </div>
           </div>
-          <a
+          <Link
             href="/analisis/nueva"
             className="btn-submit btn-terracota"
             style={{ textDecoration: "none", textAlign: "center", width: "100%" }}
             onClick={() => localStorage.setItem("aurisiq_onboarded", "true")}
           >
             Hacer mi primera llamada
-          </a>
-          <a
+          </Link>
+          <Link
             href="/speech"
             className="c5-back-link"
             onClick={() => localStorage.setItem("aurisiq_onboarded", "true")}
           >
             Ver mi guía de speech
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -297,7 +298,7 @@ export default function MiDiaPage() {
               if (callCount > 1) parts.push(`${callCount} llamadas`);
               const prospectLabel = parts.join(" · ") || time;
               return (
-                <a key={a.id} href={`/analisis/${a.id}`} className="c4-item">
+                <Link key={a.id} href={`/analisis/${a.id}`} className="c4-item">
                   <div className="c4-item-left">
                     <span className="c4-item-date">{prospectLabel}</span>
                     <span className="c4-item-source">
@@ -319,7 +320,7 @@ export default function MiDiaPage() {
                       <span className={`c4-item-score c4-score-${a.clasificacion || "regular"}`}>{a.score_general}</span>
                     )}
                   </div>
-                </a>
+                </Link>
               );
             })}
           </div>
@@ -329,9 +330,9 @@ export default function MiDiaPage() {
       {todayAnalyses.length === 0 && (
         <div className="c4-empty">
           <p className="c4-empty-title">Aún no tienes llamadas hoy</p>
-          <a href="/analisis/nueva" className="btn-submit btn-terracota" style={{ textDecoration: "none", textAlign: "center", marginTop: 12 }}>
+          <Link href="/analisis/nueva" className="btn-submit btn-terracota" style={{ textDecoration: "none", textAlign: "center", marginTop: 12 }}>
             Hacer mi primera llamada del día
-          </a>
+          </Link>
         </div>
       )}
 
@@ -361,7 +362,7 @@ export default function MiDiaPage() {
               const hasDescal = codes.length > 0;
               const label = [a.prospect_name, a.prospect_zone].filter(Boolean).join(" · ") || time;
               return (
-                <a key={a.id} href={`/analisis/${a.id}`} className="c4-item">
+                <Link key={a.id} href={`/analisis/${a.id}`} className="c4-item">
                   <div className="c4-item-left">
                     <span className="c4-item-date">{label}</span>
                     <span className="c4-item-source">
@@ -377,7 +378,7 @@ export default function MiDiaPage() {
                       <span className={`c4-item-score c4-score-${a.clasificacion || "regular"}`}>{a.score_general}</span>
                     )}
                   </div>
-                </a>
+                </Link>
               );
             })}
           </div>
@@ -385,12 +386,12 @@ export default function MiDiaPage() {
       )}
 
       {/* CTA */}
-      <a href="/analisis/nueva" className="btn-submit btn-terracota" style={{ textDecoration: "none", textAlign: "center" }}>
+      <Link href="/analisis/nueva" className="btn-submit btn-terracota" style={{ textDecoration: "none", textAlign: "center" }}>
         Nueva llamada
-      </a>
+      </Link>
 
       {/* Full history link */}
-      <a href="/semana" className="c5-back-link">Ver mi semana</a>
+      <Link href="/semana" className="c5-back-link">Ver mi semana</Link>
     </div>
   );
 }

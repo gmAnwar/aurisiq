@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
 import { computeEditPercentage } from "../../../lib/text";
+import { useRecording } from "../../contexts/RecordingContext";
 
 interface GuideField { field_name: string; phrases: string[]; }
 interface GuidePhase { phase_name: string; transition?: string; fields?: GuideField[]; phrases?: string[]; }
@@ -14,7 +15,6 @@ interface LeadSource {
 }
 
 type Status = "idle" | "analyzing" | "error";
-type RecMode = "off" | "recording" | "paused" | "transcribing";
 
 interface FunnelStage {
   id: string;
@@ -27,6 +27,8 @@ function isMobile(): boolean {
 }
 
 export default function NuevaLlamadaPage() {
+  const rec = useRecording();
+
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [funnelStages, setFunnelStages] = useState<FunnelStage[]>([]);
   const [selectedSource, setSelectedSource] = useState("");
@@ -45,38 +47,19 @@ export default function NuevaLlamadaPage() {
   const [transcriptionSource, setTranscriptionSource] = useState<"manual" | "audio">("manual");
   const [editPct, setEditPct] = useState(0);
 
-  // Inline recording state
-  const [recMode, setRecMode] = useState<RecMode>("off");
-  const [recElapsed, setRecElapsed] = useState(0);
-  const [recError, setRecError] = useState("");
-  const [recLabel, setRecLabel] = useState("");
   const [mobile, setMobile] = useState(false);
   const [analysisPct, setAnalysisPct] = useState(0);
   const [analysisPhase, setAnalysisPhase] = useState("");
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [transcribePct, setTranscribePct] = useState(0);
-  const [transcribePhase, setTranscribePhase] = useState("");
-  const transcribeProgressRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [pauseCount, setPauseCount] = useState(0);
-  const [totalPausedSecs, setTotalPausedSecs] = useState(0);
-  const [hasDraft, setHasDraft] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guidePhases, setGuidePhases] = useState<GuidePhase[]>([]);
   const [guideLoading, setGuideLoading] = useState(false);
   const [missedFields, setMissedFields] = useState<string[]>([]);
   const [dailyTarget, setDailyTarget] = useState<number | null>(null);
   const [dailyDone, setDailyDone] = useState(0);
-  const pauseStartRef = useRef<number>(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
+
   const animFrameRef = useRef<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const allStreamsRef = useRef<MediaStream[]>([]);
-  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
-  const intentionalStopRef = useRef(false);
 
   const wordCount = transcription.trim().split(/\s+/).filter(Boolean).length;
   const MIN_WORDS = transcriptionSource === "audio" ? 50 : 200;
@@ -84,6 +67,19 @@ export default function NuevaLlamadaPage() {
   const AUDIO_EXTENSIONS = [".mp3", ".m4a", ".wav", ".ogg", ".opus", ".webm", ".mp4"];
   const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
 
+  // ─── Consume transcription result from recording context ──
+  useEffect(() => {
+    if (rec.transcriptionResult) {
+      setTranscription(rec.transcriptionResult.text);
+      setTranscriptionOriginal(rec.transcriptionResult.original);
+      setTranscriptionSource("audio");
+      setEditPct(0);
+      setFileMsg(rec.transcriptionResult.message);
+      rec.clearTranscriptionResult();
+    }
+  }, [rec.transcriptionResult]);
+
+  // ─── File upload transcription (independent of recording) ─
   const transcribeAudioBlob = async (blob: Blob, label?: string) => {
     if (blob.size < 1024) {
       setFileMsg("La grabación es muy corta. Intenta con un audio más largo.");
@@ -113,10 +109,7 @@ export default function NuevaLlamadaPage() {
       let text = data.text || "";
       const textWords = text.trim().split(/\s+/).filter(Boolean).length;
 
-      // Low quality: short transcription for long recording (>2 min recorded)
-      if (textWords < 50 && recElapsed > 120) {
-        setFileMsg("La calidad del audio parece baja. Revisa que el micrófono esté captando la conversación. Puedes editar la transcripción o grabar de nuevo.");
-      } else if (textWords === 0) {
+      if (textWords === 0) {
         setFileMsg("No pudimos transcribir el audio. Intenta grabar de nuevo en un lugar con menos ruido.");
         setIsTranscribing(false);
         return;
@@ -124,7 +117,6 @@ export default function NuevaLlamadaPage() {
         setFileMsg("Transcripción automática lista — revisa antes de analizar.");
       }
 
-      // Truncate if too long
       if (text.length > 15000) {
         text = text.slice(0, 15000);
         setFileMsg("La transcripción es muy larga. Se mostrarán los primeros 15,000 caracteres. Revisa que incluya las partes más importantes de la llamada.");
@@ -260,19 +252,9 @@ export default function NuevaLlamadaPage() {
       }
     }
 
-    // Check for draft recording in IndexedDB
-    checkDraft();
-
     init();
     return () => {
-      if (recTimerRef.current) clearInterval(recTimerRef.current);
-      if (transcribeProgressRef.current) clearInterval(transcribeProgressRef.current);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      releaseWakeLock();
-      // Save draft if recording is active on unmount
-      if (mediaRecorderRef.current?.state === "recording") {
-        mediaRecorderRef.current.stop(); // triggers onstop which saves chunks
-      }
     };
   }, []);
 
@@ -286,7 +268,7 @@ export default function NuevaLlamadaPage() {
     }
   }, [transcriptionSource, transcriptionOriginal]);
 
-  // ─── Inline recording ──────────────────────────────────────
+  // ─── Waveform drawing (uses analyserNode from context) ────
 
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60).toString().padStart(2, "0");
@@ -296,7 +278,7 @@ export default function NuevaLlamadaPage() {
 
   const drawWaveform = useCallback(() => {
     const canvas = canvasRef.current;
-    const analyser = analyserRef.current;
+    const analyser = rec.analyserNode;
     if (!canvas || !analyser) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -323,278 +305,23 @@ export default function NuevaLlamadaPage() {
       }
     };
     draw();
-  }, []);
+  }, [rec.analyserNode]);
 
   useEffect(() => {
-    if (recMode === "recording" && analyserRef.current && canvasRef.current) {
+    if (rec.recMode === "recording" && rec.analyserNode && canvasRef.current) {
       drawWaveform();
     }
-  }, [recMode, drawWaveform]);
-
-  // ─── Wake Lock ──────────────────────────────────────────────
-  const acquireWakeLock = async () => {
-    try {
-      if ("wakeLock" in navigator) {
-        wakeLockRef.current = await (navigator as unknown as { wakeLock: { request: (t: string) => Promise<WakeLockSentinel> } }).wakeLock.request("screen");
-      }
-    } catch { /* ignore — not supported or denied */ }
-  };
-
-  const releaseWakeLock = () => {
-    wakeLockRef.current?.release();
-    wakeLockRef.current = null;
-  };
-
-  // ─── IndexedDB Draft ───────────────────────────────────────
-  const DB_NAME = "aurisiq_drafts";
-  const STORE_NAME = "recordings";
-
-  const openDB = (): Promise<IDBDatabase> => new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => { req.result.createObjectStore(STORE_NAME); };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-
-  const saveDraft = async (blob: Blob) => {
-    try {
-      const db = await openDB();
-      const tx = db.transaction(STORE_NAME, "readwrite");
-      tx.objectStore(STORE_NAME).put(blob, "draft");
-      db.close();
-    } catch { /* ignore */ }
-  };
-
-  const loadDraft = async (): Promise<Blob | null> => {
-    try {
-      const db = await openDB();
-      return new Promise((resolve) => {
-        const tx = db.transaction(STORE_NAME, "readonly");
-        const req = tx.objectStore(STORE_NAME).get("draft");
-        req.onsuccess = () => { db.close(); resolve(req.result || null); };
-        req.onerror = () => { db.close(); resolve(null); };
-      });
-    } catch { return null; }
-  };
-
-  const deleteDraft = async () => {
-    try {
-      const db = await openDB();
-      const tx = db.transaction(STORE_NAME, "readwrite");
-      tx.objectStore(STORE_NAME).delete("draft");
-      db.close();
-      setHasDraft(false);
-    } catch { /* ignore */ }
-  };
-
-  const checkDraft = async () => {
-    const draft = await loadDraft();
-    if (draft && draft.size > 1024) setHasDraft(true);
-  };
-
-  const useDraft = async () => {
-    const draft = await loadDraft();
-    if (draft) {
-      await deleteDraft();
-      await transcribeAudioBlob(draft, "Transcribiendo grabación pendiente...");
-    }
-  };
-
-  // ─── Pause / Resume ────────────────────────────────────────
-  const pauseRecording = () => {
-    if (mediaRecorderRef.current?.state === "recording") {
-      mediaRecorderRef.current.pause();
-      if (recTimerRef.current) clearInterval(recTimerRef.current);
+    return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      pauseStartRef.current = Date.now();
-      setPauseCount(c => c + 1);
-      setRecMode("paused");
-      releaseWakeLock();
-    }
-  };
-
-  const resumeRecording = () => {
-    if (mediaRecorderRef.current?.state === "paused") {
-      mediaRecorderRef.current.resume();
-      const pausedMs = Date.now() - pauseStartRef.current;
-      setTotalPausedSecs(t => t + Math.round(pausedMs / 1000));
-      recTimerRef.current = setInterval(() => setRecElapsed(p => p + 1), 1000);
-      setRecMode("recording");
-      drawWaveform();
-      acquireWakeLock();
-    }
-  };
-
-  const startRecording = async () => {
-    setRecError("");
-    allStreamsRef.current = [];
-    try {
-      let recordStream: MediaStream;
-      let label = "";
-
-      if (mobile) {
-        // Mobile: microphone only
-        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        allStreamsRef.current.push(micStream);
-        recordStream = micStream;
-        label = "Grabando...";
-      } else {
-        // Desktop: combine microphone + system audio
-        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        allStreamsRef.current.push(micStream);
-
-        let displayStream: MediaStream | null = null;
-        try {
-          displayStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
-          displayStream.getVideoTracks().forEach(t => t.stop());
-          if (displayStream.getAudioTracks().length === 0) {
-            displayStream.getTracks().forEach(t => t.stop());
-            displayStream = null;
-          }
-        } catch {
-          displayStream = null;
-        }
-
-        if (displayStream) {
-          allStreamsRef.current.push(displayStream);
-          // Combine both streams via AudioContext
-          const audioCtx = new AudioContext();
-          const micSource = audioCtx.createMediaStreamSource(micStream);
-          const displaySource = audioCtx.createMediaStreamSource(displayStream);
-          const destination = audioCtx.createMediaStreamDestination();
-          micSource.connect(destination);
-          displaySource.connect(destination);
-          audioCtxRef.current = audioCtx;
-          recordStream = destination.stream;
-          label = "Grabando...";
-
-          // Stop recording if user ends display share
-          displayStream.getAudioTracks()[0].onended = () => {
-            if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
-          };
-        } else {
-          // Fallback: microphone only
-          setRecError("Grabación activa");
-          recordStream = micStream;
-          label = "Grabando...";
-        }
-      }
-
-      setRecLabel(label);
-
-      // Set up analyser on the stream that goes to the recorder
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new AudioContext();
-      }
-      const analyserSource = audioCtxRef.current.createMediaStreamSource(recordStream);
-      const analyser = audioCtxRef.current.createAnalyser();
-      analyser.fftSize = 256;
-      analyserSource.connect(analyser);
-      analyserRef.current = analyser;
-
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus" : "audio/mp4";
-      const recorder = new MediaRecorder(recordStream, { mimeType });
-      chunksRef.current = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-
-      recorder.onstop = () => {
-        allStreamsRef.current.forEach(s => s.getTracks().forEach(t => t.stop()));
-        allStreamsRef.current = [];
-        audioCtxRef.current?.close();
-        if (recTimerRef.current) clearInterval(recTimerRef.current);
-        if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-        analyserRef.current = null;
-        audioCtxRef.current = null;
-        releaseWakeLock();
-        const blob = new Blob(chunksRef.current, { type: mimeType });
-
-        // If page unmount (not intentional stop), save as draft
-        if (!intentionalStopRef.current && blob.size > 1024) {
-          saveDraft(blob);
-          return;
-        }
-        intentionalStopRef.current = false;
-
-        setRecMode("transcribing");
-        setTranscribePct(0);
-        setTranscribePhase("Procesando audio...");
-
-        // Simulated transcription progress
-        const tPhases = [
-          { at: 0, text: "Procesando audio..." },
-          { at: 20, text: "Transcribiendo conversación..." },
-          { at: 50, text: "Identificando participantes..." },
-          { at: 80, text: "Finalizando texto..." },
-          { at: 95, text: "Transcripción lista" },
-        ];
-        const tStart = Date.now();
-        transcribeProgressRef.current = setInterval(() => {
-          const el = (Date.now() - tStart) / 1000;
-          const p = Math.min(94, Math.floor(el * 0.8));
-          const cur = [...tPhases].reverse().find(ph => p >= ph.at);
-          if (cur) setTranscribePhase(cur.text);
-          setTranscribePct(p);
-        }, 500);
-
-        transcribeAudioBlob(blob, "Transcribiendo grabación...").then(() => {
-          if (transcribeProgressRef.current) clearInterval(transcribeProgressRef.current);
-          setTranscribePct(100);
-          setTranscribePhase("Transcripción lista");
-          setTimeout(() => setRecMode("off"), 400);
-        });
-      };
-
-      recorder.start(1000);
-      mediaRecorderRef.current = recorder;
-      setRecMode("recording");
-      setRecElapsed(0);
-      setPauseCount(0);
-      setTotalPausedSecs(0);
-      recTimerRef.current = setInterval(() => setRecElapsed(p => p + 1), 1000);
-      acquireWakeLock();
-    } catch {
-      setRecError("No pudimos acceder al micrófono. Verifica los permisos de tu navegador.");
-    }
-  };
-
-  const stopRecording = () => {
-    intentionalStopRef.current = true;
-    const state = mediaRecorderRef.current?.state;
-    if (state === "recording" || state === "paused") {
-      if (state === "paused") mediaRecorderRef.current!.resume(); // must resume before stop
-      mediaRecorderRef.current!.stop();
-    }
-  };
-
-  const cancelRecording = () => {
-    intentionalStopRef.current = true;
-    const state = mediaRecorderRef.current?.state;
-    if (state === "recording" || state === "paused") {
-      if (state === "paused") mediaRecorderRef.current!.resume();
-      mediaRecorderRef.current!.stop();
-    }
-    allStreamsRef.current.forEach(s => s.getTracks().forEach(t => t.stop()));
-    allStreamsRef.current = [];
-    if (recTimerRef.current) clearInterval(recTimerRef.current);
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    analyserRef.current = null;
-    audioCtxRef.current?.close();
-    audioCtxRef.current = null;
-    setRecMode("off");
-    setRecElapsed(0);
-    setRecError("");
-  };
+    };
+  }, [rec.recMode, rec.analyserNode, drawWaveform]);
 
   // ─── Guide drawer ──────────────────────────────────────────
 
   const openGuide = async () => {
     if (!selectedStage || !orgId) return;
     setGuideOpen(true);
-    if (guidePhases.length > 0) return; // already loaded
+    if (guidePhases.length > 0) return;
     setGuideLoading(true);
 
     // Get scorecard
@@ -623,7 +350,6 @@ export default function NuevaLlamadaPage() {
       if (Array.isArray(content.phases)) {
         setGuidePhases(content.phases as GuidePhase[]);
       } else {
-        // Old format
         setGuidePhases(Object.entries(content).map(([name, phrases]) => ({
           phase_name: name, phrases: Array.isArray(phrases) ? phrases as string[] : [],
         })));
@@ -679,7 +405,6 @@ export default function NuevaLlamadaPage() {
     setAnalysisPct(0);
     setAnalysisPhase("Enviando transcripción...");
 
-    // Simulated progress bar
     const phases = [
       { at: 0, text: "Enviando transcripción..." },
       { at: 15, text: "Analizando con IA..." },
@@ -691,7 +416,6 @@ export default function NuevaLlamadaPage() {
     const startTime = Date.now();
     progressRef.current = setInterval(() => {
       const elapsed = (Date.now() - startTime) / 1000;
-      // Advance ~1% per second up to 94%, then hold
       pct = Math.min(94, Math.floor(elapsed * 1.2));
       if (elapsed > 60) setAnalysisPhase("Tomando más de lo esperado...");
       else {
@@ -729,8 +453,8 @@ export default function NuevaLlamadaPage() {
           edit_percentage: transcriptionOriginal && transcription.trim() !== transcriptionOriginal
             ? editPct : 0,
           has_audio: transcriptionSource === "audio",
-          pause_count: pauseCount,
-          total_paused_seconds: totalPausedSecs,
+          pause_count: rec.pauseCount,
+          total_paused_seconds: rec.totalPausedSecs,
         }),
       });
 
@@ -823,51 +547,51 @@ export default function NuevaLlamadaPage() {
 
   // ─── Recording UI (replaces form while active) ─────────────
 
-  if (recMode !== "off") {
+  if (rec.recMode !== "off") {
     return (
       <div className="container ear-container">
-        {(recMode === "recording" || recMode === "paused") && (
+        {(rec.recMode === "recording" || rec.recMode === "paused") && (
           <div className="ear-recording">
             <div className="ear-rec-indicator">
-              <span className="ear-rec-dot" style={recMode === "paused" ? { animation: "none", opacity: 0.3 } : undefined} />
-              <span className="ear-rec-label">{recMode === "paused" ? "En pausa" : recLabel}</span>
+              <span className="ear-rec-dot" style={rec.recMode === "paused" ? { animation: "none", opacity: 0.3 } : undefined} />
+              <span className="ear-rec-label">{rec.recMode === "paused" ? "En pausa" : rec.recLabel}</span>
             </div>
-            <span className="ear-timer">{formatTime(recElapsed)}</span>
+            <span className="ear-timer">{formatTime(rec.recElapsed)}</span>
             <canvas ref={canvasRef} className="ear-waveform" width={280} height={60} />
-            {recElapsed > 1800 && (
+            {rec.recElapsed > 1800 && (
               <p className="ear-long-warning">Llevas más de 30 minutos grabando. Transcripciones muy largas pueden tardar más en analizar.</p>
             )}
-            {pauseCount > 0 && (
-              <span className="ear-pause-info">{pauseCount} pausa{pauseCount > 1 ? "s" : ""}</span>
+            {rec.pauseCount > 0 && (
+              <span className="ear-pause-info">{rec.pauseCount} pausa{rec.pauseCount > 1 ? "s" : ""}</span>
             )}
             <div className="ear-btn-row">
-              {recMode === "recording" ? (
-                <button className="ear-pause-btn" onClick={pauseRecording}>Pausar</button>
+              {rec.recMode === "recording" ? (
+                <button className="ear-pause-btn" onClick={rec.pauseRecording}>Pausar</button>
               ) : (
-                <button className="ear-resume-btn" onClick={resumeRecording}>Continuar</button>
+                <button className="ear-resume-btn" onClick={rec.resumeRecording}>Continuar</button>
               )}
-              <button className="ear-stop-btn" onClick={stopRecording}>
+              <button className="ear-stop-btn" onClick={rec.stopRecording}>
                 Terminar llamada
               </button>
             </div>
-            <button className="ear-retry-btn" onClick={cancelRecording}>
+            <button className="ear-retry-btn" onClick={rec.cancelRecording}>
               Cancelar
             </button>
           </div>
         )}
-        {recMode === "transcribing" && (
+        {rec.recMode === "transcribing" && (
           <div className="ear-recording">
             <div className="ear-rec-indicator">
               <span className="ear-rec-dot" style={{ animationDuration: "2s" }} />
               <span className="ear-rec-label">Procesando</span>
             </div>
-            <span className="ear-timer">{formatTime(recElapsed)}</span>
+            <span className="ear-timer">{formatTime(rec.recElapsed)}</span>
             <canvas ref={canvasRef} className="ear-waveform" width={280} height={60} />
             <div className="c2-progress-section" style={{ width: "100%", maxWidth: 320 }}>
               <div className="c2-progress-bg">
-                <div className="c2-progress-fill" style={{ width: `${transcribePct}%` }} />
+                <div className="c2-progress-fill" style={{ width: `${rec.transcribePct}%` }} />
               </div>
-              <p className="c2-progress-phase">{transcribePhase}</p>
+              <p className="c2-progress-phase">{rec.transcribePhase}</p>
             </div>
           </div>
         )}
@@ -880,12 +604,12 @@ export default function NuevaLlamadaPage() {
   return (
     <div className="container c2-container">
       {/* Draft banner */}
-      {hasDraft && (
+      {rec.hasDraft && (
         <div className="c2-draft-banner">
           <p className="c2-draft-text">Tienes una grabación pendiente</p>
           <div className="c2-draft-actions">
-            <button className="c2-draft-btn c2-draft-use" onClick={useDraft}>Transcribir</button>
-            <button className="c2-draft-btn c2-draft-discard" onClick={deleteDraft}>Descartar</button>
+            <button className="c2-draft-btn c2-draft-use" onClick={() => orgId && rec.useDraft(orgId)}>Transcribir</button>
+            <button className="c2-draft-btn c2-draft-discard" onClick={rec.deleteDraft}>Descartar</button>
           </div>
         </div>
       )}
@@ -921,7 +645,7 @@ export default function NuevaLlamadaPage() {
               </option>
             ))}
           </select>
-          {missedFields.length > 0 && !transcription && recMode === "off" && (
+          {missedFields.length > 0 && !transcription && rec.recMode === "off" && (
             <p className="c2-missed-tip">En tus últimas llamadas se te olvidó preguntar: {missedFields.join(", ")}</p>
           )}
         </div>
@@ -996,7 +720,7 @@ export default function NuevaLlamadaPage() {
             </label>
             <button
               className="c2-rec-btn"
-              onClick={startRecording}
+              onClick={() => orgId && rec.startRecording(orgId)}
               disabled={status === "analyzing" || isTranscribing || transcription.length > 0}
               type="button"
             >
@@ -1009,7 +733,7 @@ export default function NuevaLlamadaPage() {
               ? "Pon tu llamada en altavoz y presiona grabar."
               : "Selecciona la pestaña de tu llamada cuando se abra el selector."}
           </p>
-          {recError && <p className="c2-rec-error">{recError}</p>}
+          {rec.recError && <p className="c2-rec-error">{rec.recError}</p>}
           {isTranscribing && (
             <div className="c2-transcribing">
               <span className="c2-transcribing-spinner" />
@@ -1110,7 +834,7 @@ export default function NuevaLlamadaPage() {
   );
 }
 
-function GuideFieldItem({ field }: { field: GuideField }) {
+function GuideFieldItem({ field }: { field: { field_name: string; phrases: string[] } }) {
   const [expanded, setExpanded] = useState(false);
   if (!field.phrases || field.phrases.length === 0) return null;
   return (
