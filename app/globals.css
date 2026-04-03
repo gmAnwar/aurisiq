@@ -191,8 +191,8 @@ body > * { position: relative; z-index: 1; }
 
 @media (max-width: 519px) {
   .navbar {
-    top: auto;
-    bottom: 0;
+    top: 0;
+    bottom: auto;
     justify-content: space-around;
     padding: 6px 4px;
     padding-bottom: max(6px, env(safe-area-inset-bottom));
@@ -228,8 +228,8 @@ body > * { position: relative; z-index: 1; }
 @media (max-width: 519px) {
   .navbar-user-panel {
     position: fixed;
-    top: auto;
-    bottom: 0;
+    top: 0;
+    bottom: auto;
     right: 8px;
     z-index: 101;
   }
@@ -307,9 +307,10 @@ body > * { position: relative; z-index: 1; }
 /* Mobile / top-bar: menu opens DOWN-LEFT */
 @media (max-width: 519px) {
   .navbar-user-menu {
-    bottom: 100%;
+    top: 100%;
+    bottom: auto;
     right: 0;
-    margin-bottom: 6px;
+    margin-top: 6px;
   }
 }
 
@@ -381,8 +382,8 @@ body.has-nav {
 
 @media (max-width: 519px) {
   body.has-nav {
-    padding-top: 0;
-    padding-bottom: 70px;
+    padding-top: 50px;
+    padding-bottom: 0;
   }
 }
 
@@ -3766,8 +3767,11 @@ body.has-recording-bar.has-nav {
     padding-top: 44px;
   }
   body.has-recording-bar.has-nav {
-    padding-top: 44px;
-    padding-bottom: 70px;
+    padding-top: 94px; /* 50px nav + 44px bar */
+    padding-bottom: 0;
+  }
+  .recording-bar {
+    top: 50px; /* below mobile top nav */
   }
   .recording-bar {
     gap: 6px;
@@ -4218,6 +4222,10 @@ body.has-recording-bar.has-nav {
   border: none;
   cursor: pointer;
   padding: 2px 6px;
+}
+
+@media (max-width: 519px) {
+  .install-banner { display: none; }
 }
 
 .ear-upload-link {
