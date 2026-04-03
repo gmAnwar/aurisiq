@@ -72,11 +72,13 @@ export default function BibliotecaPage() {
       setStages(funnelStages);
 
       // Load published + provisional — MUST filter by organization_id
-      const { data: allSpeech } = await supabase.from("speech_versions")
+      const { data: allSpeech, error: speechErr } = await supabase.from("speech_versions")
         .select("id, content, version_number, created_at, funnel_stage_id, published, is_provisional")
         .eq("organization_id", session.organizationId)
         .eq("scorecard_id", sc.id)
         .or("published.eq.true,is_provisional.eq.true");
+
+      console.log("G5 SPEECH:", { org: session.organizationId, sc: sc.id, found: allSpeech?.length || 0, err: speechErr?.message || "none" });
 
       const byStage: Record<string, { id: string; phases: SpeechPhase[]; versionNum: number; updatedAt: string | null; isProvisional: boolean }> = {};
       for (const sv of (allSpeech || []) as SpeechRow[]) {
