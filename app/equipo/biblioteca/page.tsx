@@ -140,12 +140,11 @@ export default function BibliotecaPage() {
 
     await supabase.from("speech_versions").update({
       content,
-      is_provisional: false,
     }).eq("id", current.id);
 
     setSpeechByStage(prev => ({
       ...prev,
-      [selectedStageId!]: { ...current, phases: updatedPhases, isProvisional: false, updatedAt: new Date().toISOString() },
+      [selectedStageId!]: { ...current, phases: updatedPhases, updatedAt: new Date().toISOString() },
     }));
     setEditingField(null);
     setSaving(false);
