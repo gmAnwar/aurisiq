@@ -5,7 +5,7 @@ import Link from "next/link";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
 import { stripJson } from "../../../lib/text";
-import EditableName from "../../components/EditableName";
+import EditableField from "../../components/EditableName";
 
 interface Phase {
   phase_name: string;
@@ -112,8 +112,8 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
     load();
   }, [id]);
 
-  const handleNameSave = useCallback((newName: string) => {
-    setAnalysis(prev => prev ? { ...prev, prospect_name: newName } : prev);
+  const handleFieldSave = useCallback((field: string, val: string) => {
+    setAnalysis(prev => prev ? { ...prev, [field]: val } : prev);
   }, []);
 
   if (loading) {
@@ -152,10 +152,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
   const timeStr = date.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
   const dateStr = date.toLocaleDateString("es-MX", { day: "numeric", month: "long" });
 
-  const prospectMeta = [
-    analysis.prospect_zone,
-    analysis.property_type ? analysis.property_type.charAt(0).toUpperCase() + analysis.property_type.slice(1) : null,
-  ].filter(Boolean).join(" · ");
+  // prospectMeta removed — each field is now individually editable
 
   return (
     <div className="container c3-container">
@@ -171,8 +168,11 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
       {/* 1. PROSPECT CARD */}
       <div className="c3-prospect-card">
         <h1 className="c3-prospect-name">
-          <EditableName analysisId={analysis.id} currentName={analysis.prospect_name} onSave={handleNameSave} />
-          {prospectMeta && <span style={{ fontWeight: 400, fontSize: 14, color: "var(--ink-light)" }}> · {prospectMeta}</span>}
+          <EditableField analysisId={analysis.id} field="prospect_name" currentValue={analysis.prospect_name} placeholder="Sin nombre" onSave={(v) => handleFieldSave("prospect_name", v)} />
+          <span style={{ fontWeight: 400, fontSize: 14, color: "var(--ink-light)" }}>
+            {" · "}<EditableField analysisId={analysis.id} field="prospect_zone" currentValue={analysis.prospect_zone} placeholder="Zona" onSave={(v) => handleFieldSave("prospect_zone", v)} />
+            {" · "}<EditableField analysisId={analysis.id} field="property_type" currentValue={analysis.property_type} placeholder="Tipo" onSave={(v) => handleFieldSave("property_type", v)} />
+          </span>
         </h1>
         <p className="c3-prospect-meta">{dateStr} · {timeStr}</p>
         <div className={`c3-result-badge ${isQualified ? "c3-badge-qualified" : "c3-badge-followup"}`}>

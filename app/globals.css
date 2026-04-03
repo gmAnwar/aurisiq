@@ -1319,6 +1319,11 @@ body.has-nav {
 
 .editable-name-wrap:hover .editable-name-pencil { opacity: 1; }
 
+.editable-name-placeholder {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
 .editable-name-input {
   font-family: 'DM Sans', sans-serif;
   font-size: 14px;

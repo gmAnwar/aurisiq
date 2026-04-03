@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
-import EditableName from "../../components/EditableName";
+import EditableField from "../../components/EditableName";
 
 interface Analysis {
   id: string;
@@ -90,7 +90,7 @@ export default function HistorialPage() {
               <Link key={a.id} href={`/analisis/${a.id}`} className="c4-item">
                 <div className="c4-item-left">
                   <span className="c4-item-date">
-                    <EditableName analysisId={a.id} currentName={a.prospect_name} onSave={(n) => updateName(a.id, n)} />
+                    <EditableField analysisId={a.id} field="prospect_name" currentValue={a.prospect_name} placeholder="Sin nombre" onSave={(n) => updateName(a.id, n)} />
                     {zoneMeta}
                   </span>
                   <span className="c4-item-source">
