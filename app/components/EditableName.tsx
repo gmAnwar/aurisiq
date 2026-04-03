@@ -7,10 +7,9 @@ interface EditableNameProps {
   analysisId: string;
   currentName: string | null;
   onSave?: (newName: string) => void;
-  variant?: "heading" | "inline" | "link";
 }
 
-export default function EditableName({ analysisId, currentName, onSave, variant = "heading" }: EditableNameProps) {
+export default function EditableName({ analysisId, currentName, onSave }: EditableNameProps) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(currentName || "");
   const [saving, setSaving] = useState(false);
@@ -20,7 +19,7 @@ export default function EditableName({ analysisId, currentName, onSave, variant 
     if (editing && inputRef.current) inputRef.current.focus();
   }, [editing]);
 
-  const displayName = currentName && currentName !== "No identificado" ? currentName : null;
+  const displayName = currentName && currentName !== "No identificado" ? currentName : "Sin nombre";
 
   const save = async () => {
     const trimmed = value.trim();
@@ -48,32 +47,17 @@ export default function EditableName({ analysisId, currentName, onSave, variant 
         onKeyDown={handleKeyDown}
         disabled={saving}
         placeholder="Nombre del prospecto"
+        onClick={e => e.preventDefault()}
       />
     );
   }
 
-  if (variant === "link" && !displayName) {
-    return (
-      <button className="editable-name-add" onClick={() => { setValue(""); setEditing(true); }}>
-        Agregar nombre
-      </button>
-    );
-  }
-
-  if (variant === "heading") {
-    return (
-      <span className="editable-name-wrap" onClick={() => { setValue(displayName || ""); setEditing(true); }}>
-        {displayName || "Prospecto"}
-        <span className="editable-name-pencil">&#9998;</span>
-      </span>
-    );
-  }
-
-  // inline variant (for list items)
   return (
-    <span className="editable-name-wrap editable-name-inline" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setValue(displayName || ""); setEditing(true); }}>
-      {displayName || "Sin nombre"}
-      <span className="editable-name-pencil">&#9998;</span>
+    <span className="editable-name-wrap" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setValue(currentName || ""); setEditing(true); }}>
+      {displayName}
+      <svg className="editable-name-pencil" width="11" height="11" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M11.5 1.5a1.5 1.5 0 0 1 2.12 0l.88.88a1.5 1.5 0 0 1 0 2.12L5.5 13.5 1 15l1.5-4.5L11.5 1.5z"/>
+      </svg>
     </span>
   );
 }

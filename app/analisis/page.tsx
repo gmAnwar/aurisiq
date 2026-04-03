@@ -346,16 +346,15 @@ export default function MiDiaPage() {
                 : "Lead calificado";
               const nameKey = a.prospect_name?.toLowerCase().trim();
               const callCount = nameKey ? (prospectCounts[nameKey] || 1) : 1;
-              const hasName = a.prospect_name && a.prospect_name !== "No identificado";
-              const parts = [a.prospect_name, a.prospect_zone, a.property_type].filter(Boolean);
+              const parts = [a.prospect_zone, a.property_type].filter(Boolean);
               if (callCount > 1) parts.push(`${callCount} llamadas`);
-              const prospectLabel = parts.join(" · ") || time;
+              const metaLabel = parts.length > 0 ? ` · ${parts.join(" · ")}` : "";
               return (
                 <Link key={a.id} href={`/analisis/${a.id}`} className="c4-item">
                   <div className="c4-item-left">
                     <span className="c4-item-date">
-                      {prospectLabel}
-                      {!hasName && <> · <EditableName analysisId={a.id} currentName={a.prospect_name} onSave={(n) => updateName(a.id, n)} variant="link" /></>}
+                      <EditableName analysisId={a.id} currentName={a.prospect_name} onSave={(n) => updateName(a.id, n)} />
+                      {metaLabel}
                     </span>
                     <span className="c4-item-source">
                       {time} · {hasDescal ? (

@@ -84,15 +84,14 @@ export default function HistorialPage() {
             const codes = a.categoria_descalificacion || [];
             const qualified = codes.length === 0;
             const stageName = a.funnel_stage_id ? stages[a.funnel_stage_id] : null;
-            const hasName = a.prospect_name && a.prospect_name !== "No identificado";
-            const label = [a.prospect_name, a.prospect_zone].filter(Boolean).join(" · ") || `${dateStr} ${timeStr}`;
+            const zoneMeta = a.prospect_zone ? ` · ${a.prospect_zone}` : "";
 
             return (
               <Link key={a.id} href={`/analisis/${a.id}`} className="c4-item">
                 <div className="c4-item-left">
                   <span className="c4-item-date">
-                    {label}
-                    {!hasName && <> · <EditableName analysisId={a.id} currentName={a.prospect_name} onSave={(n) => updateName(a.id, n)} variant="link" /></>}
+                    <EditableName analysisId={a.id} currentName={a.prospect_name} onSave={(n) => updateName(a.id, n)} />
+                    {zoneMeta}
                   </span>
                   <span className="c4-item-source">
                     {dateStr} · {timeStr}

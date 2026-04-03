@@ -112,6 +112,10 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
     load();
   }, [id]);
 
+  const handleNameSave = useCallback((newName: string) => {
+    setAnalysis(prev => prev ? { ...prev, prospect_name: newName } : prev);
+  }, []);
+
   if (loading) {
     return (
       <div className="container c3-container">
@@ -148,10 +152,6 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
   const timeStr = date.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
   const dateStr = date.toLocaleDateString("es-MX", { day: "numeric", month: "long" });
 
-  const handleNameSave = useCallback((newName: string) => {
-    setAnalysis(prev => prev ? { ...prev, prospect_name: newName } : prev);
-  }, []);
-
   const prospectMeta = [
     analysis.prospect_zone,
     analysis.property_type ? analysis.property_type.charAt(0).toUpperCase() + analysis.property_type.slice(1) : null,
@@ -171,7 +171,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
       {/* 1. PROSPECT CARD */}
       <div className="c3-prospect-card">
         <h1 className="c3-prospect-name">
-          <EditableName analysisId={analysis.id} currentName={analysis.prospect_name} onSave={handleNameSave} variant="heading" />
+          <EditableName analysisId={analysis.id} currentName={analysis.prospect_name} onSave={handleNameSave} />
           {prospectMeta && <span style={{ fontWeight: 400, fontSize: 14, color: "var(--ink-light)" }}> · {prospectMeta}</span>}
         </h1>
         <p className="c3-prospect-meta">{dateStr} · {timeStr}</p>
