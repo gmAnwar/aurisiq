@@ -14,6 +14,7 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
   captadora: [
     { href: "/analisis", label: "Mi d\u00eda" },
     { href: "/semana", label: "Mi semana" },
+    { href: "/analisis/historial", label: "Mis an\u00e1lisis" },
     { href: "/speech", label: "Mi Speech" },
   ],
   gerente: [
@@ -39,6 +40,7 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
   super_admin: [
     { href: "/analisis", label: "Mi d\u00eda" },
     { href: "/semana", label: "Mi semana" },
+    { href: "/analisis/historial", label: "Mis an\u00e1lisis" },
     { href: "/speech", label: "Mi Speech" },
     { href: "/equipo", label: "Equipo" },
     { href: "/equipo/reportes", label: "Reportes" },

@@ -37,6 +37,8 @@ export default function MiDiaPage() {
   const [monthlyDone, setMonthlyDone] = useState(0);
   const [orgTz, setOrgTz] = useState("America/Monterrey");
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [ranking, setRanking] = useState<{ pos: number; total: number } | null>(null);
+  const [focusPhase, setFocusPhase] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -50,7 +52,7 @@ export default function MiDiaPage() {
           .eq("user_id", session.userId).eq("status", "completado")
           .order("created_at", { ascending: false }).limit(50),
         supabase.from("lead_sources").select("id, name").eq("organization_id", session.organizationId),
-        supabase.from("users").select("current_streak").eq("id", session.userId).single(),
+        supabase.from("users").select("current_streak, current_focus_phase").eq("id", session.userId).single(),
         supabase.from("descalification_categories").select("code, label").eq("organization_id", session.organizationId),
         supabase.from("objectives").select("target_value, type, period_type")
           .eq("organization_id", session.organizationId).eq("is_active", true)
@@ -63,6 +65,7 @@ export default function MiDiaPage() {
       const all = analysesRes.data || [];
       setAnalyses(all);
       setStreak(userRes.data?.current_streak || 0);
+      setFocusPhase(userRes.data?.current_focus_phase || null);
 
       const sm: Record<string, string> = {};
       for (const s of sourcesRes.data || []) sm[s.id] = s.name;
@@ -111,6 +114,36 @@ export default function MiDiaPage() {
         const srcAnalysis = all.find(a => a.id === topErr[1].analysisId);
         if (srcAnalysis?.siguiente_accion) {
           setTipFrase(stripJson(srcAnalysis.siguiente_accion));
+        }
+      }
+
+      // Ranking: compare avg score this week vs teammates
+      const weekAgoRank = new Date();
+      weekAgoRank.setDate(weekAgoRank.getDate() - 7);
+      const { data: teamCaptadoras } = await supabase.from("users").select("id")
+        .eq("organization_id", session.organizationId).eq("role", "captadora").eq("active", true);
+      if (teamCaptadoras && teamCaptadoras.length > 1) {
+        const ids = teamCaptadoras.map(u => u.id);
+        const { data: teamAnalyses } = await supabase.from("analyses")
+          .select("user_id, score_general")
+          .in("user_id", ids).eq("status", "completado")
+          .gte("created_at", weekAgoRank.toISOString())
+          .not("score_general", "is", null);
+        if (teamAnalyses) {
+          const avgByUser: Record<string, { sum: number; count: number }> = {};
+          for (const a of teamAnalyses) {
+            if (!avgByUser[a.user_id]) avgByUser[a.user_id] = { sum: 0, count: 0 };
+            avgByUser[a.user_id].sum += a.score_general!;
+            avgByUser[a.user_id].count++;
+          }
+          const avgs = Object.entries(avgByUser).map(([uid, v]) => ({ uid, avg: v.sum / v.count }));
+          avgs.sort((a, b) => b.avg - a.avg);
+          const myAvg = avgByUser[session.userId];
+          if (myAvg) {
+            const myScore = myAvg.sum / myAvg.count;
+            const pos = avgs.filter(a => a.avg > myScore).length + 1;
+            setRanking({ pos, total: ids.length });
+          }
         }
       }
 
@@ -246,7 +279,7 @@ export default function MiDiaPage() {
         </div>
       )}
 
-      {/* Daily stats — 3 metrics */}
+      {/* Daily stats — 3-4 metrics */}
       {todayAnalyses.length > 0 && (
         <div className="c4-stats">
           <div className="c4-stat-card">
@@ -261,6 +294,20 @@ export default function MiDiaPage() {
             <span className="c4-stat-value">{todayQualified}/{todayAnalyses.length}</span>
             <span className="c4-stat-label">Calificados</span>
           </div>
+          {ranking && (
+            <div className="c4-stat-card">
+              <span className="c4-stat-value">#{ranking.pos}</span>
+              <span className="c4-stat-label">de {ranking.total}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Focus phase — area de mejora */}
+      {focusPhase && (
+        <div className="c1-focus-card">
+          <span className="c1-focus-label">Tu enfoque esta semana</span>
+          <span className="c1-focus-phase">{focusPhase}</span>
         </div>
       )}
 
@@ -391,7 +438,7 @@ export default function MiDiaPage() {
       </Link>
 
       {/* Full history link */}
-      <Link href="/semana" className="c5-back-link">Ver mi semana</Link>
+      <Link href="/analisis/historial" className="c5-back-link">Ver todos mis análisis</Link>
     </div>
   );
 }

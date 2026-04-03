@@ -1714,6 +1714,33 @@ body.has-nav {
   border-radius: 4px;
 }
 
+/* Focus phase — area de mejora card */
+.c1-focus-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--cap-dim);
+  border: 1px solid rgba(200,120,64,0.15);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+
+.c1-focus-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-light);
+  white-space: nowrap;
+}
+
+.c1-focus-phase {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cap);
+}
+
 /* Tip card — cream-dark coach component */
 .tip-card {
   background: var(--cream-dark);
