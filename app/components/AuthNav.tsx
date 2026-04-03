@@ -7,6 +7,9 @@ import NavBar from "./NavBar";
 
 const SKIP_AUTH = process.env.NEXT_PUBLIC_SKIP_AUTH === "true";
 
+// Must match SIDEBAR_ROLES in NavBar.tsx
+const SIDEBAR_ROLES = ["gerente", "direccion", "agencia"];
+
 export default function AuthNav() {
   const [role, setRole] = useState<string | null>(null);
   const [userName, setUserName] = useState("");
@@ -19,28 +22,32 @@ export default function AuthNav() {
     if (isLoginPage) return;
 
     async function loadRole() {
+      let r = "";
       if (SKIP_AUTH) {
-        setRole("super_admin");
+        r = "super_admin";
+        setRole(r);
         setUserName("Elizabeth R.");
-        setUserEmail("elizabeth@immobili.mx");
-        document.body.classList.add("has-nav", "has-sidebar");
-        return;
-      }
+        setUserEmail("elizabeth@inmobili.demo");
+      } else {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+        const { data } = await supabase
+          .from("users")
+          .select("role, name, email")
+          .eq("id", session.user.id)
+          .single();
 
-      const { data } = await supabase
-        .from("users")
-        .select("role, name, email")
-        .eq("id", session.user.id)
-        .single();
-
-      if (data) {
-        setRole(data.role);
+        if (!data) return;
+        r = data.role;
+        setRole(r);
         setUserName(data.name || "");
         setUserEmail(data.email || session.user.email || "");
-        document.body.classList.add("has-nav", "has-sidebar");
+      }
+
+      document.body.classList.add("has-nav");
+      if (SIDEBAR_ROLES.includes(r)) {
+        document.body.classList.add("has-sidebar");
       }
     }
 

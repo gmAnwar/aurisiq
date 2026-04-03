@@ -13,7 +13,6 @@ interface NavItem {
 const NAV_BY_ROLE: Record<string, NavItem[]> = {
   captadora: [
     { href: "/analisis", label: "Mi d\u00eda" },
-    { href: "/analisis/nueva", label: "\u25cf Nueva Llamada" },
     { href: "/semana", label: "Mi semana" },
     { href: "/speech", label: "Mi Speech" },
   ],
@@ -39,7 +38,6 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
   ],
   super_admin: [
     { href: "/analisis", label: "Mi d\u00eda" },
-    { href: "/analisis/nueva", label: "\u25cf Nueva Llamada" },
     { href: "/semana", label: "Mi semana" },
     { href: "/speech", label: "Mi Speech" },
     { href: "/equipo", label: "Equipo" },
@@ -51,7 +49,9 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
   ],
 };
 
-const SIDEBAR_ROLES = ["captadora", "gerente", "direccion", "agencia", "super_admin"];
+// Roles that use sidebar layout (gerente, direccion, agencia)
+// captadora and super_admin use horizontal top bar
+const SIDEBAR_ROLES = ["gerente", "direccion", "agencia"];
 
 const roleLabels: Record<string, string> = {
   captadora: "Captadora",
@@ -60,6 +60,9 @@ const roleLabels: Record<string, string> = {
   agencia: "Agencia",
   super_admin: "Super Admin",
 };
+
+// Roles that show the "+ Nueva llamada" CTA button
+const CTA_ROLES = ["captadora", "super_admin"];
 
 const MOBILE_NAV: Record<string, NavItem[]> = {
   captadora: NAV_BY_ROLE.captadora,
@@ -95,6 +98,7 @@ export default function NavBar({ role, userName, userEmail }: NavBarProps) {
   const allItems = NAV_BY_ROLE[role] || NAV_BY_ROLE.captadora;
   const mobileItems = MOBILE_NAV[role] || allItems.slice(0, 4);
   const useSidebar = SIDEBAR_ROLES.includes(role);
+  const showCta = CTA_ROLES.includes(role);
   const initial = userName.charAt(0).toUpperCase() || "?";
 
   const handleSignOut = async () => {
@@ -110,37 +114,46 @@ export default function NavBar({ role, userName, userEmail }: NavBarProps) {
       {allItems.map((item) => {
         const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href + "/"));
         const isMobileVisible = mobileItems.some(m => m.href === item.href);
-        const isGrabar = item.href === "/analisis/nueva";
         return (
           <Link
             key={item.href}
             href={item.href}
-            className={`navbar-item ${isActive ? "navbar-active" : ""} ${!isMobileVisible ? "navbar-desktop-only" : ""} ${isGrabar ? "navbar-grabar" : ""}`}
+            className={`navbar-item ${isActive ? "navbar-active" : ""} ${!isMobileVisible ? "navbar-desktop-only" : ""}`}
           >
             {item.label}
           </Link>
         );
       })}
 
-      {/* User panel */}
-      <div className="navbar-user-panel">
-        <button className="navbar-user-btn" onClick={() => setMenuOpen(!menuOpen)}>
-          <span className="navbar-user-initial">{initial}</span>
-          <span className="navbar-user-name">{userName}</span>
-        </button>
-        {menuOpen && (
-          <>
-            <div className="navbar-user-backdrop" onClick={() => setMenuOpen(false)} />
-            <div className="navbar-user-menu">
-              <div className="navbar-menu-profile">
-                <span className="navbar-menu-name">{userName}</span>
-                <span className="navbar-menu-role">{roleLabels[role] || role}</span>
-                <span className="navbar-menu-email-text">{userEmail}</span>
+      {/* Right section: user + CTA */}
+      <div className="navbar-right">
+        {/* User panel */}
+        <div className="navbar-user-panel">
+          <button className="navbar-user-btn" onClick={() => setMenuOpen(!menuOpen)}>
+            <span className="navbar-user-initial">{initial}</span>
+            <span className="navbar-user-name">{userName}</span>
+          </button>
+          {menuOpen && (
+            <>
+              <div className="navbar-user-backdrop" onClick={() => setMenuOpen(false)} />
+              <div className="navbar-user-menu">
+                <div className="navbar-menu-profile">
+                  <span className="navbar-menu-name">{userName}</span>
+                  <span className="navbar-menu-role">{roleLabels[role] || role}</span>
+                  <span className="navbar-menu-email-text">{userEmail}</span>
+                </div>
+                <div className="navbar-menu-sep" />
+                <button className="navbar-menu-logout" onClick={handleSignOut}>Cerrar sesión</button>
               </div>
-              <div className="navbar-menu-sep" />
-              <button className="navbar-menu-logout" onClick={handleSignOut}>Cerrar sesión</button>
-            </div>
-          </>
+            </>
+          )}
+        </div>
+
+        {/* CTA button */}
+        {showCta && (
+          <Link href="/analisis/nueva" className="navbar-cta">
+            + Nueva llamada
+          </Link>
         )}
       </div>
     </nav>
