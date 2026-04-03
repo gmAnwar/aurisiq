@@ -88,7 +88,7 @@ export default function LoginPage() {
     return (
       <div className="container">
         <div className="auth-header">
-          <h1 className="auth-title">AurisIQ</h1>
+          <h1 className="auth-title">aurisIQ</h1>
           <p className="auth-subtitle">Verificando sesión...</p>
         </div>
       </div>
@@ -98,7 +98,7 @@ export default function LoginPage() {
   return (
     <div className="container">
       <div className="auth-header">
-        <h1 className="auth-title">AurisIQ</h1>
+        <h1 className="auth-title">aurisIQ</h1>
         <p className="auth-subtitle">Accede a tu cuenta</p>
       </div>
 

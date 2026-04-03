@@ -5,7 +5,7 @@ import InstallBanner from './components/InstallBanner';
 import RecordingShell from './components/RecordingShell';
 
 export const metadata: Metadata = {
-  title: 'AurisIQ',
+  title: 'aurisIQ',
   description: 'Análisis de llamadas de venta con IA',
 };
 
