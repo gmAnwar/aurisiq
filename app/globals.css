@@ -1,69 +1,72 @@
 /* =====================================================
-   RESET Y BASE — paleta oficial aurisIQ
-   Crema + Dorado + Verde oscuro
-   PROHIBIDO: morado, rosa genérico, azul marino puro
-   Tipografía: SOLO DM Sans — nunca otro font-family
+   RESET Y BASE — warm enterprise palette
+   Tipografía: DM Sans (body/labels) + Syne (headings/KPIs)
 ===================================================== */
 :root {
-  /* Paleta base */
-  --cream: #f5f0e8;
-  --cream-dark: #ede6d8;
-  --cream-mid: #e8e0cf;
-  --ink: #1a1410;
-  --ink-mid: #3a2e25;
-  --ink-light: #6b5d50;
+  /* Paleta base — warm enterprise */
+  --cream: #FAFAFA;
+  --cream-dark: #F3F4F6;
+  --cream-mid: #E5E7EB;
+  --ink: #111827;
+  --ink-mid: #374151;
+  --ink-light: #6B7280;
 
   /* Acentos principales */
   --gold: #c8a84b;
   --gold-light: #e4cc88;
   --gold-dim: rgba(200,168,75,0.15);
-  --green: #3d7a52;
-  --green-dim: rgba(61,122,82,0.1);
-  --red: #b84040;
-  --red-dim: rgba(184,64,64,0.1);
+  --green: #10B981;
+  --green-dim: rgba(16,185,129,0.1);
+  --red: #EF4444;
+  --red-dim: rgba(239,68,68,0.08);
   --orange: #b86830;
   --teal: #2a7a7a;
   --teal-dim: rgba(42,122,122,0.1);
 
   /* Acentos por rol */
   --cap: #c87840;
-  --cap-dim: rgba(200,120,64,0.15);
-  --cap-nav: #3a2e25;
+  --cap-dim: rgba(200,120,64,0.12);
+  --cap-nav: #1a1410;
   --cap-nb: #1a1410;
   --ger: #c8a84b;
   --ger-dim: rgba(200,168,75,0.12);
-  --ger-nav: #3a2e25;
+  --ger-nav: #1a1410;
   --ger-nb: #1a1410;
   --dir: #c8a84b;
-  --dir-dim: rgba(200,168,75,0.15);
-  --dir-nav: #3a2e25;
+  --dir-dim: rgba(200,168,75,0.12);
+  --dir-nav: #1a1410;
   --dir-nb: #1a1410;
   --agt: #c8a84b;
-  --agt-dim: rgba(200,168,75,0.15);
-  --agt-nav: #3a2e25;
+  --agt-dim: rgba(200,168,75,0.12);
+  --agt-nav: #1a1410;
   --agt-nb: #1a1410;
 
   /* Bordes y sombras */
-  --border: rgba(26,20,16,0.1);
-  --shadow: 0 1px 6px rgba(26,20,16,0.07);
+  --border: #E5E7EB;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08);
 
-  /* Compat aliases for existing code */
-  --background: #f5f0e8;
-  --bg2: #ffffff;
-  --bg3: #ede6d8;
-  --surface: #e8e0cf;
-  --text-main: #1a1410;
-  --text-muted: #6b5d50;
-  --text-faint: #9e8e78;
-  --button-bg: #c8a84b;
+  /* Compat aliases */
+  --background: #FAFAFA;
+  --bg2: #FFFFFF;
+  --bg3: #F3F4F6;
+  --surface: #F3F4F6;
+  --text-main: #111827;
+  --text-muted: #6B7280;
+  --text-faint: #9CA3AF;
+  --button-bg: #c87840;
   --button-text: #ffffff;
-  --button-hover: #e4cc88;
-  --error: #b84040;
-  --success-bg: rgba(61,122,82,0.1);
-  --success-text: #3d7a52;
-  --amber: #b86830;
+  --button-hover: #b06830;
+  --error: #EF4444;
+  --success-bg: rgba(16,185,129,0.1);
+  --success-text: #10B981;
+  --amber: #F59E0B;
   --terracota: #c87840;
   --terracota-hover: #b06830;
+
+  /* Score colors */
+  --score-green: #10B981;
+  --score-yellow: #F59E0B;
+  --score-red: #EF4444;
 
   /* Tipografía */
   --font-heading: 'DM Sans', sans-serif;
@@ -71,7 +74,7 @@
   --font-display: 'DM Sans', sans-serif;
   --font-mono: 'DM Sans', sans-serif;
   --font-family: 'DM Sans', sans-serif;
-  --border-radius: 10px;
+  --border-radius: 8px;
   --transition: all 0.2s ease;
 }
 
@@ -104,7 +107,7 @@ body > * { position: relative; z-index: 1; }
   gap: 2px;
   background: var(--ink);
   border-bottom: 1px solid rgba(255,255,255,0.06);
-  z-index: 100;
+  z-index: 300;
 }
 
 .navbar-brand {
@@ -255,7 +258,7 @@ body > * { position: relative; z-index: 1; }
     position: fixed;
     top: 6px;
     right: 8px;
-    z-index: 101;
+    z-index: 301;
     margin-left: 0;
   }
 }
@@ -515,9 +518,10 @@ body.has-nav {
 @media (min-width: 520px) {
   .container {
     min-height: auto;
-    background: white;
-    border-radius: 16px;
+    background: #FFFFFF;
+    border-radius: 12px;
     margin-top: 24px;
+    border: 1px solid var(--border);
     box-shadow: var(--shadow);
   }
 }
@@ -571,9 +575,9 @@ body.has-nav {
 
 .input-label {
   font-family: 'DM Sans', sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--ink-light);
 }
@@ -583,7 +587,7 @@ body.has-nav {
   padding: 10px 12px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background-color: var(--cream-dark);
+  background-color: #FFFFFF;
   font-family: 'DM Sans', sans-serif;
   font-size: 14px;
   color: var(--ink);
@@ -592,13 +596,14 @@ body.has-nav {
 }
 
 .input-field:focus {
-  border-color: var(--gold);
-  background-color: white;
+  border-color: var(--cap);
+  background-color: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(200,120,64,0.1);
 }
 
 .input-field::placeholder {
-  color: var(--ink-light);
-  font-weight: 300;
+  color: var(--text-faint);
+  font-weight: 400;
 }
 
 .input-password-wrap {
@@ -1603,23 +1608,23 @@ body.has-nav {
   flex-direction: column;
   align-items: center;
   padding: 14px 8px;
-  background: white;
-  border-radius: 10px;
-  box-shadow: var(--shadow);
+  background: #FFFFFF;
+  border-radius: 8px;
+  border: 1px solid var(--border);
 }
 
 .c4-stat-value {
   font-family: 'DM Sans', sans-serif;
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--ink);
 }
 
 .c4-stat-label {
   font-family: 'DM Sans', sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--ink-light);
   margin-top: 4px;
@@ -1629,11 +1634,11 @@ body.has-nav {
 
 .c4-list-title {
   font-family: 'DM Sans', sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--cap);
+  color: var(--ink-light);
   margin-bottom: 10px;
 }
 
@@ -1658,15 +1663,17 @@ body.has-nav {
   justify-content: space-between;
   align-items: center;
   padding: 10px 14px;
-  background: var(--cream-dark);
-  border-radius: 9px;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: 8px;
   text-decoration: none;
   color: inherit;
   transition: var(--transition);
 }
 
 .c4-item:hover {
-  background: var(--cream-mid);
+  border-color: var(--cap);
+  background: #FFFFFF;
 }
 
 .c4-item-left {
@@ -1741,19 +1748,20 @@ body.has-nav {
   color: var(--cap);
 }
 
-/* Tip card — cream-dark coach component */
+/* Tip card — coach component */
 .tip-card {
-  background: var(--cream-dark);
-  border-radius: 10px;
+  background: #FFFFFF;
+  border-radius: 8px;
   padding: 14px;
+  border: 1px solid var(--border);
   border-left: 3px solid var(--cap);
 }
 
 .tip-lbl {
   font-family: 'DM Sans', sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--cap);
   margin-bottom: 6px;
@@ -2095,10 +2103,10 @@ body.has-nav {
   margin-top: 4px;
 }
 
-.c4-score-excelente { color: var(--green); }
-.c4-score-buena { color: var(--gold); }
+.c4-score-excelente { color: var(--score-green); }
+.c4-score-buena { color: var(--score-yellow); }
 .c4-score-regular { color: var(--ink-light); }
-.c4-score-deficiente { color: var(--red); }
+.c4-score-deficiente { color: var(--score-red); }
 
 /* =============================================
    C5 — Mi Speech
@@ -2393,14 +2401,14 @@ body.has-nav {
   flex-direction: column;
   align-items: center;
   padding: 13px;
-  background: white;
-  border-radius: 10px;
-  box-shadow: var(--shadow);
+  background: #FFFFFF;
+  border-radius: 8px;
+  border: 1px solid var(--border);
 }
 
 .g1-kpi-value {
   font-family: 'DM Sans', sans-serif;
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--ink);
 }
@@ -2413,9 +2421,9 @@ body.has-nav {
 
 .g1-kpi-label {
   font-family: 'DM Sans', sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--ink-light);
   margin-top: 4px;
@@ -2426,11 +2434,11 @@ body.has-nav {
 
 .g1-section-title {
   font-family: 'DM Sans', sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--ink-light);
   margin-bottom: 12px;
 }
 
