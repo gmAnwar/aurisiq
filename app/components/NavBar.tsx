@@ -111,7 +111,13 @@ export default function NavBar({ role, userName, userEmail }: NavBarProps) {
   return (
     <nav className={`navbar ${useSidebar ? "navbar-sidebar" : ""}`}>
       <span className="navbar-brand">
-        auris<span style={{ opacity: 0.45, fontStyle: "normal" }}>IQ</span>
+        <svg className="navbar-sonar" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="16" cy="12" r="3" fill="#00C2E0" />
+          <path d="M10 6C7.2 7.6 5.5 9.6 5.5 12s1.7 4.4 4.5 6" stroke="#00C2E0" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.8" />
+          <path d="M7 4C3.4 6.2 1.5 8.8 1.5 12s1.9 5.8 5.5 8" stroke="#00C2E0" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.5" />
+          <path d="M13 8.5C12 9.3 11.2 10.5 11.2 12s.8 2.7 1.8 3.5" stroke="#00C2E0" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.9" />
+        </svg>
+        <span style={{ color: "#00C2E0" }}>auris</span><span style={{ color: "#FFFFFF" }}>IQ</span>
       </span>
       {allItems.map((item) => {
         const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href + "/"));

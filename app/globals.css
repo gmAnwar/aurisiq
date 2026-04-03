@@ -16,7 +16,7 @@
   --cream: #FFFFFF;
   --cream-dark: #F9FAFB;
   --cream-mid: #F3F4F6;
-  --ink: #060B18;
+  --ink: #111827;
   --ink-mid: #374151;
   --ink-light: #6B7280;
 
@@ -64,7 +64,7 @@
   --bg2: #FFFFFF;
   --bg3: #F9FAFB;
   --surface: #F3F4F6;
-  --text-main: #060B18;
+  --text-main: #111827;
   --text-muted: #6B7280;
   --text-faint: #9CA3AF;
   --button-bg: #00C2E0;
@@ -132,15 +132,21 @@ body > * { position: relative; z-index: 1; }
   color: var(--accent);
   margin-right: 22px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 
-.navbar-brand span { color: #FFFFFF; }
+.navbar-sonar {
+  flex-shrink: 0;
+  margin-right: 6px;
+  vertical-align: middle;
+}
 
 .navbar-item {
   font-size: 13px;
   font-weight: 500;
   font-family: 'DM Sans', sans-serif;
-  color: var(--nav-text-inactive);
+  color: rgba(255,255,255,0.75);
   padding: 5px 11px;
   border-radius: 7px;
   text-decoration: none;
