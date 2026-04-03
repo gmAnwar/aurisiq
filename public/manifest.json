@@ -4,8 +4,8 @@
   "description": "Análisis de llamadas de venta con IA",
   "start_url": "/analisis",
   "display": "standalone",
-  "background_color": "#f5f0e8",
-  "theme_color": "#1a1410",
+  "background_color": "#060B18",
+  "theme_color": "#060B18",
   "orientation": "portrait-primary",
   "icons": [
     {
