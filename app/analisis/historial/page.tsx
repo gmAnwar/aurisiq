@@ -47,6 +47,10 @@ export default function HistorialPage() {
     load();
   }, []);
 
+  const updateName = useCallback((id: string, newName: string) => {
+    setAnalyses(prev => prev.map(a => a.id === id ? { ...a, prospect_name: newName } : a));
+  }, []);
+
   if (loading) {
     return (
       <div className="container c4-container">
@@ -56,10 +60,6 @@ export default function HistorialPage() {
       </div>
     );
   }
-
-  const updateName = useCallback((id: string, newName: string) => {
-    setAnalyses(prev => prev.map(a => a.id === id ? { ...a, prospect_name: newName } : a));
-  }, []);
 
   return (
     <div className="container c4-container">
