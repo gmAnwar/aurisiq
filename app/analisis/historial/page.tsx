@@ -47,8 +47,8 @@ export default function HistorialPage() {
     load();
   }, []);
 
-  const updateName = useCallback((id: string, newName: string) => {
-    setAnalyses(prev => prev.map(a => a.id === id ? { ...a, prospect_name: newName } : a));
+  const updateField = useCallback((id: string, field: string, val: string) => {
+    setAnalyses(prev => prev.map(a => a.id === id ? { ...a, [field]: val } : a));
   }, []);
 
   if (loading) {
@@ -84,14 +84,13 @@ export default function HistorialPage() {
             const codes = a.categoria_descalificacion || [];
             const qualified = codes.length === 0;
             const stageName = a.funnel_stage_id ? stages[a.funnel_stage_id] : null;
-            const zoneMeta = a.prospect_zone ? ` · ${a.prospect_zone}` : "";
-
             return (
               <Link key={a.id} href={`/analisis/${a.id}`} className="c4-item">
                 <div className="c4-item-left">
                   <span className="c4-item-date">
-                    <EditableField analysisId={a.id} field="prospect_name" currentValue={a.prospect_name} placeholder="Sin nombre" onSave={(n) => updateName(a.id, n)} />
-                    {zoneMeta}
+                    <EditableField analysisId={a.id} field="prospect_name" currentValue={a.prospect_name} placeholder="Sin nombre" onSave={(n) => updateField(a.id, "prospect_name", n)} />
+                    {" · "}
+                    <EditableField analysisId={a.id} field="prospect_zone" currentValue={a.prospect_zone} placeholder="Zona" onSave={(n) => updateField(a.id, "prospect_zone", n)} />
                   </span>
                   <span className="c4-item-source">
                     {dateStr} · {timeStr}
