@@ -38,7 +38,7 @@ En caso de conflicto entre este CLAUDE.md y el TÉCNICO, el TÉCNICO tiene prior
 - Supabase Pro: proyecto a crear en Sesión 1.1
 
 ## Clientes activos (founders — 50 análisis/mes indefinidos)
-- Immobili Internacional — scorecards V5A + V5B — org: immobili_prod / immobili_test
+- Inmobili Internacional — scorecards V5A + V5B — org: immobili_prod / immobili_test
 - EnPagos — scorecard v1
 
 ## Decisiones cerradas — no reabrir
