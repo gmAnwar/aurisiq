@@ -37,6 +37,7 @@ const ROUTE_ROLES: Record<string, string[]> = {
   "/equipo": ["gerente", "direccion", "super_admin"],
   "/direccion": ["direccion", "super_admin"],
   "/agencia": ["agencia", "super_admin"],
+  "/admin": ["super_admin"],
 };
 
 export function getHomeForRole(role: string): string {
