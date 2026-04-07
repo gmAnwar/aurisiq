@@ -32,7 +32,7 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
       const me = { organization_id: session.organizationId };
 
       const { data: captadora } = await supabase.from("users").select("name").eq("id", id).single();
-      if (!captadora) { setError("Captadora no encontrada."); setLoading(false); return; }
+      if (!captadora) { setError("No encontrada."); setLoading(false); return; }
       setName(captadora.name);
 
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);

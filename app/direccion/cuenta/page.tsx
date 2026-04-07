@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
 import { getOrgTimezone, monthStart as getMonthStart } from "../../../lib/dates";
+import { getRoleLabel } from "../../../lib/roleLabel";
 
 interface User { id: string; name: string; email: string; role: string; last_sign_in_at: string | null; active: boolean; }
 
@@ -19,6 +20,8 @@ export default function CuentaPage() {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [orgSlug, setOrgSlug] = useState<string | null>(null);
+  const [roleLabelVendedor, setRoleLabelVendedor] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -26,6 +29,8 @@ export default function CuentaPage() {
       if (!session) return;
       const me = { organization_id: session.organizationId };
       setOrgId(session.organizationId);
+      setOrgSlug(session.organizationSlug);
+      setRoleLabelVendedor(session.roleLabelVendedor);
 
       const tz = await getOrgTimezone(me.organization_id);
       const ms = getMonthStart(tz);
@@ -86,7 +91,7 @@ export default function CuentaPage() {
   if (loading) return (<div className="g1-wrapper"><div className="g1-container"><div className="skeleton-block skeleton-title" /><div className="skeleton-block skeleton-textarea" /></div></div>);
   if (error) return (<div className="g1-wrapper"><div className="g1-container"><div className="message-box message-error"><p>{error}</p></div></div></div>);
 
-  const roleLabels: Record<string, string> = { captadora: "Captadora", gerente: "Gerente", direccion: "Dirección", agencia: "Agencia", super_admin: "Super Admin" };
+  const orgCtx = { slug: orgSlug, role_label_vendedor: roleLabelVendedor };
 
   return (
     <div className="g1-wrapper">
@@ -106,7 +111,7 @@ export default function CuentaPage() {
               <div key={u.id} className={`d4-user-row ${!u.active ? "d4-inactive" : ""}`}>
                 <span className="g1-rank-name">{u.name}</span>
                 <span className="d4-email">{u.email}</span>
-                <span className="d4-role">{roleLabels[u.role] || u.role}</span>
+                <span className="d4-role">{getRoleLabel(u.role, orgCtx)}</span>
                 <span className="d4-last-access">
                   {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString("es-MX", { day: "numeric", month: "short" }) : "Nunca"}
                 </span>
@@ -128,7 +133,7 @@ export default function CuentaPage() {
           <div className="d4-invite">
             <input className="input-field" type="email" placeholder="email@empresa.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} />
             <select className="input-field c2-select" value={inviteRole} onChange={e => setInviteRole(e.target.value)}>
-              <option value="captadora">Captadora</option>
+              <option value="captadora">{getRoleLabel("captadora", orgCtx)}</option>
               <option value="gerente">Gerente</option>
               <option value="direccion">Dirección</option>
               <option value="agencia">Agencia</option>

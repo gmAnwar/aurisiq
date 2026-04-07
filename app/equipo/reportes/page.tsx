@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
 import { getOrgTimezone, weekStart as getWeekStart } from "../../../lib/dates";
+import { getRoleLabel } from "../../../lib/roleLabel";
 
 interface Report {
   id: string;
@@ -30,12 +31,16 @@ export default function ReportesPage() {
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const [sendMsg, setSendMsg] = useState("");
+  const [orgSlug, setOrgSlug] = useState<string | null>(null);
+  const [roleLabelVendedor, setRoleLabelVendedor] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
       const session = await requireAuth(["gerente", "super_admin"]);
       if (!session) return;
       const me = { organization_id: session.organizationId };
+      setOrgSlug(session.organizationSlug);
+      setRoleLabelVendedor(session.roleLabelVendedor);
 
       const tz = await getOrgTimezone(me.organization_id);
       const ws = getWeekStart(tz);
@@ -128,7 +133,7 @@ export default function ReportesPage() {
             <h2 className="g1-section-title">Conversión por captadora — semana actual</h2>
             <div className="g1-ranking">
               <div className="a1-source-header">
-                <span>Captadora</span><span>Leads</span><span>Conv.</span><span>Tasa</span><span>Score</span>
+                <span>{getRoleLabel("captadora", { slug: orgSlug, role_label_vendedor: roleLabelVendedor })}</span><span>Leads</span><span>Conv.</span><span>Tasa</span><span>Score</span>
               </div>
               {captadoraConv.map((c, i) => (
                 <div key={i} className="a1-source-row">

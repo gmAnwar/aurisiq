@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import { getRoleLabel } from "../../lib/roleLabel";
 
 interface NavItem {
   href: string;
@@ -55,14 +56,6 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
 // captadora and super_admin use horizontal top bar
 const SIDEBAR_ROLES = ["gerente", "direccion", "agencia"];
 
-const roleLabels: Record<string, string> = {
-  captadora: "Captadora",
-  gerente: "Gerente",
-  direccion: "Dirección",
-  agencia: "Agencia",
-  super_admin: "Super Admin",
-};
-
 // Roles that show the "+ Nueva llamada" CTA button
 const CTA_ROLES = ["captadora", "super_admin"];
 
@@ -92,9 +85,11 @@ interface NavBarProps {
   role: string;
   userName: string;
   userEmail: string;
+  orgSlug?: string | null;
+  roleLabelVendedor?: string | null;
 }
 
-export default function NavBar({ role, userName, userEmail }: NavBarProps) {
+export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVendedor }: NavBarProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const allItems = NAV_BY_ROLE[role] || NAV_BY_ROLE.captadora;
@@ -102,6 +97,7 @@ export default function NavBar({ role, userName, userEmail }: NavBarProps) {
   const useSidebar = SIDEBAR_ROLES.includes(role);
   const showCta = CTA_ROLES.includes(role);
   const initial = userName.charAt(0).toUpperCase() || "?";
+  const roleLabel = getRoleLabel(role, { slug: orgSlug, role_label_vendedor: roleLabelVendedor });
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -154,7 +150,7 @@ export default function NavBar({ role, userName, userEmail }: NavBarProps) {
               <div className="navbar-user-menu">
                 <div className="navbar-menu-profile">
                   <span className="navbar-menu-name">{userName}</span>
-                  <span className="navbar-menu-role">{roleLabels[role] || role}</span>
+                  <span className="navbar-menu-role">{roleLabel}</span>
                   <span className="navbar-menu-email-text">{userEmail}</span>
                 </div>
                 <div className="navbar-menu-sep" />

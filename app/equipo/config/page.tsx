@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
+import { getRoleLabel } from "../../../lib/roleLabel";
 
 interface FunnelStage { id: string; name: string; stage_type: string; order_index: number; scorecard_id: string | null; }
 interface DescalCat { id: string; code: string; label: string; active: boolean; }
@@ -32,6 +33,8 @@ export default function ConfigPage() {
   const [notifObjective, setNotifObjective] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [orgSlug, setOrgSlug] = useState<string | null>(null);
+  const [roleLabelVendedor, setRoleLabelVendedor] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -39,6 +42,8 @@ export default function ConfigPage() {
       if (!session) return;
       setOrgId(session.organizationId);
       setUserId(session.userId);
+      setOrgSlug(session.organizationSlug);
+      setRoleLabelVendedor(session.roleLabelVendedor);
 
       const [stagesRes, catsRes, srcsRes, orgRes, objRes, funnelRes, capsRes] = await Promise.all([
         supabase.from("funnel_stages").select("id, name, stage_type, order_index, scorecard_id")
@@ -132,7 +137,8 @@ export default function ConfigPage() {
     const now = new Date();
     const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
     const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
-    const capName = captadoras.find(c => c.id === indivCaptadora)?.name || "Captadora";
+    const vendedorLabel = getRoleLabel("captadora", { slug: orgSlug, role_label_vendedor: roleLabelVendedor });
+    const capName = captadoras.find(c => c.id === indivCaptadora)?.name || vendedorLabel;
 
     const { data } = await supabase.from("objectives").insert({
       organization_id: orgId,
@@ -250,7 +256,7 @@ export default function ConfigPage() {
                     <span className="g7-item-code">
                       {o.target_value} {o.type === "volume" ? "cierres" : "pts"} / {o.period_type === "monthly" ? "mes" : o.period_type}
                       {o.target_user_id
-                        ? ` · ${captadoras.find(c => c.id === o.target_user_id)?.name || "Captadora"}`
+                        ? ` · ${captadoras.find(c => c.id === o.target_user_id)?.name || getRoleLabel("captadora", { slug: orgSlug, role_label_vendedor: roleLabelVendedor })}`
                         : " · Todo el equipo"}
                     </span>
                   </div>
@@ -287,15 +293,15 @@ export default function ConfigPage() {
           {/* Individual objectives */}
           {captadoras.length > 0 && (
             <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-              <div className="input-label" style={{ marginBottom: 10 }}>Objetivo individual por captadora</div>
+              <div className="input-label" style={{ marginBottom: 10 }}>Objetivo individual por {getRoleLabel("captadora", { slug: orgSlug, role_label_vendedor: roleLabelVendedor }).toLowerCase()}</div>
               <p className="c2-hint" style={{ marginBottom: 10 }}>
-                Si una captadora tiene objetivo individual, reemplaza el global en su pantalla Mi Día.
+                Si tiene objetivo individual, reemplaza el global en su pantalla Mi Día.
               </p>
               <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
                 <div className="g7-field-row" style={{ flex: 1, minWidth: 150 }}>
-                  <label className="input-label">Captadora</label>
+                  <label className="input-label">{getRoleLabel("captadora", { slug: orgSlug, role_label_vendedor: roleLabelVendedor })}</label>
                   <select className="input-field c2-select" value={indivCaptadora} onChange={e => setIndivCaptadora(e.target.value)}>
-                    <option value="">Selecciona captadora</option>
+                    <option value="">Selecciona {getRoleLabel("captadora", { slug: orgSlug, role_label_vendedor: roleLabelVendedor }).toLowerCase()}</option>
                     {captadoras.map(c => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}

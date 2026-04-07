@@ -4,6 +4,9 @@ export interface UserSession {
   userId: string;
   role: string;
   organizationId: string;
+  organizationSlug: string | null;
+  organizationName: string | null;
+  roleLabelVendedor: string | null;
   name: string;
 }
 
@@ -13,6 +16,9 @@ const MOCK_SESSION: UserSession = {
   userId: "mock-user-001",
   role: "super_admin",
   organizationId: "mock-org-001",
+  organizationSlug: "immobili",
+  organizationName: "Inmobili Internacional",
+  roleLabelVendedor: "Captadora",
   name: "Elizabeth R.",
 };
 
@@ -62,10 +68,40 @@ export async function getSession(): Promise<UserSession | null> {
 
   if (!userData) return null;
 
+  // Fetch organization data. Try with role_label_vendedor first; if the
+  // column doesn't exist yet (migration 014 not applied), fall back.
+  let orgSlug: string | null = null;
+  let orgName: string | null = null;
+  let roleLabelVendedor: string | null = null;
+
+  let orgRes = await supabase
+    .from("organizations")
+    .select("slug, name, role_label_vendedor")
+    .eq("id", userData.organization_id)
+    .maybeSingle();
+
+  if (orgRes.error && orgRes.error.message?.includes("role_label_vendedor")) {
+    // Column doesn't exist yet — retry without it
+    orgRes = await supabase
+      .from("organizations")
+      .select("slug, name")
+      .eq("id", userData.organization_id)
+      .maybeSingle();
+  }
+
+  if (orgRes.data) {
+    orgSlug = orgRes.data.slug || null;
+    orgName = orgRes.data.name || null;
+    roleLabelVendedor = (orgRes.data as { role_label_vendedor?: string | null }).role_label_vendedor || null;
+  }
+
   return {
     userId: session.user.id,
     role: userData.role,
     organizationId: userData.organization_id,
+    organizationSlug: orgSlug,
+    organizationName: orgName,
+    roleLabelVendedor,
     name: userData.name,
   };
 }
