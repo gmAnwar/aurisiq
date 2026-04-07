@@ -1800,6 +1800,50 @@ body.has-nav {
   border-radius: 4px;
 }
 
+/* Sample data banner — shown when user has 0 real analyses */
+.c1-sample-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(0,194,224,0.08);
+  border: 1px solid rgba(0,194,224,0.25);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.c1-sample-text {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: var(--ink);
+  flex: 1;
+  min-width: 200px;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.c1-sample-cta {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-dark);
+  background: var(--accent);
+  padding: 7px 14px;
+  border-radius: 7px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.c1-sample-cta:hover { background: var(--accent-hover); }
+
+@media (max-width: 519px) {
+  .c1-sample-banner { flex-direction: column; align-items: stretch; }
+  .c1-sample-cta { text-align: center; }
+}
+
 /* Focus phase — area de mejora card */
 .c1-focus-card {
   display: flex;

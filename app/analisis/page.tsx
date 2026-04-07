@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
 import EditableField from "../components/EditableName";
+import { getSampleAnalyses } from "../../lib/sampleData";
 import { getOrgTimezone, todayStart, monthStart as getMonthStart, todayDisplay } from "../../lib/dates";
 import { stripJson } from "../../lib/text";
 
@@ -37,9 +38,9 @@ export default function MiDiaPage() {
   const [monthlyTarget, setMonthlyTarget] = useState<number | null>(null);
   const [monthlyDone, setMonthlyDone] = useState(0);
   const [orgTz, setOrgTz] = useState("America/Monterrey");
-  const [showOnboarding, setShowOnboarding] = useState(false);
   const [ranking, setRanking] = useState<{ pos: number; total: number } | null>(null);
   const [focusPhase, setFocusPhase] = useState<string | null>(null);
+  const [usingSampleData, setUsingSampleData] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -63,7 +64,12 @@ export default function MiDiaPage() {
           .limit(1),
       ]);
 
-      const all = analysesRes.data || [];
+      const realAnalyses = analysesRes.data || [];
+      let all = realAnalyses;
+      if (realAnalyses.length === 0) {
+        all = getSampleAnalyses(session.organizationSlug);
+        setUsingSampleData(true);
+      }
       setAnalyses(all);
       setStreak(userRes.data?.current_streak || 0);
       setFocusPhase(userRes.data?.current_focus_phase || null);
@@ -148,11 +154,6 @@ export default function MiDiaPage() {
         }
       }
 
-      // Show onboarding for first-time captadoras
-      if (all.length === 0 && !localStorage.getItem("aurisiq_onboarded")) {
-        setShowOnboarding(true);
-      }
-
       setLoading(false);
     }
     load();
@@ -208,46 +209,6 @@ export default function MiDiaPage() {
     );
   }
 
-  if (showOnboarding) {
-    return (
-      <div className="container c4-container">
-        <div className="c1-onboarding">
-          <h1 className="c1-onboarding-title">Bienvenida a AurisIQ</h1>
-          <p className="c1-onboarding-sub">Tu herramienta de coaching para llamadas de captación</p>
-          <div className="c1-onboarding-steps">
-            <div className="c1-onboarding-step">
-              <span className="c1-onboarding-num">1</span>
-              <span>Graba o sube tu llamada</span>
-            </div>
-            <div className="c1-onboarding-step">
-              <span className="c1-onboarding-num">2</span>
-              <span>Recibe análisis y coaching al instante</span>
-            </div>
-            <div className="c1-onboarding-step">
-              <span className="c1-onboarding-num">3</span>
-              <span>Mejora tu score llamada a llamada</span>
-            </div>
-          </div>
-          <Link
-            href="/analisis/nueva"
-            className="btn-submit btn-terracota"
-            style={{ textDecoration: "none", textAlign: "center", width: "100%" }}
-            onClick={() => localStorage.setItem("aurisiq_onboarded", "true")}
-          >
-            Hacer mi primera llamada
-          </Link>
-          <Link
-            href="/speech"
-            className="c5-back-link"
-            onClick={() => localStorage.setItem("aurisiq_onboarded", "true")}
-          >
-            Ver mi guía de speech
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="container c4-container">
       <div className="c4-header">
@@ -255,6 +216,14 @@ export default function MiDiaPage() {
         <p className="c4-date">{todayStr}</p>
         {streak > 0 && <span className="c1-streak">{streak} día{streak > 1 ? "s" : ""} de racha</span>}
       </div>
+
+      {/* Sample data banner */}
+      {usingSampleData && (
+        <div className="c1-sample-banner">
+          <p className="c1-sample-text">Estos son datos de ejemplo — cuando analices tu primera llamada aparecerán tus resultados reales</p>
+          <Link href="/analisis/nueva" className="c1-sample-cta">Analizar primera llamada →</Link>
+        </div>
+      )}
 
       {/* Activity progress */}
       {dailyTarget !== null ? (
@@ -350,7 +319,7 @@ export default function MiDiaPage() {
               if (callCount > 1) parts.push(`${callCount} llamadas`);
               const metaLabel = parts.length > 0 ? ` · ${parts.join(" · ")}` : "";
               return (
-                <Link key={a.id} href={`/analisis/${a.id}`} className="c4-item">
+                <Link key={a.id} href={a.id.startsWith("sample-") ? "/analisis/nueva" : `/analisis/${a.id}`} className="c4-item">
                   <div className="c4-item-left">
                     <span className="c4-item-date">
                       <EditableField analysisId={a.id} field="prospect_name" currentValue={a.prospect_name} placeholder="Sin nombre" onSave={(n) => updateName(a.id, n)} />
@@ -417,7 +386,7 @@ export default function MiDiaPage() {
               const hasDescal = codes.length > 0;
               const label = [a.prospect_name, a.prospect_zone].filter(Boolean).join(" · ") || time;
               return (
-                <Link key={a.id} href={`/analisis/${a.id}`} className="c4-item">
+                <Link key={a.id} href={a.id.startsWith("sample-") ? "/analisis/nueva" : `/analisis/${a.id}`} className="c4-item">
                   <div className="c4-item-left">
                     <span className="c4-item-date">{label}</span>
                     <span className="c4-item-source">
