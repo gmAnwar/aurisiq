@@ -19,9 +19,10 @@ export default function AuthNav() {
   const pathname = usePathname();
 
   const isLoginPage = pathname === "/";
+  const isJoinPage = pathname?.startsWith("/join/") ?? false;
 
   useEffect(() => {
-    if (isLoginPage) return;
+    if (isLoginPage || isJoinPage) return;
 
     async function loadRole() {
       let r = "";
@@ -78,9 +79,9 @@ export default function AuthNav() {
     loadRole();
 
     return () => { document.body.classList.remove("has-nav", "has-sidebar"); };
-  }, [isLoginPage]);
+  }, [isLoginPage, isJoinPage]);
 
-  if (isLoginPage || !role) return null;
+  if (isLoginPage || isJoinPage || !role) return null;
 
   return <NavBar role={role} userName={userName} userEmail={userEmail} orgSlug={orgSlug} roleLabelVendedor={roleLabelVendedor} />;
 }

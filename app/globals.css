@@ -1801,6 +1801,62 @@ body.has-nav {
 }
 
 /* =============================================
+   /join/[token] — TeamLink onboarding
+   ============================================= */
+.join-wrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: var(--cream);
+}
+
+.join-card {
+  width: 100%;
+  max-width: 420px;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px 28px;
+  box-shadow: var(--shadow);
+}
+
+.join-eyebrow {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-light);
+  margin-bottom: 6px;
+}
+
+.join-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+
+.join-sub {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--ink-light);
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.join-error {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: var(--error);
+  margin: 8px 0 0 0;
+}
+
+/* =============================================
    /admin — organizations panel
    ============================================= */
 .admin-table {
