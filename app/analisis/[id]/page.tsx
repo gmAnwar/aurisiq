@@ -31,7 +31,10 @@ interface Analysis {
   prospect_name: string | null;
   prospect_zone: string | null;
   property_type: string | null;
+  business_type: string | null;
   equipment_type: string | null;
+  vehicle_interest: string | null;
+  financing_type: string | null;
   sale_reason: string | null;
   prospect_phone: string | null;
   checklist_results: ChecklistItem[] | null;
@@ -64,7 +67,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
 
       const { data: a, error: aErr } = await supabase
         .from("analyses")
-        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, equipment_type, sale_reason, prospect_phone, checklist_results, manager_note, related_analysis_id, created_at, scorecard_id")
+        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, related_analysis_id, created_at, scorecard_id")
         .eq("id", id)
         .single();
 
@@ -183,21 +186,48 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
           <EditableField analysisId={analysis.id} field="prospect_name" currentValue={analysis.prospect_name} placeholder="Sin nombre" onSave={(v) => handleFieldSave("prospect_name", v)} />
           <span style={{ fontWeight: 400, fontSize: 14, color: "var(--ink-light)" }}>
             {" · "}<EditableField analysisId={analysis.id} field="prospect_zone" currentValue={analysis.prospect_zone} placeholder="Zona" onSave={(v) => handleFieldSave("prospect_zone", v)} />
-            {" · "}<EditableField
-              analysisId={analysis.id}
-              field="property_type"
-              currentValue={analysis.property_type}
-              placeholder={vertical === "financiero" ? "Tipo de negocio" : "Tipo"}
-              onSave={(v) => handleFieldSave("property_type", v)}
-            />
-            {vertical === "financiero" && (
+            {vertical === "financiero" ? (
               <>
+                {" · "}<EditableField
+                  analysisId={analysis.id}
+                  field="business_type"
+                  currentValue={analysis.business_type}
+                  placeholder="Tipo de negocio"
+                  onSave={(v) => handleFieldSave("business_type", v)}
+                />
                 {" · "}<EditableField
                   analysisId={analysis.id}
                   field="equipment_type"
                   currentValue={analysis.equipment_type}
                   placeholder="Tipo de equipo"
                   onSave={(v) => handleFieldSave("equipment_type", v)}
+                />
+              </>
+            ) : vertical === "automotriz" ? (
+              <>
+                {" · "}<EditableField
+                  analysisId={analysis.id}
+                  field="vehicle_interest"
+                  currentValue={analysis.vehicle_interest}
+                  placeholder="Vehículo de interés"
+                  onSave={(v) => handleFieldSave("vehicle_interest", v)}
+                />
+                {" · "}<EditableField
+                  analysisId={analysis.id}
+                  field="financing_type"
+                  currentValue={analysis.financing_type}
+                  placeholder="Tipo de financiamiento"
+                  onSave={(v) => handleFieldSave("financing_type", v)}
+                />
+              </>
+            ) : (
+              <>
+                {" · "}<EditableField
+                  analysisId={analysis.id}
+                  field="property_type"
+                  currentValue={analysis.property_type}
+                  placeholder="Tipo"
+                  onSave={(v) => handleFieldSave("property_type", v)}
                 />
               </>
             )}
@@ -207,7 +237,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
         <div className={`c3-result-badge ${isQualified ? "c3-badge-qualified" : "c3-badge-followup"}`}>
           {isQualified ? "Lead calificado" : "Requiere seguimiento"}
         </div>
-        {vertical !== "financiero" && analysis.sale_reason && analysis.sale_reason !== "No mencionado" && (
+        {vertical !== "financiero" && vertical !== "automotriz" && analysis.sale_reason && analysis.sale_reason !== "No mencionado" && (
           <p className="c3-prospect-reason">Motivo de venta: {analysis.sale_reason}</p>
         )}
         {analysis.prospect_phone && (
