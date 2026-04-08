@@ -51,7 +51,7 @@ export default function MiDiaPage() {
       const [analysesRes, sourcesRes, userRes, descalRes, objRes] = await Promise.all([
         supabase.from("analyses")
           .select("id, score_general, clasificacion, created_at, fuente_lead_id, patron_error, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, manager_note")
-          .eq("user_id", session.userId).eq("status", "completado")
+          .eq("user_id", session.userId).eq("organization_id", session.organizationId).eq("status", "completado")
           .order("created_at", { ascending: false }).limit(50),
         supabase.from("lead_sources").select("id, name").eq("organization_id", session.organizationId),
         supabase.from("users").select("current_streak, current_focus_phase").eq("id", session.userId).single(),

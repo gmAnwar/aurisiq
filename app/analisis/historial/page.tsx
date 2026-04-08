@@ -30,7 +30,7 @@ export default function HistorialPage() {
       const [analysesRes, stagesRes] = await Promise.all([
         supabase.from("analyses")
           .select("id, score_general, clasificacion, created_at, funnel_stage_id, categoria_descalificacion, prospect_name, prospect_zone")
-          .eq("user_id", session.userId).eq("status", "completado")
+          .eq("user_id", session.userId).eq("organization_id", session.organizationId).eq("status", "completado")
           .order("created_at", { ascending: false }).limit(50),
         supabase.from("funnel_stages").select("id, name")
           .eq("organization_id", session.organizationId),
