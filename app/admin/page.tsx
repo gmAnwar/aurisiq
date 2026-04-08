@@ -97,6 +97,15 @@ export default function AdminPage() {
   const [pendingDeleteAnalysisId, setPendingDeleteAnalysisId] = useState<string | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
+  // Create user form
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserRole, setNewUserRole] = useState("captadora");
+  const [newUserOrgId, setNewUserOrgId] = useState("");
+  const [newUserTraining, setNewUserTraining] = useState(false);
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [lastCreatedUserLink, setLastCreatedUserLink] = useState<string | null>(null);
+
   function showToast(t: Toast) {
     setToast(t);
     if (t) setTimeout(() => setToast(null), 3000);
@@ -307,6 +316,54 @@ export default function AdminPage() {
     showToast({ type: "ok", msg: next ? "Usuario activado" : "Usuario desactivado" });
     await loadUsers();
   }
+  async function handleCreateUser() {
+    if (!newUserName.trim() || !newUserEmail.trim() || !newUserOrgId) {
+      showToast({ type: "err", msg: "Nombre, email y organización son requeridos" });
+      return;
+    }
+    setCreatingUser(true);
+    setLastCreatedUserLink(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        showToast({ type: "err", msg: "No hay sesión activa — reingresa para crear usuarios" });
+        setCreatingUser(false);
+        return;
+      }
+      const res = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: newUserName.trim(),
+          email: newUserEmail.trim().toLowerCase(),
+          role: newUserRole,
+          organization_id: newUserOrgId,
+          training_mode: newUserTraining,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        showToast({ type: "err", msg: body.error || "Error creando usuario" });
+        setCreatingUser(false);
+        return;
+      }
+      showToast({ type: "ok", msg: "Usuario creado — invitación enviada por email" });
+      setLastCreatedUserLink(body.action_link || null);
+      setNewUserName("");
+      setNewUserEmail("");
+      setNewUserRole("captadora");
+      setNewUserTraining(false);
+      await loadUsers();
+    } catch (e) {
+      showToast({ type: "err", msg: e instanceof Error ? e.message : "Error de red" });
+    }
+    setCreatingUser(false);
+  }
+
   async function toggleTrainingMode(u: UserRow) {
     const next = !u.training_mode;
     const { error: e } = await supabase.from("users").update({ training_mode: next }).eq("id", u.id);
@@ -551,6 +608,68 @@ export default function AdminPage() {
         {/* ===== Section 3: Usuarios ===== */}
         <div className="g1-section" id="sec-users">
           <h2 className="g1-section-title">Usuarios ({filteredUsers.length})</h2>
+
+          {/* Crear usuario */}
+          <div style={{ border: "1px solid #e5e5e5", borderRadius: 8, padding: 16, marginBottom: 20 }}>
+            <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 15, fontWeight: 600 }}>Crear usuario nuevo</h3>
+            {lastCreatedUserLink && (
+              <div className="admin-created-box" style={{ marginBottom: 12 }}>
+                <p className="admin-created-title">Link de invitación (respaldo):</p>
+                <div className="admin-created-link-row">
+                  <input className="input-field" readOnly value={lastCreatedUserLink} />
+                  <button
+                    className="btn-submit"
+                    style={{ marginTop: 0, flex: "none", padding: "10px 16px" }}
+                    onClick={() => { navigator.clipboard.writeText(lastCreatedUserLink).catch(() => {}); showToast({ type: "ok", msg: "Link copiado" }); }}
+                  >
+                    Copiar
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="admin-form" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div className="input-group">
+                <label className="input-label">Nombre</label>
+                <input className="input-field" value={newUserName} onChange={e => setNewUserName(e.target.value)} placeholder="Elizabeth R." />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Email</label>
+                <input className="input-field" type="email" value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} placeholder="usuario@empresa.com" />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Rol</label>
+                <select className="input-field c2-select" value={newUserRole} onChange={e => setNewUserRole(e.target.value)}>
+                  <option value="captadora">Captadora</option>
+                  <option value="gerente">Gerente</option>
+                  <option value="direccion">Dirección</option>
+                  <option value="agencia">Agencia</option>
+                </select>
+              </div>
+              <div className="input-group">
+                <label className="input-label">Organización</label>
+                <select className="input-field c2-select" value={newUserOrgId} onChange={e => setNewUserOrgId(e.target.value)}>
+                  <option value="">— Selecciona org —</option>
+                  {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </select>
+              </div>
+              <div className="input-group" style={{ gridColumn: "1 / -1" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                  <input type="checkbox" checked={newUserTraining} onChange={e => setNewUserTraining(e.target.checked)} />
+                  <span>Modo capacitación (permite cambiar de rol en la app)</span>
+                </label>
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <button
+                  className="btn-submit"
+                  onClick={handleCreateUser}
+                  disabled={creatingUser || !newUserName || !newUserEmail || !newUserOrgId}
+                >
+                  {creatingUser ? "Creando..." : "Crear usuario y enviar invitación"}
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="input-group" style={{ maxWidth: 320 }}>
             <label className="input-label">Filtrar por organización</label>
             <select className="input-field c2-select" value={userOrgFilter} onChange={e => setUserOrgFilter(e.target.value)}>
