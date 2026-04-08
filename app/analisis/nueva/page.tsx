@@ -43,6 +43,7 @@ export default function NuevaLlamadaPage() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcriptionOriginal, setTranscriptionOriginal] = useState<string | null>(null);
   const [transcriptionSource, setTranscriptionSource] = useState<"manual" | "audio">("manual");
@@ -209,6 +210,7 @@ export default function NuevaLlamadaPage() {
       const effectiveOrgId = getActiveOrgId() || session.organizationId;
       setUserId(session.userId);
       setOrgId(effectiveOrgId);
+      setIsSuperAdmin(session.realRole === "super_admin");
 
       const [sourcesRes, stagesRes] = await Promise.all([
         supabase.from("lead_sources").select("id, name")
@@ -467,25 +469,44 @@ export default function NuevaLlamadaPage() {
     }, 500);
 
     try {
-      const { data: scorecard } = await supabase
-        .from("scorecards")
-        .select("id")
-        .or(`organization_id.eq.${orgId},organization_id.is.null`)
-        .eq("active", true)
-        .order("organization_id", { ascending: false, nullsFirst: false })
-        .limit(1)
-        .single();
+      // Super_admin may have an admin_active_org_id different from
+      // their profile org. Always read it fresh at submit and send
+      // it to the Worker instead of the profile org.
+      const submitOrgId = isSuperAdmin ? (getActiveOrgId() || orgId) : orgId;
 
-      if (!scorecard) throw new Error("scorecard");
+      let scorecardId: string | null = null;
+      if (isSuperAdmin) {
+        // RLS prevents the client from reading another org's scorecard;
+        // fetch via the super_admin service-role endpoint.
+        const { data: { session: s } } = await supabase.auth.getSession();
+        const token = s?.access_token;
+        const scRes = await fetch(`/api/admin/scorecard?organization_id=${encodeURIComponent(submitOrgId || "")}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const scBody = await scRes.json();
+        if (!scRes.ok || !scBody.scorecard?.id) throw new Error("scorecard");
+        scorecardId = scBody.scorecard.id;
+      } else {
+        const { data: scorecard } = await supabase
+          .from("scorecards")
+          .select("id")
+          .or(`organization_id.eq.${submitOrgId},organization_id.is.null`)
+          .eq("active", true)
+          .order("organization_id", { ascending: false, nullsFirst: false })
+          .limit(1)
+          .single();
+        if (!scorecard) throw new Error("scorecard");
+        scorecardId = scorecard.id;
+      }
 
       const res = await fetch(WORKER_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           transcription: transcription.trim(),
-          scorecard_id: scorecard.id,
+          scorecard_id: scorecardId,
           user_id: userId,
-          organization_id: orgId,
+          organization_id: submitOrgId,
           fuente_lead_id: selectedSource,
           funnel_stage_id: selectedStage || null,
           prospect_phone: prospectPhone.trim() || null,
@@ -515,7 +536,7 @@ export default function NuevaLlamadaPage() {
           const statusRes = await fetch(WORKER_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "status", analysis_id: analysisId, organization_id: orgId }),
+            body: JSON.stringify({ action: "status", analysis_id: analysisId, organization_id: submitOrgId }),
           });
           const statusData = await statusRes.json();
 
