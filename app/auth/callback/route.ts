@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://ekvvsosbwkfyhawywgpn.supabase.co";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+import { getServerSupabase } from "../../../lib/supabase-server";
 
 const ROLE_HOME: Record<string, string> = {
   captadora: "/analisis",
@@ -26,7 +23,7 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${origin}/auth/set-password?code=${encodeURIComponent(code)}`);
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabase = await getServerSupabase();
     const { data } = await supabase.auth.exchangeCodeForSession(code);
 
     if (data?.session?.user?.id) {

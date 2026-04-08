@@ -1,46 +1,14 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+import { getServiceSupabase, requireSuperAdmin } from "../../../../lib/supabase-server";
 
 const VALID_ROLES = ["captadora", "gerente", "direccion", "agencia"];
 
 export async function POST(req: Request) {
   try {
-    if (!SUPABASE_SERVICE_ROLE_KEY) {
-      return NextResponse.json(
-        { error: "SUPABASE_SERVICE_ROLE_KEY no está configurado en el entorno del servidor" },
-        { status: 500 }
-      );
-    }
+    const auth = await requireSuperAdmin(req);
+    if (auth instanceof Response) return auth;
 
-    // Verify caller is an authenticated super_admin
-    const authHeader = req.headers.get("authorization") || "";
-    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-    if (!token) {
-      return NextResponse.json({ error: "Missing Authorization header" }, { status: 401 });
-    }
-
-    const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const { data: userRes, error: userErr } = await anonClient.auth.getUser(token);
-    if (userErr || !userRes?.user) {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-    }
-
-    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-
-    const { data: callerRow, error: callerErr } = await admin
-      .from("users")
-      .select("role")
-      .eq("id", userRes.user.id)
-      .single();
-    if (callerErr || callerRow?.role !== "super_admin") {
-      return NextResponse.json({ error: "Forbidden — super_admin only" }, { status: 403 });
-    }
+    const admin = getServiceSupabase();
 
     // Parse body
     const body = await req.json();
