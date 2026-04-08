@@ -4,28 +4,69 @@ import { getServiceSupabase, requireSuperAdmin } from "../../../../lib/supabase-
 const VALID_ROLES = ["captadora", "gerente", "direccion", "agencia", "super_admin"];
 
 export async function POST(req: Request) {
+  const log = (...args: unknown[]) => console.log("[admin/create-user]", ...args);
+  const errLog = (...args: unknown[]) => console.error("[admin/create-user]", ...args);
+
+  // Quick env diagnostics
+  const envDiag = {
+    has_url: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    has_anon: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    has_service_role: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    service_role_len: (process.env.SUPABASE_SERVICE_ROLE_KEY || "").length,
+  };
+  log("env diag", envDiag);
+
   try {
     const auth = await requireSuperAdmin(req);
-    if (auth instanceof Response) return auth;
+    if (auth instanceof Response) {
+      errLog("auth failed", auth.status);
+      return auth;
+    }
+    log("auth ok user_id=", auth.userId);
 
-    const admin = getServiceSupabase();
+    let admin;
+    try {
+      admin = getServiceSupabase();
+    } catch (e) {
+      errLog("service role init failed", e);
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : "service role init failed", env: envDiag },
+        { status: 500 }
+      );
+    }
 
     // Parse body
-    const body = await req.json();
-    const name = (body.name || "").trim();
-    const email = (body.email || "").trim().toLowerCase();
-    const role = body.role;
-    const organizationId = body.organization_id;
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch (e) {
+      errLog("invalid json body", e);
+      return NextResponse.json({ error: "Body JSON inválido" }, { status: 400 });
+    }
+    log("body received", {
+      name: body.name,
+      email: body.email,
+      role: body.role,
+      organization_id: body.organization_id,
+      training_mode: body.training_mode,
+    });
+
+    const name = String(body.name || "").trim();
+    const email = String(body.email || "").trim().toLowerCase();
+    const role = body.role as string | undefined;
+    const organizationId = body.organization_id as string | undefined;
     const trainingMode = !!body.training_mode;
 
     if (!name || !email || !role || !organizationId) {
+      errLog("missing fields", { name, email, role, organizationId });
       return NextResponse.json(
-        { error: "name, email, role y organization_id son requeridos" },
+        { error: "name, email, role y organization_id son requeridos", received: { name, email, role, organizationId } },
         { status: 400 }
       );
     }
     if (!VALID_ROLES.includes(role)) {
-      return NextResponse.json({ error: "Rol inválido" }, { status: 400 });
+      errLog("invalid role", role);
+      return NextResponse.json({ error: `Rol inválido: ${role}` }, { status: 400 });
     }
 
     // Verify org exists
@@ -35,22 +76,44 @@ export async function POST(req: Request) {
       .eq("id", organizationId)
       .single();
     if (orgErr || !org) {
-      return NextResponse.json({ error: "Organización no encontrada" }, { status: 400 });
+      errLog("org lookup failed", orgErr, "org_id=", organizationId);
+      return NextResponse.json(
+        { error: "Organización no encontrada", detail: orgErr?.message || null },
+        { status: 400 }
+      );
     }
+    log("org verified", organizationId);
 
     // Create the auth user via invite (sends welcome email automatically)
+    log("calling inviteUserByEmail", email);
     const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { name, role, organization_id: organizationId },
     });
 
     if (inviteErr || !invited?.user) {
+      errLog("inviteUserByEmail failed", {
+        message: inviteErr?.message,
+        status: (inviteErr as unknown as { status?: number })?.status,
+        code: (inviteErr as unknown as { code?: string })?.code,
+        name: inviteErr?.name,
+      });
       return NextResponse.json(
-        { error: "Error creando usuario en auth: " + (inviteErr?.message || "unknown") },
+        {
+          error: "inviteUserByEmail falló: " + (inviteErr?.message || "sin mensaje"),
+          detail: {
+            message: inviteErr?.message || null,
+            status: (inviteErr as unknown as { status?: number })?.status ?? null,
+            code: (inviteErr as unknown as { code?: string })?.code ?? null,
+            name: inviteErr?.name || null,
+          },
+          env: envDiag,
+        },
         { status: 500 }
       );
     }
 
     const newUserId = invited.user.id;
+    log("invite ok user_id=", newUserId);
 
     // Insert profile row in public.users
     const { error: insertErr } = await admin.from("users").insert({
@@ -64,23 +127,27 @@ export async function POST(req: Request) {
     });
 
     if (insertErr) {
-      // Try to roll back the auth user to avoid orphans
-      await admin.auth.admin.deleteUser(newUserId).catch(() => {});
+      errLog("insert profile failed — rolling back auth user", insertErr);
+      await admin.auth.admin.deleteUser(newUserId).catch(err => errLog("rollback failed", err));
       return NextResponse.json(
-        { error: "Error insertando perfil: " + insertErr.message },
+        { error: "Error insertando perfil: " + insertErr.message, detail: insertErr },
         { status: 500 }
       );
     }
+    log("profile inserted", newUserId);
 
     // Generate a magic/invite link we can show to the admin as backup
     let actionLink: string | null = null;
     try {
-      const { data: linkData } = await admin.auth.admin.generateLink({
+      const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
         type: "invite",
         email,
       });
+      if (linkErr) errLog("generateLink warning", linkErr);
       actionLink = linkData?.properties?.action_link || null;
-    } catch { /* ignore */ }
+    } catch (e) {
+      errLog("generateLink exception", e);
+    }
 
     return NextResponse.json({
       ok: true,
@@ -89,7 +156,11 @@ export async function POST(req: Request) {
       action_link: actionLink,
     });
   } catch (e) {
+    errLog("unhandled exception", e);
     const msg = e instanceof Error ? e.message : "unknown error";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json(
+      { error: msg, stack: e instanceof Error ? e.stack : null, env: envDiag },
+      { status: 500 }
+    );
   }
 }

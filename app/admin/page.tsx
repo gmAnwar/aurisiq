@@ -328,7 +328,9 @@ export default function AdminPage() {
       });
       const body = await res.json();
       if (!res.ok) {
-        showToast({ type: "err", msg: body.error || "Error creando usuario" });
+        const detail = body.detail ? ` (${JSON.stringify(body.detail)})` : "";
+        showToast({ type: "err", msg: (body.error || "Error creando usuario") + detail });
+        console.error("[create-user] failed", body);
         setCreatingUser(false);
         return;
       }
