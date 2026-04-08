@@ -37,6 +37,12 @@ interface AnalysisRow {
   created_at: string;
 }
 
+interface MembershipRow {
+  id: string;
+  organization_id: string;
+  role: string;
+}
+
 interface SpeechVersionRow {
   id: string;
   organization_id: string;
@@ -108,7 +114,6 @@ export default function AdminPage() {
   const [newUserErrors, setNewUserErrors] = useState<{ name?: string; email?: string; org?: string }>({});
 
   // Memberships panel (per-user)
-  interface MembershipRow { id: string; organization_id: string; role: string; }
   const [openUserMembershipsId, setOpenUserMembershipsId] = useState<string | null>(null);
   const [userMemberships, setUserMemberships] = useState<MembershipRow[]>([]);
   const [membershipsLoading, setMembershipsLoading] = useState(false);
@@ -121,18 +126,25 @@ export default function AdminPage() {
   }
 
   const loadAllData = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-    if (!token) { setError("Sin sesión activa"); return; }
-    const res = await fetch("/api/admin/data", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const body = await res.json();
-    if (!res.ok) { setError(body.error || "Error cargando datos"); return; }
-    setOrgs((body.orgs || []) as Organization[]);
-    setUsers((body.users || []) as UserRow[]);
-    setAnalyses((body.analyses || []) as AnalysisRow[]);
-    setSpeechVersions((body.speech_versions || []) as SpeechVersionRow[]);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) { setError("Sin sesión activa"); return; }
+      const res = await fetch("/api/admin/data", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(body.error || `Error cargando datos (HTTP ${res.status})`);
+        return;
+      }
+      setOrgs((body.orgs || []) as Organization[]);
+      setUsers((body.users || []) as UserRow[]);
+      setAnalyses((body.analyses || []) as AnalysisRow[]);
+      setSpeechVersions((body.speech_versions || []) as SpeechVersionRow[]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error de red cargando datos");
+    }
   }, []);
 
   const loadOrgs = loadAllData;
@@ -144,8 +156,11 @@ export default function AdminPage() {
     async function load() {
       const session = await requireAuth(["super_admin"]);
       if (!session) return;
-      await loadAllData();
-      setLoading(false);
+      try {
+        await loadAllData();
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, [loadAllData]);
