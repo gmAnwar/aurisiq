@@ -84,29 +84,65 @@ export default function SpeechPage() {
         .eq("organization_id", session.organizationId)
         .or("published.eq.true,is_provisional.eq.true");
 
-      const byStage: Record<string, StageSpeech> = {};
-      for (const sv of allSpeech || []) {
-        const key = sv.funnel_stage_id || "_global";
-        if (byStage[key] && !byStage[key].isProvisional) continue;
-        byStage[key] = {
-          phases: parseSpeechContent(sv.content),
-          versionNumber: sv.version_number,
-          lastUpdated: sv.created_at,
-          isProvisional: sv.is_provisional && !sv.published,
-        };
+      // Build resolution priority:
+      //   1. Published speech for a specific stage — always wins for that stage
+      //   2. Published org-wide speech (funnel_stage_id = null) — fallback
+      //      for any stage that has no published stage-specific speech.
+      //      IMPORTANT: this also beats provisional stage speeches, so if
+      //      an org has a published global, orphan provisionals never show.
+      //   3. Provisional stage speech — only shows if neither of the above
+      //      exists for that stage.
+      //   4. Provisional org-wide speech — last resort, applied as fallback
+      //      to stages without anything.
+      type RawSpeech = {
+        id: string;
+        content: unknown;
+        version_number: number;
+        created_at: string;
+        funnel_stage_id: string | null;
+        published: boolean;
+        is_provisional: boolean;
+      };
+      const stageToSpeech = (sv: RawSpeech): StageSpeech => ({
+        phases: parseSpeechContent(sv.content),
+        versionNumber: sv.version_number,
+        lastUpdated: sv.created_at,
+        isProvisional: sv.is_provisional && !sv.published,
+      });
+
+      const publishedByStage: Record<string, RawSpeech> = {};
+      const provisionalByStage: Record<string, RawSpeech> = {};
+      let publishedGlobal: RawSpeech | null = null;
+      let provisionalGlobal: RawSpeech | null = null;
+
+      for (const sv of (allSpeech || []) as RawSpeech[]) {
+        if (sv.funnel_stage_id === null) {
+          if (sv.published) publishedGlobal = sv;
+          else if (sv.is_provisional && !provisionalGlobal) provisionalGlobal = sv;
+          continue;
+        }
+        const stageKey = sv.funnel_stage_id;
+        if (sv.published) publishedByStage[stageKey] = sv;
+        else if (sv.is_provisional && !publishedByStage[stageKey]) provisionalByStage[stageKey] = sv;
       }
 
-      // If a global speech exists (funnel_stage_id = null), use it as the
-      // fallback for any stage that doesn't have its own stage-specific speech.
-      // EnPagos currently has a single org-wide published speech.
-      const globalSpeech = byStage["_global"];
-      if (globalSpeech) {
-        for (const stage of funnelStages) {
-          if (!byStage[stage.id]) {
-            byStage[stage.id] = globalSpeech;
-          }
+      const byStage: Record<string, StageSpeech> = {};
+      for (const stage of funnelStages) {
+        if (publishedByStage[stage.id]) {
+          byStage[stage.id] = stageToSpeech(publishedByStage[stage.id]);
+        } else if (publishedGlobal) {
+          byStage[stage.id] = stageToSpeech(publishedGlobal);
+        } else if (provisionalByStage[stage.id]) {
+          byStage[stage.id] = stageToSpeech(provisionalByStage[stage.id]);
+        } else if (provisionalGlobal) {
+          byStage[stage.id] = stageToSpeech(provisionalGlobal);
         }
       }
+
+      // Expose the global speech under "_global" key for legacy UI paths
+      if (publishedGlobal) byStage["_global"] = stageToSpeech(publishedGlobal);
+      else if (provisionalGlobal) byStage["_global"] = stageToSpeech(provisionalGlobal);
+
       setSpeechByStage(byStage);
 
       if (funnelStages.length > 0) {
