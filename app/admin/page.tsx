@@ -947,7 +947,7 @@ export default function AdminPage() {
                   <span>{userName(a.user_id)}</span>
                   <span>{a.score_general ?? "—"}</span>
                   <span>{a.clasificacion || "—"}</span>
-                  <span>{a.created_at.slice(0, 10)}</span>
+                  <span>{a.created_at ? a.created_at.slice(0, 10) : "—"}</span>
                   <span>{a.status || "—"}</span>
                   <span>
                     <button className="admin-copy-btn" onClick={() => requestDeleteAnalysis(a.id)}>Eliminar</button>
@@ -1001,7 +1001,7 @@ export default function AdminPage() {
                     {s.published ? "Sí" : "No"}
                   </span>
                 </span>
-                <span>{s.created_at.slice(0, 10)}</span>
+                <span>{s.created_at ? s.created_at.slice(0, 10) : "—"}</span>
                 <span>{firstPhaseOf(s.content)}</span>
                 <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {s.published && (
