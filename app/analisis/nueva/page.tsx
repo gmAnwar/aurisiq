@@ -85,8 +85,8 @@ export default function NuevaLlamadaPage() {
       setFileMsg("La grabación es muy corta. Intenta con un audio más largo.");
       return;
     }
-    if (blob.size > 10 * 1024 * 1024) {
-      setFileMsg("El audio excede 10MB. Intenta con un archivo más corto.");
+    if (blob.size > 25 * 1024 * 1024) {
+      setFileMsg("El audio excede 25MB. Intenta con un archivo más corto.");
       return;
     }
     setIsTranscribing(true);

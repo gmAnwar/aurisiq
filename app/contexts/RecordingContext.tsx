@@ -152,7 +152,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   // ─── Transcription ────────────────────────────────────────
   const transcribeAudioBlob = async (blob: Blob, elapsed: number, orgId: string): Promise<TranscriptionResult | null> => {
     if (blob.size < 1024) return null;
-    if (blob.size > 10 * 1024 * 1024) return null;
+    if (blob.size > 25 * 1024 * 1024) return null;
 
     try {
       const base64 = await new Promise<string>((resolve, reject) => {

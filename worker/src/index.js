@@ -20,7 +20,7 @@ const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 const STALE_JOB_MINUTES = 5;
 const ASSEMBLYAI_URL = 'https://api.assemblyai.com/v2';
-const MAX_AUDIO_BYTES = 10 * 1024 * 1024; // 10MB
+const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // 25MB
 
 // ─── Helpers ───────────────────────────────────────────────
 
@@ -714,7 +714,7 @@ async function handleTranscribe(body, env, origin) {
   }
 
   if (bytes.length > MAX_AUDIO_BYTES) {
-    return jsonResponse({ error: 'Audio exceeds 10MB limit' }, 400, origin);
+    return jsonResponse({ error: 'Audio exceeds 25MB limit' }, 400, origin);
   }
 
   // Upload audio to AssemblyAI
