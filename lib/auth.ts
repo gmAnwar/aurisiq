@@ -126,11 +126,12 @@ export async function getSession(): Promise<UserSession | null> {
   const trainingRole = trainingMode ? getTrainingRole() : null;
   const effectiveRole = trainingRole || realRole;
 
-  // Any multi-org user (including super_admin) can override the active
-  // org via admin_active_org_id. Access is gated server-side by RLS.
+  // super_admin: override organization with admin_active_org_id if set
   let effectiveOrgId = userData.organization_id;
-  const activeOrg = getActiveOrgId();
-  if (activeOrg) effectiveOrgId = activeOrg;
+  if (realRole === "super_admin") {
+    const activeOrg = getActiveOrgId();
+    if (activeOrg) effectiveOrgId = activeOrg;
+  }
 
   // Fetch organization data. Try with role_label_vendedor first; if the
   // column doesn't exist yet (migration 014 not applied), fall back.

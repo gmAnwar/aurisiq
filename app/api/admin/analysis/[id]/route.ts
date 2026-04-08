@@ -1,38 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServiceSupabase, requireSuperAdmin } from "../../../../../lib/supabase-server";
 
-export async function DELETE(
-  req: Request,
-  context: { params: Promise<{ id: string }> }
-) {
-  try {
-    const auth = await requireSuperAdmin(req);
-    if (auth instanceof Response) return auth;
-
-    const { id } = await context.params;
-    if (!id) {
-      return NextResponse.json({ error: "Missing analysis id" }, { status: 400 });
-    }
-
-    const admin = getServiceSupabase();
-
-    // Cascade rows that aren't covered by an ON DELETE CASCADE on the
-    // analyses FK (analysis_phases + analysis_jobs point back by id).
-    await admin.from("analysis_phases").delete().eq("analysis_id", id);
-    await admin.from("analysis_jobs").delete().eq("analysis_id", id);
-
-    const { error } = await admin.from("analyses").delete().eq("id", id);
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ ok: true });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "unknown error";
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
-}
-
 export async function GET(
   req: Request,
   context: { params: Promise<{ id: string }> }
