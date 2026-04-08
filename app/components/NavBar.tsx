@@ -49,6 +49,7 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
     { href: "/direccion", label: "Resumen" },
     { href: "/direccion/cuenta", label: "Cuenta" },
     { href: "/agencia", label: "Calidad" },
+    { href: "/admin", label: "Admin" },
   ],
 };
 
@@ -78,6 +79,7 @@ const MOBILE_NAV: Record<string, NavItem[]> = {
     { href: "/equipo", label: "Equipo" },
     { href: "/direccion", label: "Resumen" },
     { href: "/agencia", label: "Calidad" },
+    { href: "/admin", label: "Admin" },
   ],
 };
 
