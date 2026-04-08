@@ -467,9 +467,13 @@ export default function AdminPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const res = await fetch(`/api/admin/analysis/${targetId}`, {
-        method: "DELETE",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      const res = await fetch(`/api/admin/delete-analysis`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ analysis_id: targetId }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
