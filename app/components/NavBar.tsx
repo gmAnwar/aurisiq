@@ -89,6 +89,9 @@ interface NavBarProps {
   roleLabelVendedor?: string | null;
   trainingMode?: boolean;
   onTrainingRoleChange?: (role: string) => void;
+  orgOptions?: { id: string; name: string }[];
+  activeOrgId?: string | null;
+  onActiveOrgChange?: (orgId: string) => void;
 }
 
 const TRAINING_ROLE_OPTIONS: { value: string; label: string }[] = [
@@ -97,7 +100,7 @@ const TRAINING_ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: "direccion", label: "Dirección" },
 ];
 
-export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVendedor, trainingMode, onTrainingRoleChange }: NavBarProps) {
+export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVendedor, trainingMode, onTrainingRoleChange, orgOptions, activeOrgId, onActiveOrgChange }: NavBarProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [showPwdForm, setShowPwdForm] = useState(false);
@@ -173,6 +176,35 @@ export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVe
           <Link href="/analisis/nueva" className="navbar-cta">
             + Nueva llamada
           </Link>
+        )}
+
+        {/* super_admin org selector */}
+        {role === "super_admin" && orgOptions && orgOptions.length > 0 && (
+          <select
+            className="navbar-org-select"
+            value={activeOrgId || ""}
+            onChange={e => onActiveOrgChange?.(e.target.value)}
+            title="Organización activa"
+            style={{
+              background: "rgba(255, 255, 255, 0.06)",
+              color: "#fff",
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              borderRadius: 6,
+              padding: "6px 10px",
+              fontFamily: "inherit",
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: "pointer",
+              marginRight: 8,
+              maxWidth: 200,
+            }}
+          >
+            {orgOptions.map(o => (
+              <option key={o.id} value={o.id} style={{ color: "#000" }}>
+                Org: {o.name}
+              </option>
+            ))}
+          </select>
         )}
 
         {/* Training mode role selector */}

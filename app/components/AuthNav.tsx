@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import { getTrainingRole, setTrainingRole } from "../../lib/auth";
+import { getTrainingRole, setTrainingRole, getActiveOrgId, setActiveOrgId } from "../../lib/auth";
 import NavBar from "./NavBar";
+
+export interface OrgOption { id: string; name: string; }
 
 const SKIP_AUTH = process.env.NEXT_PUBLIC_SKIP_AUTH === "true";
 
@@ -18,6 +20,8 @@ export default function AuthNav() {
   const [orgSlug, setOrgSlug] = useState<string | null>(null);
   const [roleLabelVendedor, setRoleLabelVendedor] = useState<string | null>(null);
   const [trainingMode, setTrainingMode] = useState(false);
+  const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
+  const [activeOrgId, setActiveOrgIdState] = useState<string | null>(null);
   const pathname = usePathname();
 
   const isLoginPage = pathname === "/";
@@ -84,6 +88,30 @@ export default function AuthNav() {
           setOrgSlug(orgRes.data.slug || null);
           setRoleLabelVendedor((orgRes.data as { role_label_vendedor?: string | null }).role_label_vendedor || null);
         }
+
+        // super_admin: fetch all orgs for the navbar selector
+        if (realRole === "super_admin") {
+          try {
+            const res = await fetch("/api/admin/data", {
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            });
+            if (res.ok) {
+              const body = await res.json();
+              const opts: OrgOption[] = (body.orgs || []).map((o: { id: string; name: string }) => ({
+                id: o.id,
+                name: o.name,
+              }));
+              setOrgOptions(opts);
+              const active = getActiveOrgId();
+              const current = active && opts.some(o => o.id === active)
+                ? active
+                : (data.organization_id || opts[0]?.id || null);
+              setActiveOrgIdState(current);
+              // Ensure localStorage reflects the effective org so getSession picks it up
+              if (current && current !== getActiveOrgId()) setActiveOrgId(current);
+            }
+          } catch { /* ignore */ }
+        }
       }
 
       document.body.classList.add("has-nav");
@@ -104,6 +132,11 @@ export default function AuthNav() {
     window.location.reload();
   };
 
+  const handleActiveOrgChange = (next: string) => {
+    setActiveOrgId(next);
+    window.location.reload();
+  };
+
   return (
     <NavBar
       role={role}
@@ -113,6 +146,9 @@ export default function AuthNav() {
       roleLabelVendedor={roleLabelVendedor}
       trainingMode={trainingMode}
       onTrainingRoleChange={handleTrainingRoleChange}
+      orgOptions={orgOptions}
+      activeOrgId={activeOrgId}
+      onActiveOrgChange={handleActiveOrgChange}
     />
   );
 }

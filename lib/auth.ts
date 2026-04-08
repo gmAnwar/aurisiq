@@ -33,6 +33,21 @@ export function setTrainingRole(role: string | null) {
   } catch { /* ignore */ }
 }
 
+/** super_admin active org override — read by getSession() so all pages
+ *  see the selected org as if it were the user's own organization. */
+export function getActiveOrgId(): string | null {
+  if (typeof window === "undefined") return null;
+  try { return window.localStorage.getItem("admin_active_org_id"); } catch { return null; }
+}
+
+export function setActiveOrgId(id: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (id) window.localStorage.setItem("admin_active_org_id", id);
+    else window.localStorage.removeItem("admin_active_org_id");
+  } catch { /* ignore */ }
+}
+
 const SKIP_AUTH = process.env.NEXT_PUBLIC_SKIP_AUTH === "true";
 
 const MOCK_SESSION: UserSession = {
@@ -111,6 +126,13 @@ export async function getSession(): Promise<UserSession | null> {
   const trainingRole = trainingMode ? getTrainingRole() : null;
   const effectiveRole = trainingRole || realRole;
 
+  // super_admin: override organization with admin_active_org_id if set
+  let effectiveOrgId = userData.organization_id;
+  if (realRole === "super_admin") {
+    const activeOrg = getActiveOrgId();
+    if (activeOrg) effectiveOrgId = activeOrg;
+  }
+
   // Fetch organization data. Try with role_label_vendedor first; if the
   // column doesn't exist yet (migration 014 not applied), fall back.
   let orgSlug: string | null = null;
@@ -120,7 +142,7 @@ export async function getSession(): Promise<UserSession | null> {
   let orgRes = await supabase
     .from("organizations")
     .select("slug, name, role_label_vendedor")
-    .eq("id", userData.organization_id)
+    .eq("id", effectiveOrgId)
     .maybeSingle();
 
   if (orgRes.error && orgRes.error.message?.includes("role_label_vendedor")) {
@@ -128,7 +150,7 @@ export async function getSession(): Promise<UserSession | null> {
     orgRes = await supabase
       .from("organizations")
       .select("slug, name")
-      .eq("id", userData.organization_id)
+      .eq("id", effectiveOrgId)
       .maybeSingle();
   }
 
@@ -143,7 +165,7 @@ export async function getSession(): Promise<UserSession | null> {
     role: effectiveRole,
     realRole,
     trainingMode,
-    organizationId: userData.organization_id,
+    organizationId: effectiveOrgId,
     organizationSlug: orgSlug,
     organizationName: orgName,
     roleLabelVendedor,
