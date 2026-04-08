@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     const [orgsRes, usersRes, analysesRes, speechRes] = await Promise.all([
       admin
         .from("organizations")
-        .select("id, name, slug, plan, analyses_count, analyses_limit, access_status, invite_token, role_label_vendedor")
+        .select("id, name, slug, plan, analyses_count, access_status, invite_token, role_label_vendedor")
         .order("created_at", { ascending: false }),
       admin
         .from("users")
@@ -28,6 +28,11 @@ export async function GET(req: Request) {
         .order("created_at", { ascending: false })
         .limit(200),
     ]);
+
+    if (orgsRes.error) console.error("[admin/data] orgs query error:", orgsRes.error);
+    if (usersRes.error) console.error("[admin/data] users query error:", usersRes.error);
+    if (analysesRes.error) console.error("[admin/data] analyses query error:", analysesRes.error);
+    if (speechRes.error) console.error("[admin/data] speech query error:", speechRes.error);
 
     return NextResponse.json({
       ok: true,

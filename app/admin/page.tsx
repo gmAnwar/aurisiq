@@ -468,9 +468,7 @@ export default function AdminPage() {
                   <span className="admin-cell-name">{o.name}</span>
                   <span className="admin-cell-slug">{o.slug}</span>
                   <span className="admin-cell-plan">{o.plan || "—"}</span>
-                  <span className="admin-cell-count">
-                    {o.analyses_count || 0}{o.analyses_limit != null ? ` / ${o.analyses_limit}` : ""}
-                  </span>
+                  <span className="admin-cell-count">{o.analyses_count || 0}</span>
                   <span>
                     <span className={`admin-badge ${ACCESS_STATUS_CLASS[o.access_status || "active"] || ""}`}>
                       {ACCESS_STATUS_LABEL[o.access_status || "active"] || o.access_status}
