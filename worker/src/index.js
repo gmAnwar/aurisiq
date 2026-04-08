@@ -208,6 +208,7 @@ function parseClaudeOutput(rawText) {
     prospect_name: null,
     prospect_zone: null,
     property_type: null,
+    equipment_type: null,
     sale_reason: null,
     prospect_phone: null,
     checklist_results: null,
@@ -270,6 +271,11 @@ function parseClaudeOutput(rawText) {
   if (zoneMatch) result.prospect_zone = zoneMatch[1].trim();
   const typeMatch = rawText.match(/TIPO_PROPIEDAD:\s*(.+?)(?:\n|$)/i);
   if (typeMatch) result.property_type = typeMatch[1].trim();
+  // Financiero vertical: TIPO_NEGOCIO shares the property_type column
+  const negocioMatch = rawText.match(/TIPO_NEGOCIO:\s*(.+?)(?:\n|$)/i);
+  if (negocioMatch) result.property_type = negocioMatch[1].trim();
+  const equipoMatch = rawText.match(/TIPO_EQUIPO:\s*(.+?)(?:\n|$)/i);
+  if (equipoMatch) result.equipment_type = equipoMatch[1].trim();
   const reasonMatch = rawText.match(/MOTIVO_VENTA:\s*(.+?)(?:\n|$)/i);
   if (reasonMatch) result.sale_reason = reasonMatch[1].trim();
   const phoneMatch = rawText.match(/PROSPECTO_TELEFONO:\s*(.+?)(?:\n|$)/i);
@@ -495,6 +501,7 @@ PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en l
       prospect_name: parsed.prospect_name,
       prospect_zone: parsed.prospect_zone,
       property_type: parsed.property_type,
+      equipment_type: parsed.equipment_type,
       sale_reason: parsed.sale_reason,
       prospect_phone: parsed.prospect_phone,
       checklist_results: parsed.checklist_results,

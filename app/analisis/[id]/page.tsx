@@ -20,6 +20,7 @@ interface ChecklistItem {
 
 interface Analysis {
   id: string;
+  scorecard_id?: string | null;
   score_general: number | null;
   clasificacion: string | null;
   momento_critico: string | null;
@@ -30,6 +31,7 @@ interface Analysis {
   prospect_name: string | null;
   prospect_zone: string | null;
   property_type: string | null;
+  equipment_type: string | null;
   sale_reason: string | null;
   prospect_phone: string | null;
   checklist_results: ChecklistItem[] | null;
@@ -53,6 +55,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [relatedCalls, setRelatedCalls] = useState<RelatedCall[]>([]);
+  const [vertical, setVertical] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -61,7 +64,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
 
       const { data: a, error: aErr } = await supabase
         .from("analyses")
-        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, sale_reason, prospect_phone, checklist_results, manager_note, related_analysis_id, created_at")
+        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, equipment_type, sale_reason, prospect_phone, checklist_results, manager_note, related_analysis_id, created_at, scorecard_id")
         .eq("id", id)
         .single();
 
@@ -72,6 +75,15 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
       }
 
       setAnalysis(a);
+
+      if (a.scorecard_id) {
+        const { data: sc } = await supabase
+          .from("scorecards")
+          .select("vertical")
+          .eq("id", a.scorecard_id)
+          .maybeSingle();
+        if (sc?.vertical) setVertical(sc.vertical);
+      }
 
       const { data: ph } = await supabase
         .from("analysis_phases")
@@ -171,14 +183,31 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
           <EditableField analysisId={analysis.id} field="prospect_name" currentValue={analysis.prospect_name} placeholder="Sin nombre" onSave={(v) => handleFieldSave("prospect_name", v)} />
           <span style={{ fontWeight: 400, fontSize: 14, color: "var(--ink-light)" }}>
             {" · "}<EditableField analysisId={analysis.id} field="prospect_zone" currentValue={analysis.prospect_zone} placeholder="Zona" onSave={(v) => handleFieldSave("prospect_zone", v)} />
-            {" · "}<EditableField analysisId={analysis.id} field="property_type" currentValue={analysis.property_type} placeholder="Tipo" onSave={(v) => handleFieldSave("property_type", v)} />
+            {" · "}<EditableField
+              analysisId={analysis.id}
+              field="property_type"
+              currentValue={analysis.property_type}
+              placeholder={vertical === "financiero" ? "Tipo de negocio" : "Tipo"}
+              onSave={(v) => handleFieldSave("property_type", v)}
+            />
+            {vertical === "financiero" && (
+              <>
+                {" · "}<EditableField
+                  analysisId={analysis.id}
+                  field="equipment_type"
+                  currentValue={analysis.equipment_type}
+                  placeholder="Tipo de equipo"
+                  onSave={(v) => handleFieldSave("equipment_type", v)}
+                />
+              </>
+            )}
           </span>
         </h1>
         <p className="c3-prospect-meta">{dateStr} · {timeStr}</p>
         <div className={`c3-result-badge ${isQualified ? "c3-badge-qualified" : "c3-badge-followup"}`}>
           {isQualified ? "Lead calificado" : "Requiere seguimiento"}
         </div>
-        {analysis.sale_reason && analysis.sale_reason !== "No mencionado" && (
+        {vertical !== "financiero" && analysis.sale_reason && analysis.sale_reason !== "No mencionado" && (
           <p className="c3-prospect-reason">Motivo de venta: {analysis.sale_reason}</p>
         )}
         {analysis.prospect_phone && (
