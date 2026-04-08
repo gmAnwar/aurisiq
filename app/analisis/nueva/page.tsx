@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../../../lib/supabase";
-import { requireAuth } from "../../../lib/auth";
+import { requireAuth, getActiveOrgId } from "../../../lib/auth";
 import { computeEditPercentage } from "../../../lib/text";
 import { useRecording } from "../../contexts/RecordingContext";
 
@@ -194,14 +194,17 @@ export default function NuevaLlamadaPage() {
       const session = await requireAuth(["captadora", "super_admin"]);
       if (!session) return;
 
+      // super_admin may override the active org via the navbar selector;
+      // always resolve the effective org from localStorage first.
+      const effectiveOrgId = getActiveOrgId() || session.organizationId;
       setUserId(session.userId);
-      setOrgId(session.organizationId);
+      setOrgId(effectiveOrgId);
 
       const [sourcesRes, stagesRes] = await Promise.all([
         supabase.from("lead_sources").select("id, name")
-          .eq("organization_id", session.organizationId).eq("active", true).order("name"),
+          .eq("organization_id", effectiveOrgId).eq("active", true).order("name"),
         supabase.from("funnel_stages").select("id, name")
-          .eq("organization_id", session.organizationId).order("order_index"),
+          .eq("organization_id", effectiveOrgId).order("order_index"),
       ]);
 
       const { data: sources, error } = sourcesRes;
@@ -220,7 +223,7 @@ export default function NuevaLlamadaPage() {
       todayStart.setHours(0, 0, 0, 0);
       const [objRes, todayRes] = await Promise.all([
         supabase.from("objectives").select("target_value")
-          .eq("organization_id", session.organizationId).eq("is_active", true)
+          .eq("organization_id", effectiveOrgId).eq("is_active", true)
           .eq("type", "volume").in("period_type", ["monthly"])
           .or(`target_user_id.eq.${session.userId},target_user_id.is.null`)
           .order("target_user_id", { ascending: false, nullsFirst: false })
