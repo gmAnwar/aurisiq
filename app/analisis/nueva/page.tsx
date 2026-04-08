@@ -241,7 +241,7 @@ export default function NuevaLlamadaPage() {
           .order("target_user_id", { ascending: false, nullsFirst: false })
           .limit(1),
         supabase.from("analyses").select("id")
-          .eq("user_id", session.userId).eq("status", "completado")
+          .eq("user_id", session.userId).eq("organization_id", effectiveOrgId).eq("status", "completado")
           .gte("created_at", todayStart.toISOString()),
       ]);
       if (objRes.data && objRes.data.length > 0) {

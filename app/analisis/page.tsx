@@ -71,7 +71,32 @@ export default function MiDiaPage() {
         setUsingSampleData(true);
       }
       setAnalyses(all);
-      setStreak(userRes.data?.current_streak || 0);
+      // super_admin may switch active org; users.current_streak is a
+      // single cached value that doesn't know about orgs. Recompute
+      // from analyses rows scoped to the active org.
+      if (session.realRole === "super_admin") {
+        const { data: dayRows } = await supabase
+          .from("analyses")
+          .select("created_at")
+          .eq("user_id", session.userId)
+          .eq("organization_id", session.organizationId)
+          .eq("status", "completado")
+          .order("created_at", { ascending: false })
+          .limit(60);
+        const daySet = new Set(
+          (dayRows || []).map(r => (r.created_at as string).slice(0, 10))
+        );
+        let streakCount = 0;
+        const cursor = new Date();
+        cursor.setHours(0, 0, 0, 0);
+        while (daySet.has(cursor.toISOString().slice(0, 10))) {
+          streakCount++;
+          cursor.setDate(cursor.getDate() - 1);
+        }
+        setStreak(streakCount);
+      } else {
+        setStreak(userRes.data?.current_streak || 0);
+      }
 
       // super_admin may switch active org via the navbar; in that case
       // users.current_focus_phase is tied to the *profile* org's history
@@ -168,7 +193,7 @@ export default function MiDiaPage() {
         const ids = teamCaptadoras.map(u => u.id);
         const { data: teamAnalyses } = await supabase.from("analyses")
           .select("user_id, score_general")
-          .in("user_id", ids).eq("status", "completado")
+          .in("user_id", ids).eq("organization_id", session.organizationId).eq("status", "completado")
           .gte("created_at", weekAgoRank.toISOString())
           .not("score_general", "is", null);
         if (teamAnalyses) {

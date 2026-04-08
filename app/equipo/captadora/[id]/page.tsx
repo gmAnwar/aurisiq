@@ -39,15 +39,15 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
 
       const [analysesRes, phasesRes, descalRes, teamPhasesRes, objRes, todayRes] = await Promise.all([
         supabase.from("analyses").select("id, score_general, clasificacion, created_at, categoria_descalificacion, patron_error, siguiente_accion")
-          .eq("user_id", id).eq("status", "completado").order("created_at", { ascending: false }).limit(100),
+          .eq("user_id", id).eq("organization_id", me.organization_id).eq("status", "completado").order("created_at", { ascending: false }).limit(100),
         supabase.from("analysis_phases").select("phase_name, score, score_max, analysis_id")
-          .eq("user_id", id).order("created_at", { ascending: false }).limit(500),
+          .eq("user_id", id).eq("organization_id", me.organization_id).order("created_at", { ascending: false }).limit(500),
         supabase.from("descalification_categories").select("code, label").eq("organization_id", me.organization_id),
         supabase.from("analysis_phases").select("phase_name, score, score_max").eq("organization_id", me.organization_id).limit(1000),
         supabase.from("objectives").select("id, target_value, type, period_type, is_active, target_phase_id")
           .eq("organization_id", me.organization_id).eq("is_active", true)
           .or(`target_user_id.eq.${id},target_user_id.is.null`),
-        supabase.from("analyses").select("id").eq("user_id", id).eq("status", "completado").gte("created_at", todayStart.toISOString()),
+        supabase.from("analyses").select("id").eq("user_id", id).eq("organization_id", me.organization_id).eq("status", "completado").gte("created_at", todayStart.toISOString()),
       ]);
 
       setAnalyses(analysesRes.data || []);
