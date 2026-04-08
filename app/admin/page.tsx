@@ -369,13 +369,28 @@ export default function AdminPage() {
     setDeleteConfirmText("");
   }
   async function confirmDeleteAnalysis() {
-    if (deleteConfirmText !== "ELIMINAR" || !pendingDeleteAnalysisId) return;
-    const { error: e } = await supabase.from("analyses").delete().eq("id", pendingDeleteAnalysisId);
-    if (e) { showToast({ type: "err", msg: e.message }); return; }
-    showToast({ type: "ok", msg: "Análisis eliminado" });
-    setPendingDeleteAnalysisId(null);
-    setDeleteConfirmText("");
-    await loadAnalyses();
+    if (!pendingDeleteAnalysisId) return;
+    const targetId = pendingDeleteAnalysisId;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch(`/api/admin/analysis/${targetId}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast({ type: "err", msg: body.error || "Error al eliminar" });
+        return;
+      }
+      showToast({ type: "ok", msg: "Análisis eliminado" });
+      setPendingDeleteAnalysisId(null);
+      setDeleteConfirmText("");
+      setAnalyses(prev => prev.filter(a => a.id !== targetId));
+      await loadAllData();
+    } catch (e) {
+      showToast({ type: "err", msg: e instanceof Error ? e.message : "Error de red" });
+    }
   }
 
   // ----- Speech versions -----
@@ -756,16 +771,21 @@ export default function AdminPage() {
                   </span>
                 </div>
                 {pendingDeleteAnalysisId === a.id && (
-                  <div className="admin-table-row" style={{ gridTemplateColumns: "1fr", padding: 16, background: "#fff4f4" }}>
-                    <div className="input-group">
-                      <label className="input-label">Escribe ELIMINAR para confirmar el borrado</label>
-                      <input className="input-field" value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)} />
-                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                        <button className="btn-submit" style={{ marginTop: 0, flex: "none", padding: "10px 16px" }} onClick={confirmDeleteAnalysis} disabled={deleteConfirmText !== "ELIMINAR"}>
-                          Confirmar borrado
-                        </button>
+                  <div className="admin-table-row" style={{ gridTemplateColumns: "1fr", padding: 14, background: "#fff4f4" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                      <p style={{ margin: 0, color: "#991b1b" }}>
+                        ¿Eliminar este análisis? Esta acción no se puede deshacer.
+                      </p>
+                      <div style={{ display: "flex", gap: 8 }}>
                         <button className="admin-copy-btn" onClick={() => { setPendingDeleteAnalysisId(null); setDeleteConfirmText(""); }}>
                           Cancelar
+                        </button>
+                        <button
+                          className="btn-submit"
+                          style={{ marginTop: 0, flex: "none", padding: "8px 16px", background: "#dc2626" }}
+                          onClick={confirmDeleteAnalysis}
+                        >
+                          Confirmar
                         </button>
                       </div>
                     </div>
