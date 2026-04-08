@@ -121,22 +121,44 @@ export default function SpeechPage() {
     load();
   }, []);
 
-  // Parse both old format {"PhaseName": ["phrase",...]} and new {"phases": [{phase_name, fields}]}
+  // Parse multiple content formats:
+  // 1. {"phases": [{phase_name, fields, transition}]}  (field-based)
+  // 2. [{phase_name, frases: [...]}]  (array root with Spanish key)
+  // 3. {"PhaseName": ["phrase",...]}  (legacy flat map)
   function parseSpeechContent(content: unknown): SpeechPhase[] {
     if (!content) return [];
-    const c = content as Record<string, unknown>;
 
-    // New format: has "phases" array with fields + transition
-    if (Array.isArray(c.phases)) {
-      return (c.phases as SpeechPhase[]).map(p => ({
-        phase_name: p.phase_name,
-        transition: p.transition || "",
-        fields: p.fields || [],
-        phrases: p.phrases || [],
+    // Format 2: root-level array of phases with "frases" or "phrases"
+    if (Array.isArray(content)) {
+      return (content as Array<Record<string, unknown>>).map(p => ({
+        phase_name: (p.phase_name as string) || (p.phase_id as string) || "",
+        transition: (p.transition as string) || "",
+        fields: (p.fields as SpeechField[]) || [],
+        phrases: Array.isArray(p.frases)
+          ? (p.frases as string[])
+          : Array.isArray(p.phrases)
+            ? (p.phrases as string[])
+            : [],
       }));
     }
 
-    // Old format: {"Phase Name": ["phrase1", "phrase2"]}
+    const c = content as Record<string, unknown>;
+
+    // Format 1: has "phases" array with fields + transition
+    if (Array.isArray(c.phases)) {
+      return (c.phases as Array<Record<string, unknown>>).map(p => ({
+        phase_name: (p.phase_name as string) || "",
+        transition: (p.transition as string) || "",
+        fields: (p.fields as SpeechField[]) || [],
+        phrases: Array.isArray(p.frases)
+          ? (p.frases as string[])
+          : Array.isArray(p.phrases)
+            ? (p.phrases as string[])
+            : [],
+      }));
+    }
+
+    // Format 3: {"Phase Name": ["phrase1", "phrase2"]}
     return Object.entries(c).map(([name, phrases]) => ({
       phase_name: name,
       fields: [],

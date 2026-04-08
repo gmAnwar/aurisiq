@@ -324,39 +324,65 @@ export default function NuevaLlamadaPage() {
     if (guidePhases.length > 0) return;
     setGuideLoading(true);
 
-    // Get scorecard
-    const { data: sc } = await supabase.from("scorecards")
-      .select("id")
-      .or(`organization_id.eq.${orgId},organization_id.is.null`)
-      .eq("active", true)
-      .order("organization_id", { ascending: false, nullsFirst: false })
-      .limit(1).single();
-
-    if (!sc) { setGuideLoading(false); return; }
-
-    // Get speech for this stage (published or provisional)
-    let q = supabase.from("speech_versions")
+    // Get speech for this stage. No scorecard filter — orgs may use
+    // different scorecards across stages, and speech_versions is already
+    // scoped by organization_id.
+    let { data } = await supabase.from("speech_versions")
       .select("content")
       .eq("organization_id", orgId)
-      .eq("scorecard_id", sc.id)
       .or("published.eq.true,is_provisional.eq.true")
+      .eq("funnel_stage_id", selectedStage)
       .order("published", { ascending: false })
       .limit(1);
-    q = q.eq("funnel_stage_id", selectedStage);
 
-    const { data } = await q;
+    // Fallback: org-wide speech (funnel_stage_id is NULL)
+    if (!data || data.length === 0) {
+      const fallback = await supabase.from("speech_versions")
+        .select("content")
+        .eq("organization_id", orgId)
+        .or("published.eq.true,is_provisional.eq.true")
+        .is("funnel_stage_id", null)
+        .order("published", { ascending: false })
+        .limit(1);
+      data = fallback.data;
+    }
+
     if (data && data.length > 0) {
-      const content = data[0].content as Record<string, unknown>;
-      if (Array.isArray(content.phases)) {
-        setGuidePhases(content.phases as GuidePhase[]);
-      } else {
-        setGuidePhases(Object.entries(content).map(([name, phrases]) => ({
-          phase_name: name, phrases: Array.isArray(phrases) ? phrases as string[] : [],
-        })));
-      }
+      const content = data[0].content as unknown;
+      setGuidePhases(parseGuideContent(content));
     }
     setGuideLoading(false);
   };
+
+  // Parse speech content into guide phases — supports multiple formats
+  function parseGuideContent(content: unknown): GuidePhase[] {
+    if (!content) return [];
+
+    // Root-level array: [{phase_name, frases|phrases, ...}]
+    if (Array.isArray(content)) {
+      return (content as Array<Record<string, unknown>>).map(p => ({
+        phase_name: (p.phase_name as string) || (p.phase_id as string) || "",
+        transition: (p.transition as string) || "",
+        fields: (p.fields as GuideField[]) || [],
+        phrases: Array.isArray(p.frases) ? (p.frases as string[]) : Array.isArray(p.phrases) ? (p.phrases as string[]) : [],
+      }));
+    }
+
+    const c = content as Record<string, unknown>;
+    if (Array.isArray(c.phases)) {
+      return (c.phases as Array<Record<string, unknown>>).map(p => ({
+        phase_name: (p.phase_name as string) || "",
+        transition: (p.transition as string) || "",
+        fields: (p.fields as GuideField[]) || [],
+        phrases: Array.isArray(p.frases) ? (p.frases as string[]) : Array.isArray(p.phrases) ? (p.phrases as string[]) : [],
+      }));
+    }
+
+    return Object.entries(c).map(([name, phrases]) => ({
+      phase_name: name,
+      phrases: Array.isArray(phrases) ? phrases as string[] : [],
+    }));
+  }
 
   // Reset guide when stage changes
   useEffect(() => { setGuidePhases([]); }, [selectedStage]);
