@@ -21,6 +21,7 @@ interface SpeechPhase {
 interface FunnelStage {
   id: string;
   name: string;
+  scorecard_id: string | null;
 }
 
 interface StageSpeech {
@@ -59,7 +60,6 @@ export default function SpeechPage() {
   const [loading, setLoading] = useState(true);
   const [generatingStage, setGeneratingStage] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
-  const [scorecardId, setScorecardId] = useState<string | null>(null);
 
   const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
 
@@ -69,28 +69,19 @@ export default function SpeechPage() {
       if (!session) return;
       setOrgId(session.organizationId);
 
-      const [scRes, stagesRes] = await Promise.all([
-        supabase.from("scorecards").select("id, phases")
-          .or(`organization_id.eq.${session.organizationId},organization_id.is.null`)
-          .eq("active", true)
-          .order("organization_id", { ascending: false, nullsFirst: false })
-          .limit(1),
-        supabase.from("funnel_stages").select("id, name")
-          .eq("organization_id", session.organizationId).order("order_index"),
-      ]);
+      const { data: stagesData } = await supabase.from("funnel_stages")
+        .select("id, name, scorecard_id")
+        .eq("organization_id", session.organizationId).order("order_index");
 
-      const scorecard = scRes.data?.[0];
-      if (!scorecard) { setLoading(false); return; }
-      setScorecardId(scorecard.id);
-
-      const funnelStages = stagesRes.data || [];
+      const funnelStages = (stagesData || []) as FunnelStage[];
       setStages(funnelStages);
 
-      // Load all speech versions: published OR provisional
+      // Load all published or provisional speech versions for THIS organization.
+      // Do NOT filter by scorecard_id — speech_versions are already scoped by
+      // organization_id, and orgs may use different scorecards across stages.
       const { data: allSpeech } = await supabase.from("speech_versions")
         .select("id, content, version_number, created_at, funnel_stage_id, published, is_provisional")
         .eq("organization_id", session.organizationId)
-        .eq("scorecard_id", scorecard.id)
         .or("published.eq.true,is_provisional.eq.true");
 
       const byStage: Record<string, StageSpeech> = {};
@@ -103,6 +94,18 @@ export default function SpeechPage() {
           lastUpdated: sv.created_at,
           isProvisional: sv.is_provisional && !sv.published,
         };
+      }
+
+      // If a global speech exists (funnel_stage_id = null), use it as the
+      // fallback for any stage that doesn't have its own stage-specific speech.
+      // EnPagos currently has a single org-wide published speech.
+      const globalSpeech = byStage["_global"];
+      if (globalSpeech) {
+        for (const stage of funnelStages) {
+          if (!byStage[stage.id]) {
+            byStage[stage.id] = globalSpeech;
+          }
+        }
       }
       setSpeechByStage(byStage);
 
@@ -144,13 +147,12 @@ export default function SpeechPage() {
   const current = selectedStageId ? speechByStage[selectedStageId] : null;
 
   const generateProvisional = async (stageId: string) => {
-    if (!orgId || !scorecardId) return;
+    if (!orgId) return;
 
-    // Check DB first
+    // Check DB first — query speech for this org and stage, no scorecard filter.
     let checkQuery = supabase.from("speech_versions")
       .select("id, content, version_number, created_at, is_provisional, published")
       .eq("organization_id", orgId)
-      .eq("scorecard_id", scorecardId)
       .or("published.eq.true,is_provisional.eq.true")
       .order("published", { ascending: false })
       .limit(1);
