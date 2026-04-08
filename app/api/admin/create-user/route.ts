@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServiceSupabase, requireSuperAdmin } from "../../../../lib/supabase-server";
 
-const VALID_ROLES = ["captadora", "gerente", "direccion", "agencia"];
+const VALID_ROLES = ["captadora", "gerente", "direccion", "agencia", "super_admin"];
 
 export async function POST(req: Request) {
   try {

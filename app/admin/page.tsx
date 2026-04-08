@@ -616,6 +616,7 @@ export default function AdminPage() {
                   <option value="gerente">Gerente</option>
                   <option value="direccion">Dirección</option>
                   <option value="agencia">Agencia</option>
+                  <option value="super_admin">Super Admin</option>
                 </select>
               </div>
               <div className="input-group">
