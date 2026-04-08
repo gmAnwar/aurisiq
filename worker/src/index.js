@@ -607,7 +607,8 @@ async function handleSubmit(body, env, ctx, origin) {
     return jsonResponse({ error: 'Transcription exceeds 15,000 character limit' }, 400, origin);
   }
 
-  const { scorecard_id, organization_id } = body;
+  const { organization_id } = body;
+  let { scorecard_id } = body;
 
   const org = await getOrgPlan(env, organization_id);
   if (org.access_status === 'read_only') {
@@ -622,6 +623,22 @@ async function handleSubmit(body, env, ctx, origin) {
 
   if (!quotaOk) {
     return jsonResponse({ error: 'Monthly analysis quota exceeded' }, 429, origin);
+  }
+
+  // If a funnel_stage_id is provided, resolve its assigned scorecard and
+  // override the one the client sent. Funnel stages are the source of
+  // truth for which scorecard applies to each stage of the org's funnel.
+  if (body.funnel_stage_id) {
+    try {
+      const stageRows = await supabaseSelect(
+        env,
+        'funnel_stages',
+        `id=eq.${body.funnel_stage_id}&organization_id=eq.${organization_id}&select=scorecard_id`
+      );
+      if (stageRows.length > 0 && stageRows[0].scorecard_id) {
+        scorecard_id = stageRows[0].scorecard_id;
+      }
+    } catch { /* fall back to body.scorecard_id */ }
   }
 
   const scorecard = await getScorecard(env, scorecard_id);
