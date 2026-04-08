@@ -19,6 +19,13 @@ export async function GET(request: Request) {
   const type = searchParams.get("type");
 
   if (code) {
+    // Invite flow: redirect to set-password page; the client will exchange
+    // the code there so the session is persisted in browser storage before
+    // the user sets a permanent password.
+    if (type === "invite") {
+      return NextResponse.redirect(`${origin}/auth/set-password?code=${encodeURIComponent(code)}`);
+    }
+
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
     const { data } = await supabase.auth.exchangeCodeForSession(code);
 
