@@ -2,7 +2,9 @@ import { supabase } from "./supabase";
 
 export interface UserSession {
   userId: string;
-  role: string;
+  role: string;              // effective role (may be overridden by training mode)
+  realRole: string;          // actual DB role
+  trainingMode: boolean;
   organizationId: string;
   organizationSlug: string | null;
   organizationName: string | null;
@@ -10,11 +12,34 @@ export interface UserSession {
   name: string;
 }
 
+const TRAINING_ALLOWED_ROLES = ["captadora", "gerente", "direccion"];
+
+export function getTrainingRole(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const r = window.localStorage.getItem("training_role");
+    return r && TRAINING_ALLOWED_ROLES.includes(r) ? r : null;
+  } catch { return null; }
+}
+
+export function setTrainingRole(role: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (role && TRAINING_ALLOWED_ROLES.includes(role)) {
+      window.localStorage.setItem("training_role", role);
+    } else {
+      window.localStorage.removeItem("training_role");
+    }
+  } catch { /* ignore */ }
+}
+
 const SKIP_AUTH = process.env.NEXT_PUBLIC_SKIP_AUTH === "true";
 
 const MOCK_SESSION: UserSession = {
   userId: "mock-user-001",
   role: "super_admin",
+  realRole: "super_admin",
+  trainingMode: false,
   organizationId: "mock-org-001",
   organizationSlug: "immobili",
   organizationName: "Inmobili Internacional",
@@ -61,13 +86,30 @@ export async function getSession(): Promise<UserSession | null> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return null;
 
-  const { data: userData } = await supabase
+  // Try with training_mode; fall back if migration 017 not applied yet
+  let userRes = await supabase
     .from("users")
-    .select("organization_id, role, name")
+    .select("organization_id, role, name, training_mode")
     .eq("id", session.user.id)
     .single();
 
+  if (userRes.error && userRes.error.message?.includes("training_mode")) {
+    userRes = await supabase
+      .from("users")
+      .select("organization_id, role, name")
+      .eq("id", session.user.id)
+      .single();
+  }
+
+  const userData = userRes.data as
+    | { organization_id: string; role: string; name: string; training_mode?: boolean | null }
+    | null;
   if (!userData) return null;
+
+  const realRole = userData.role;
+  const trainingMode = !!userData.training_mode;
+  const trainingRole = trainingMode ? getTrainingRole() : null;
+  const effectiveRole = trainingRole || realRole;
 
   // Fetch organization data. Try with role_label_vendedor first; if the
   // column doesn't exist yet (migration 014 not applied), fall back.
@@ -98,7 +140,9 @@ export async function getSession(): Promise<UserSession | null> {
 
   return {
     userId: session.user.id,
-    role: userData.role,
+    role: effectiveRole,
+    realRole,
+    trainingMode,
     organizationId: userData.organization_id,
     organizationSlug: orgSlug,
     organizationName: orgName,

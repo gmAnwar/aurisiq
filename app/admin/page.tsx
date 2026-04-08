@@ -23,6 +23,7 @@ interface UserRow {
   role: string;
   organization_id: string;
   active: boolean | null;
+  training_mode: boolean | null;
   created_at: string;
 }
 
@@ -111,10 +112,17 @@ export default function AdminPage() {
   }, []);
 
   const loadUsers = useCallback(async () => {
-    const res = await supabase
+    let res = await supabase
       .from("users")
-      .select("id, name, email, role, organization_id, active, created_at")
+      .select("id, name, email, role, organization_id, active, training_mode, created_at")
       .order("created_at", { ascending: false });
+    if (res.error && res.error.message?.includes("training_mode")) {
+      const r2 = await supabase
+        .from("users")
+        .select("id, name, email, role, organization_id, active, created_at")
+        .order("created_at", { ascending: false });
+      res = r2 as typeof res;
+    }
     if (res.error) { setError(res.error.message); return; }
     setUsers((res.data || []) as UserRow[]);
   }, []);
@@ -299,6 +307,14 @@ export default function AdminPage() {
     showToast({ type: "ok", msg: next ? "Usuario activado" : "Usuario desactivado" });
     await loadUsers();
   }
+  async function toggleTrainingMode(u: UserRow) {
+    const next = !u.training_mode;
+    const { error: e } = await supabase.from("users").update({ training_mode: next }).eq("id", u.id);
+    if (e) { showToast({ type: "err", msg: e.message }); return; }
+    showToast({ type: "ok", msg: next ? "Modo capacitación activado" : "Modo capacitación desactivado" });
+    await loadUsers();
+  }
+
   async function softDeleteUser(u: UserRow) {
     if (!window.confirm(`¿Eliminar (soft) a ${u.name}? Se marcará inactive.`)) return;
     const { error: e } = await supabase.from("users").update({ active: false }).eq("id", u.id);
@@ -543,16 +559,17 @@ export default function AdminPage() {
             </select>
           </div>
           <div className="admin-table">
-            <div className="admin-table-header" style={{ gridTemplateColumns: "1.2fr 1.4fr 1fr 1.2fr 0.8fr 1.2fr" }}>
+            <div className="admin-table-header" style={{ gridTemplateColumns: "1.2fr 1.4fr 1fr 1.2fr 0.8fr 1fr 1.2fr" }}>
               <span>Nombre</span>
               <span>Email</span>
               <span>Rol</span>
               <span>Organización</span>
               <span>Activo</span>
+              <span>Training</span>
               <span>Acciones</span>
             </div>
             {filteredUsers.map(u => (
-              <div key={u.id} className="admin-table-row" style={{ gridTemplateColumns: "1.2fr 1.4fr 1fr 1.2fr 0.8fr 1.2fr" }}>
+              <div key={u.id} className="admin-table-row" style={{ gridTemplateColumns: "1.2fr 1.4fr 1fr 1.2fr 0.8fr 1fr 1.2fr" }}>
                 <span className="admin-cell-name">{u.name}</span>
                 <span className="admin-cell-slug">{u.email}</span>
                 <span>
@@ -564,6 +581,11 @@ export default function AdminPage() {
                 <span>
                   <button className="admin-copy-btn" onClick={() => toggleUserActive(u)}>
                     {u.active ? "Activo ✓" : "Inactivo ✗"}
+                  </button>
+                </span>
+                <span>
+                  <button className="admin-copy-btn" onClick={() => toggleTrainingMode(u)}>
+                    {u.training_mode ? "🎓 ON" : "OFF"}
                   </button>
                 </span>
                 <span>

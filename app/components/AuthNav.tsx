@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import { getTrainingRole, setTrainingRole } from "../../lib/auth";
 import NavBar from "./NavBar";
 
 const SKIP_AUTH = process.env.NEXT_PUBLIC_SKIP_AUTH === "true";
@@ -16,6 +17,7 @@ export default function AuthNav() {
   const [userEmail, setUserEmail] = useState("");
   const [orgSlug, setOrgSlug] = useState<string | null>(null);
   const [roleLabelVendedor, setRoleLabelVendedor] = useState<string | null>(null);
+  const [trainingMode, setTrainingMode] = useState(false);
   const pathname = usePathname();
 
   const isLoginPage = pathname === "/";
@@ -37,14 +39,28 @@ export default function AuthNav() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
 
-        const { data } = await supabase
+        let userRes = await supabase
           .from("users")
-          .select("role, name, email, organization_id")
+          .select("role, name, email, organization_id, training_mode")
           .eq("id", session.user.id)
           .single();
+        if (userRes.error && userRes.error.message?.includes("training_mode")) {
+          userRes = await supabase
+            .from("users")
+            .select("role, name, email, organization_id")
+            .eq("id", session.user.id)
+            .single();
+        }
+        const data = userRes.data as
+          | { role: string; name: string; email: string; organization_id: string; training_mode?: boolean | null }
+          | null;
 
         if (!data) return;
-        r = data.role;
+        const realRole = data.role;
+        const tMode = !!data.training_mode;
+        setTrainingMode(tMode);
+        const trainingRole = tMode ? getTrainingRole() : null;
+        r = trainingRole || realRole;
         setRole(r);
         setUserName(data.name || "");
         setUserEmail(data.email || session.user.email || "");
@@ -83,5 +99,20 @@ export default function AuthNav() {
 
   if (isLoginPage || isJoinPage || !role) return null;
 
-  return <NavBar role={role} userName={userName} userEmail={userEmail} orgSlug={orgSlug} roleLabelVendedor={roleLabelVendedor} />;
+  const handleTrainingRoleChange = (next: string) => {
+    setTrainingRole(next);
+    window.location.reload();
+  };
+
+  return (
+    <NavBar
+      role={role}
+      userName={userName}
+      userEmail={userEmail}
+      orgSlug={orgSlug}
+      roleLabelVendedor={roleLabelVendedor}
+      trainingMode={trainingMode}
+      onTrainingRoleChange={handleTrainingRoleChange}
+    />
+  );
 }

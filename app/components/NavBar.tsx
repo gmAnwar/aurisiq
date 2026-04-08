@@ -87,9 +87,17 @@ interface NavBarProps {
   userEmail: string;
   orgSlug?: string | null;
   roleLabelVendedor?: string | null;
+  trainingMode?: boolean;
+  onTrainingRoleChange?: (role: string) => void;
 }
 
-export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVendedor }: NavBarProps) {
+const TRAINING_ROLE_OPTIONS: { value: string; label: string }[] = [
+  { value: "captadora", label: "Captadora" },
+  { value: "gerente", label: "Gerente" },
+  { value: "direccion", label: "Dirección" },
+];
+
+export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVendedor, trainingMode, onTrainingRoleChange }: NavBarProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const allItems = NAV_BY_ROLE[role] || NAV_BY_ROLE.captadora;
@@ -136,6 +144,32 @@ export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVe
           <Link href="/analisis/nueva" className="navbar-cta">
             + Nueva llamada
           </Link>
+        )}
+
+        {/* Training mode role selector */}
+        {trainingMode && (
+          <select
+            className="navbar-training-select"
+            value={TRAINING_ROLE_OPTIONS.some(o => o.value === role) ? role : "captadora"}
+            onChange={e => onTrainingRoleChange?.(e.target.value)}
+            title="Modo capacitación — cambiar rol de vista"
+            style={{
+              background: "rgba(0, 194, 224, 0.12)",
+              color: "#00C2E0",
+              border: "1px solid rgba(0, 194, 224, 0.4)",
+              borderRadius: 6,
+              padding: "6px 10px",
+              fontFamily: "inherit",
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: "pointer",
+              marginRight: 8,
+            }}
+          >
+            {TRAINING_ROLE_OPTIONS.map(o => (
+              <option key={o.value} value={o.value}>🎓 {o.label}</option>
+            ))}
+          </select>
         )}
 
         {/* User panel */}
