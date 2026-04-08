@@ -35,6 +35,7 @@ export default function NuevaLlamadaPage() {
   const [selectedStage, setSelectedStage] = useState("");
   const [transcription, setTranscription] = useState("");
   const [notes, setNotes] = useState("");
+  const [prospectPhone, setProspectPhone] = useState("");
   const [dragging, setDragging] = useState(false);
   const [fileMsg, setFileMsg] = useState("");
   const [status, setStatus] = useState<Status>("idle");
@@ -245,12 +246,14 @@ export default function NuevaLlamadaPage() {
       const savedStage = sessionStorage.getItem("c2_stage");
       const savedSource = sessionStorage.getItem("c2_source");
       const savedNotes = sessionStorage.getItem("c2_notes");
+      const savedPhone = sessionStorage.getItem("c2_phone");
       const savedOriginal = sessionStorage.getItem("c2_original");
       const savedSrc = sessionStorage.getItem("c2_source_type");
       if (savedText) setTranscription(savedText);
       if (savedStage) setSelectedStage(savedStage);
       if (savedSource) setSelectedSource(savedSource);
       if (savedNotes) setNotes(savedNotes);
+      if (savedPhone) setProspectPhone(savedPhone);
       if (savedOriginal) {
         setTranscriptionOriginal(savedOriginal);
         setTranscriptionSource((savedSrc as "manual" | "audio") || "manual");
@@ -478,6 +481,7 @@ export default function NuevaLlamadaPage() {
           organization_id: orgId,
           fuente_lead_id: selectedSource,
           funnel_stage_id: selectedStage || null,
+          prospect_phone: prospectPhone.trim() || null,
           transcription_original: transcriptionOriginal,
           transcription_edited: transcriptionSource === "audio" && transcriptionOriginal && transcription.trim() !== transcriptionOriginal
             ? transcription.trim() : null,
@@ -533,6 +537,7 @@ export default function NuevaLlamadaPage() {
               sessionStorage.removeItem("c2_stage");
               sessionStorage.removeItem("c2_source");
               sessionStorage.removeItem("c2_notes");
+              sessionStorage.removeItem("c2_phone");
               sessionStorage.removeItem("c2_original");
               sessionStorage.removeItem("c2_source_type");
               window.location.href = `/analisis/${analysisId}`;
@@ -719,6 +724,24 @@ export default function NuevaLlamadaPage() {
               No hay fuentes de lead configuradas. Tu gerente puede agregarlas en Configuración.
             </p>
           )}
+        </div>
+
+        <div className="input-group">
+          <label htmlFor="prospect-phone" className="input-label">
+            WhatsApp del prospecto <span style={{ fontWeight: 400, color: "var(--ink-light)" }}>(opcional)</span>
+          </label>
+          <input
+            id="prospect-phone"
+            type="tel"
+            inputMode="tel"
+            className="input-field"
+            value={prospectPhone}
+            onChange={(e) => { setProspectPhone(e.target.value); sessionStorage.setItem("c2_phone", e.target.value); }}
+            placeholder="+52 55 1234 5678"
+            disabled={status === "analyzing"}
+            autoComplete="tel"
+          />
+          <p className="c2-hint">Si lo dejas vacío, lo detectamos automáticamente de la transcripción.</p>
         </div>
 
         <div className="input-group">

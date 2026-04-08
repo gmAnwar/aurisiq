@@ -535,7 +535,7 @@ PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en l
       business_type: parsed.business_type,
       equipment_type: parsed.equipment_type,
       sale_reason: parsed.sale_reason,
-      prospect_phone: parsed.prospect_phone,
+      prospect_phone: body.prospect_phone || parsed.prospect_phone,
       checklist_results: parsed.checklist_results,
       related_analysis_id: relatedId,
       status: 'completado',

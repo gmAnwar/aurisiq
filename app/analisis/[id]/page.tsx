@@ -240,9 +240,17 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
         {vertical !== "financiero" && vertical !== "automotriz" && analysis.sale_reason && analysis.sale_reason !== "No mencionado" && (
           <p className="c3-prospect-reason">Motivo de venta: {analysis.sale_reason}</p>
         )}
-        {analysis.prospect_phone && (
-          <p className="c3-prospect-reason">Tel: {analysis.prospect_phone}</p>
-        )}
+        <p className="c3-prospect-reason" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span aria-hidden="true" style={{ fontSize: 16 }}>💬</span>
+          <span>WhatsApp:&nbsp;</span>
+          <EditableField
+            analysisId={analysis.id}
+            field="prospect_phone"
+            currentValue={analysis.prospect_phone}
+            placeholder="Agregar WhatsApp"
+            onSave={(v) => handleFieldSave("prospect_phone", v)}
+          />
+        </p>
       </div>
 
       {/* 1b. RELATED CALLS */}
