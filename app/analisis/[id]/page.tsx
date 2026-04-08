@@ -65,6 +65,42 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
       const session = await requireAuth(["captadora", "super_admin"]);
       if (!session) return;
 
+      // super_admin may be viewing an analysis from an org different
+      // from their profile org (admin_active_org_id). RLS would hide
+      // it, so route through the service-role endpoint instead.
+      if (session.realRole === "super_admin") {
+        try {
+          const { data: { session: s } } = await supabase.auth.getSession();
+          const token = s?.access_token;
+          const res = await fetch(`/api/admin/analysis/${id}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          const body = await res.json();
+          if (!res.ok) {
+            setError(body.error === "Not found" ? "No se encontró este análisis." : (body.error || "Error cargando análisis"));
+            setLoading(false);
+            return;
+          }
+          setAnalysis(body.analysis);
+          setVertical(body.vertical || null);
+          setPhases(body.phases || []);
+          if (body.descal_categories) {
+            const map: Record<string, string> = {};
+            for (const c of body.descal_categories as { code: string; label: string }[]) {
+              map[c.code] = c.label;
+            }
+            setDescalLabels(map);
+          }
+          setRelatedCalls(body.related || []);
+          setLoading(false);
+          return;
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "Error cargando análisis");
+          setLoading(false);
+          return;
+        }
+      }
+
       const { data: a, error: aErr } = await supabase
         .from("analyses")
         .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, related_analysis_id, created_at, scorecard_id")
