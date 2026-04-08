@@ -211,6 +211,7 @@ function parseClaudeOutput(rawText) {
     business_type: null,
     equipment_type: null,
     sale_reason: null,
+    detected_stage_name: null,
     prospect_phone: null,
     checklist_results: null,
     phases: [],
@@ -277,6 +278,11 @@ function parseClaudeOutput(rawText) {
   if (negocioMatch) result.business_type = negocioMatch[1].trim();
   const equipoMatch = rawText.match(/TIPO_EQUIPO:\s*(.+?)(?:\n|$)/i);
   if (equipoMatch) result.equipment_type = equipoMatch[1].trim();
+  const stageMatch = rawText.match(/ETAPA_DETECTADA:\s*(.+?)(?:\n|$)/i);
+  if (stageMatch) {
+    const val = stageMatch[1].trim();
+    if (val && !/^null$|^no\s/i.test(val)) result.detected_stage_name = val;
+  }
   const reasonMatch = rawText.match(/MOTIVO_VENTA:\s*(.+?)(?:\n|$)/i);
   if (reasonMatch) result.sale_reason = reasonMatch[1].trim();
   const phoneMatch = rawText.match(/PROSPECTO_TELEFONO:\s*(.+?)(?:\n|$)/i);
@@ -436,6 +442,16 @@ async function processAnalysis(env, analysisId, body, scorecard) {
   try {
     // Fetch org descalification catalog to inject into prompt
     const descalCats = await getDescalCategories(env, organization_id);
+
+    // Fetch org funnel stages for automatic stage detection
+    let orgStages = [];
+    try {
+      orgStages = await supabaseSelect(
+        env, 'funnel_stages',
+        `organization_id=eq.${organization_id}&select=id,name&order=order_index.asc`
+      );
+    } catch { /* ignore */ }
+
     let promptWithDescal = scorecard.prompt_template;
     // Tone guidance for patron_error — coaching-positive, never aggressive
     promptWithDescal += `\n\n---\nTONO Y FORMATO DEL PATRÓN DE ERROR\nEl bloque PATRÓN DE ERROR PRINCIPAL debe ser BREVE: máximo 2-3 oraciones concretas y accionables. No es un análisis completo — es un tip rápido. Usa tono de coaching positivo. Empieza con "Para tu siguiente llamada, enfócate en...", "Un área de oportunidad es...", "Esta semana puedes mejorar en...". NUNCA uses "cometió un error", "falla más común", "error costoso". El objetivo es motivar, no señalar fallos.\n\nIDIOMA: Responde completamente en español. No uses anglicismos ni palabras en inglés (no "follow-up", "lead", "goodwill", "call to action", "closing"). Usa los equivalentes en español: seguimiento, prospecto, confianza, llamado a la acción, cierre.`;
@@ -443,6 +459,11 @@ async function processAnalysis(env, analysisId, body, scorecard) {
     // Prospect extraction + checklist
     promptWithDescal += `\n\n---\nEXTRACCION DE DATOS DEL PROSPECTO\nAl final de tu respuesta, incluye estas líneas:\nPROSPECTO_NOMBRE: [nombre del prospecto si se menciona, o "No identificado"]\nPROSPECTO_ZONA: [colonia, zona o municipio si se menciona, o "No identificada"]\nTIPO_PROPIEDAD: [casa, departamento, terreno, local, o "No identificado"]\nMOTIVO_VENTA: [razón por la que vende, o "No mencionado"]
 PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en la transcripción, o "No detectado"]\n\nCHECKLIST: [JSON array con cada campo evaluado]\nFormato: [{"field":"Nombre completo","covered":true},{"field":"Dirección de la propiedad","covered":true},...]\nLos 26 campos del checklist son: Nombre completo, Dirección de la propiedad, Dirección INE, Estado civil, Libre de gravamen, Pagos puntuales, Adeudos en tiempo consecutivo, Crédito individual o conyugal, NSS, NC, Papelería/escrituras, Descripción del domicilio, Casa habitada o desocupada, Servicios a nombre de quién, Adeudos de servicios, Financiamiento de adeudos, Motivo de venta, Expectativa del cliente, Precio estimado de venta, Precio estimado de captación, Disponibilidad para visita, Fecha y hora propuesta, Lectura de urgencia, Lectura de disposición, Lectura de resistencia, Promesa de venta.\nMarca covered=true si la captadora PREGUNTÓ o mencionó ese punto, covered=false si no.`;
+
+    if (orgStages.length > 0) {
+      const stageList = orgStages.map(s => `- ${s.name}`).join('\n');
+      promptWithDescal += `\n\n---\nDETECCIÓN DE ETAPA DEL EMBUDO\nBasándote en el contenido de la conversación, identifica en cuál de estas etapas del embudo se encuentra esta llamada:\n${stageList}\n\nAl final de tu respuesta incluye una línea con el formato exacto:\nETAPA_DETECTADA: [nombre exacto de la etapa]\n\nUsa exactamente el nombre tal como aparece en la lista. Si no puedes determinar la etapa con confianza razonable, escribe:\nETAPA_DETECTADA: null`;
+    }
 
     if (descalCats.length > 0) {
       const catList = descalCats.map(c => `- ${c.code}: ${c.label}`).join('\n');
@@ -490,7 +511,16 @@ PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en l
       } catch { /* ignore */ }
     }
 
-    await supabaseUpdate(env, 'analyses', 'id', analysisId, {
+    // Resolve detected stage name to id (case-insensitive match)
+    let detectedStageId = null;
+    if (parsed.detected_stage_name && orgStages.length > 0) {
+      const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      const target = norm(parsed.detected_stage_name);
+      const match = orgStages.find(s => norm(s.name) === target);
+      if (match) detectedStageId = match.id;
+    }
+
+    const updatePayload = {
       score_general: parsed.score_general !== null ? Math.min(parsed.score_general, 100) : null,
       clasificacion: parsed.clasificacion,
       momento_critico: parsed.momento_critico,
@@ -509,7 +539,15 @@ PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en l
       checklist_results: parsed.checklist_results,
       related_analysis_id: relatedId,
       status: 'completado',
-    });
+    };
+
+    // Only override funnel_stage_id with Claude's detection if the
+    // client did not send one (respect explicit user choice).
+    if (detectedStageId && !body.funnel_stage_id) {
+      updatePayload.funnel_stage_id = detectedStageId;
+    }
+
+    await supabaseUpdate(env, 'analyses', 'id', analysisId, updatePayload);
 
     await supabaseUpdate(env, 'analysis_jobs', 'analysis_id', analysisId, {
       status: 'completado',

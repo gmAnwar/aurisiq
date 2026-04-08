@@ -184,7 +184,9 @@ export default function NuevaLlamadaPage() {
     if (file) extractTextFromFile(file);
     e.target.value = "";
   };
-  const canSubmit = selectedSource !== "" && selectedStage !== "" && wordCount >= MIN_WORDS && status === "idle" && !isTranscribing;
+  // Stage is optional: Claude auto-detects it from the transcription
+  // when the user leaves it blank. User can still choose a stage manually.
+  const canSubmit = selectedSource !== "" && wordCount >= MIN_WORDS && status === "idle" && !isTranscribing;
   const charCount = transcription.length;
   const CHAR_LIMIT = 15000;
 
@@ -475,7 +477,7 @@ export default function NuevaLlamadaPage() {
           user_id: userId,
           organization_id: orgId,
           fuente_lead_id: selectedSource,
-          funnel_stage_id: selectedStage,
+          funnel_stage_id: selectedStage || null,
           transcription_original: transcriptionOriginal,
           transcription_edited: transcriptionSource === "audio" && transcriptionOriginal && transcription.trim() !== transcriptionOriginal
             ? transcription.trim() : null,
@@ -511,6 +513,21 @@ export default function NuevaLlamadaPage() {
             if (progressRef.current) clearInterval(progressRef.current);
             setAnalysisPct(100);
             setAnalysisPhase("Listo — redirigiendo a resultados...");
+
+            // Pre-select the auto-detected stage in the dropdown if the
+            // user didn't pick one. Fetch the analysis row to read the
+            // funnel_stage_id Claude resolved.
+            if (!selectedStage) {
+              try {
+                const { data: a } = await supabase
+                  .from("analyses")
+                  .select("funnel_stage_id")
+                  .eq("id", analysisId)
+                  .maybeSingle();
+                if (a?.funnel_stage_id) setSelectedStage(a.funnel_stage_id);
+              } catch { /* ignore */ }
+            }
+
             setTimeout(() => {
               sessionStorage.removeItem("c2_transcription");
               sessionStorage.removeItem("c2_stage");
@@ -658,7 +675,7 @@ export default function NuevaLlamadaPage() {
       <div className="c2-form">
         <div className="input-group">
           <label htmlFor="funnel-stage" className="input-label">
-            Etapa del embudo *
+            Etapa del embudo <span style={{ fontWeight: 400, color: "var(--ink-light)" }}>(opcional — se detecta automáticamente)</span>
           </label>
           <select
             id="funnel-stage"
@@ -667,7 +684,7 @@ export default function NuevaLlamadaPage() {
             onChange={(e) => { setSelectedStage(e.target.value); sessionStorage.setItem("c2_stage", e.target.value); }}
             disabled={status === "analyzing"}
           >
-            <option value="">Selecciona la etapa</option>
+            <option value="">Detectar automáticamente</option>
             {funnelStages.map((stage) => (
               <option key={stage.id} value={stage.id}>
                 {stage.name}
