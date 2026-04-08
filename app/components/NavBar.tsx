@@ -100,6 +100,35 @@ const TRAINING_ROLE_OPTIONS: { value: string; label: string }[] = [
 export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVendedor, trainingMode, onTrainingRoleChange }: NavBarProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showPwdForm, setShowPwdForm] = useState(false);
+  const [pwd, setPwd] = useState("");
+  const [pwdConfirm, setPwdConfirm] = useState("");
+  const [pwdError, setPwdError] = useState("");
+  const [pwdSubmitting, setPwdSubmitting] = useState(false);
+  const [pwdSuccess, setPwdSuccess] = useState(false);
+
+  const handleChangePassword = async () => {
+    setPwdError("");
+    setPwdSuccess(false);
+    if (pwd.length < 8) { setPwdError("Mínimo 8 caracteres"); return; }
+    if (pwd !== pwdConfirm) { setPwdError("Las contraseñas no coinciden"); return; }
+    setPwdSubmitting(true);
+    const { error: e } = await supabase.auth.updateUser({ password: pwd });
+    if (e) {
+      setPwdError(e.message);
+      setPwdSubmitting(false);
+      return;
+    }
+    setPwdSuccess(true);
+    setPwd("");
+    setPwdConfirm("");
+    setPwdSubmitting(false);
+    setTimeout(() => {
+      setShowPwdForm(false);
+      setPwdSuccess(false);
+      setMenuOpen(false);
+    }, 1500);
+  };
   const allItems = NAV_BY_ROLE[role] || NAV_BY_ROLE.captadora;
   const mobileItems = MOBILE_NAV[role] || allItems.slice(0, 4);
   const useSidebar = SIDEBAR_ROLES.includes(role);
@@ -187,6 +216,44 @@ export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVe
                   <span className="navbar-menu-role">{roleLabel}</span>
                   <span className="navbar-menu-email-text">{userEmail}</span>
                 </div>
+                <div className="navbar-menu-sep" />
+                <button
+                  className="navbar-menu-logout"
+                  style={{ color: "#00C2E0" }}
+                  onClick={() => { setShowPwdForm(v => !v); setPwdError(""); setPwdSuccess(false); }}
+                >
+                  {showPwdForm ? "Cancelar" : "Cambiar contraseña"}
+                </button>
+                {showPwdForm && (
+                  <div style={{ padding: "8px 12px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+                    <input
+                      className="input-field"
+                      type="password"
+                      placeholder="Nueva contraseña (min 8)"
+                      value={pwd}
+                      onChange={e => setPwd(e.target.value)}
+                      autoComplete="new-password"
+                    />
+                    <input
+                      className="input-field"
+                      type="password"
+                      placeholder="Confirmar contraseña"
+                      value={pwdConfirm}
+                      onChange={e => setPwdConfirm(e.target.value)}
+                      autoComplete="new-password"
+                    />
+                    {pwdError && <p className="c2-rec-error" style={{ margin: 0 }}>{pwdError}</p>}
+                    {pwdSuccess && <p style={{ margin: 0, color: "#16a34a", fontSize: 13 }}>✓ Contraseña actualizada</p>}
+                    <button
+                      className="btn-submit"
+                      style={{ marginTop: 0, padding: "8px 12px" }}
+                      onClick={handleChangePassword}
+                      disabled={pwdSubmitting || !pwd || !pwdConfirm}
+                    >
+                      {pwdSubmitting ? "Guardando..." : "Guardar"}
+                    </button>
+                  </div>
+                )}
                 <div className="navbar-menu-sep" />
                 <button className="navbar-menu-logout" onClick={handleSignOut}>Cerrar sesión</button>
               </div>

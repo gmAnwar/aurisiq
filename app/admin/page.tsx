@@ -111,60 +111,35 @@ export default function AdminPage() {
     if (t) setTimeout(() => setToast(null), 3000);
   }
 
-  const loadOrgs = useCallback(async () => {
-    const res = await supabase
-      .from("organizations")
-      .select("id, name, slug, plan, analyses_count, analyses_limit, access_status, invite_token, role_label_vendedor")
-      .order("created_at", { ascending: false });
-    if (res.error) { setError(res.error.message); return; }
-    setOrgs((res.data || []) as Organization[]);
+  const loadAllData = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) { setError("Sin sesión activa"); return; }
+    const res = await fetch("/api/admin/data", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const body = await res.json();
+    if (!res.ok) { setError(body.error || "Error cargando datos"); return; }
+    setOrgs((body.orgs || []) as Organization[]);
+    setUsers((body.users || []) as UserRow[]);
+    setAnalyses((body.analyses || []) as AnalysisRow[]);
+    setSpeechVersions((body.speech_versions || []) as SpeechVersionRow[]);
   }, []);
 
-  const loadUsers = useCallback(async () => {
-    let res = await supabase
-      .from("users")
-      .select("id, name, email, role, organization_id, active, training_mode, created_at")
-      .order("created_at", { ascending: false });
-    if (res.error && res.error.message?.includes("training_mode")) {
-      const r2 = await supabase
-        .from("users")
-        .select("id, name, email, role, organization_id, active, created_at")
-        .order("created_at", { ascending: false });
-      res = r2 as typeof res;
-    }
-    if (res.error) { setError(res.error.message); return; }
-    setUsers((res.data || []) as UserRow[]);
-  }, []);
-
-  const loadAnalyses = useCallback(async () => {
-    const res = await supabase
-      .from("analyses")
-      .select("id, organization_id, user_id, score_general, clasificacion, status, created_at")
-      .order("created_at", { ascending: false })
-      .limit(200);
-    if (res.error) { setError(res.error.message); return; }
-    setAnalyses((res.data || []) as AnalysisRow[]);
-  }, []);
-
-  const loadSpeech = useCallback(async () => {
-    const res = await supabase
-      .from("speech_versions")
-      .select("id, organization_id, version_number, published, created_at, content")
-      .order("created_at", { ascending: false })
-      .limit(200);
-    if (res.error) { setError(res.error.message); return; }
-    setSpeechVersions((res.data || []) as SpeechVersionRow[]);
-  }, []);
+  const loadOrgs = loadAllData;
+  const loadUsers = loadAllData;
+  const loadAnalyses = loadAllData;
+  const loadSpeech = loadAllData;
 
   useEffect(() => {
     async function load() {
       const session = await requireAuth(["super_admin"]);
       if (!session) return;
-      await Promise.all([loadOrgs(), loadUsers(), loadAnalyses(), loadSpeech()]);
+      await loadAllData();
       setLoading(false);
     }
     load();
-  }, [loadOrgs, loadUsers, loadAnalyses, loadSpeech]);
+  }, [loadAllData]);
 
   // ----- Helpers -----
   function buildTeamLink(token: string | null): string | null {
