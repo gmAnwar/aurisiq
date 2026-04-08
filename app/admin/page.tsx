@@ -105,6 +105,7 @@ export default function AdminPage() {
   const [newUserTraining, setNewUserTraining] = useState(false);
   const [creatingUser, setCreatingUser] = useState(false);
   const [lastCreatedUserLink, setLastCreatedUserLink] = useState<string | null>(null);
+  const [newUserErrors, setNewUserErrors] = useState<{ name?: string; email?: string; org?: string }>({});
 
   function showToast(t: Toast) {
     setToast(t);
@@ -292,10 +293,15 @@ export default function AdminPage() {
     await loadUsers();
   }
   async function handleCreateUser() {
-    if (!newUserName.trim() || !newUserEmail.trim() || !newUserOrgId) {
-      showToast({ type: "err", msg: "Nombre, email y organización son requeridos" });
-      return;
-    }
+    const name = newUserName.trim();
+    const email = newUserEmail.trim();
+    const errs: { name?: string; email?: string; org?: string } = {};
+    if (!name) errs.name = "El nombre es requerido";
+    if (!email) errs.email = "El email es requerido";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = "Ingresa un email válido";
+    if (!newUserOrgId) errs.org = "Selecciona una organización";
+    setNewUserErrors(errs);
+    if (Object.keys(errs).length > 0) return;
     setCreatingUser(true);
     setLastCreatedUserLink(null);
     try {
@@ -603,11 +609,24 @@ export default function AdminPage() {
             <div className="admin-form" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <div className="input-group">
                 <label className="input-label">Nombre</label>
-                <input className="input-field" value={newUserName} onChange={e => setNewUserName(e.target.value)} placeholder="Elizabeth R." />
+                <input
+                  className="input-field"
+                  value={newUserName}
+                  onChange={e => { setNewUserName(e.target.value); if (newUserErrors.name) setNewUserErrors({ ...newUserErrors, name: undefined }); }}
+                  placeholder="Elizabeth R."
+                />
+                {newUserErrors.name && <p className="c2-rec-error">{newUserErrors.name}</p>}
               </div>
               <div className="input-group">
                 <label className="input-label">Email</label>
-                <input className="input-field" type="email" value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} placeholder="usuario@empresa.com" />
+                <input
+                  className="input-field"
+                  type="email"
+                  value={newUserEmail}
+                  onChange={e => { setNewUserEmail(e.target.value); if (newUserErrors.email) setNewUserErrors({ ...newUserErrors, email: undefined }); }}
+                  placeholder="usuario@empresa.com"
+                />
+                {newUserErrors.email && <p className="c2-rec-error">{newUserErrors.email}</p>}
               </div>
               <div className="input-group">
                 <label className="input-label">Rol</label>
@@ -621,10 +640,15 @@ export default function AdminPage() {
               </div>
               <div className="input-group">
                 <label className="input-label">Organización</label>
-                <select className="input-field c2-select" value={newUserOrgId} onChange={e => setNewUserOrgId(e.target.value)}>
+                <select
+                  className="input-field c2-select"
+                  value={newUserOrgId}
+                  onChange={e => { setNewUserOrgId(e.target.value); if (newUserErrors.org) setNewUserErrors({ ...newUserErrors, org: undefined }); }}
+                >
                   <option value="">— Selecciona org —</option>
                   {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
                 </select>
+                {newUserErrors.org && <p className="c2-rec-error">{newUserErrors.org}</p>}
               </div>
               <div className="input-group" style={{ gridColumn: "1 / -1" }}>
                 <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
