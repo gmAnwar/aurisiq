@@ -596,7 +596,7 @@ PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en l
 // ─── Route: submit analysis (returns immediately) ──────────
 
 async function handleSubmit(body, env, ctx, origin) {
-  const required = ['transcription', 'scorecard_id', 'user_id', 'organization_id'];
+  const required = ['transcription', 'user_id', 'organization_id'];
   for (const field of required) {
     if (!body[field]) {
       return jsonResponse({ error: `Missing required field: ${field}` }, 400, origin);
@@ -608,7 +608,7 @@ async function handleSubmit(body, env, ctx, origin) {
   }
 
   const { organization_id } = body;
-  let { scorecard_id } = body;
+  let scorecard_id = body.scorecard_id || null;
 
   const org = await getOrgPlan(env, organization_id);
   if (org.access_status === 'read_only') {
@@ -625,47 +625,60 @@ async function handleSubmit(body, env, ctx, origin) {
     return jsonResponse({ error: 'Monthly analysis quota exceeded' }, 429, origin);
   }
 
-  // Funnel stages are the source of truth for which scorecard applies
-  // to each stage of an org's funnel. Resolve scorecard_id from the
-  // stage the client picked, or — when no stage was picked — from any
-  // active stage of the org, so we never fall through to the wrong
-  // client-provided scorecard.
-  const receivedScorecard = scorecard_id;
+  // SCORECARD RESOLUTION — funnel_stages is the source of truth.
+  // Fetch ALL stages of the org up-front, then:
+  //   1. If the client sent a funnel_stage_id that matches, use its scorecard_id
+  //   2. Else use the first stage whose scorecard_id is not null
+  //   3. Last resort: keep whatever the client sent
+  // body.scorecard_id is never trusted if the org has stages.
+  const receivedScorecard = body.scorecard_id || null;
   const receivedStage = body.funnel_stage_id || null;
+  console.log('[handleSubmit] IN', {
+    org: organization_id,
+    received_scorecard: receivedScorecard,
+    received_stage: receivedStage,
+  });
+
   try {
+    const allStages = await supabaseSelect(
+      env,
+      'funnel_stages',
+      `organization_id=eq.${organization_id}&select=id,name,scorecard_id,order_index&order=order_index.asc`
+    );
+    console.log('[handleSubmit] stages fetched', {
+      org: organization_id,
+      count: allStages.length,
+      stages: allStages.map(s => ({ id: s.id, name: s.name, scorecard_id: s.scorecard_id })),
+    });
+
+    let resolvedFrom = null;
     if (receivedStage) {
-      const stageRows = await supabaseSelect(
-        env,
-        'funnel_stages',
-        `id=eq.${receivedStage}&organization_id=eq.${organization_id}&select=scorecard_id,name`
-      );
-      if (stageRows.length > 0 && stageRows[0].scorecard_id) {
-        scorecard_id = stageRows[0].scorecard_id;
-        console.log('[handleSubmit] scorecard resolved from stage', {
-          org: organization_id, stage: receivedStage, stage_name: stageRows[0].name,
-          received_scorecard: receivedScorecard, resolved_scorecard: scorecard_id,
-        });
-      } else {
-        console.warn('[handleSubmit] stage has no scorecard_id', { stage: receivedStage, row: stageRows[0] });
-      }
-    } else {
-      // No stage sent — pick any stage of the org that has a scorecard
-      const fallback = await supabaseSelect(
-        env,
-        'funnel_stages',
-        `organization_id=eq.${organization_id}&scorecard_id=not.is.null&active=eq.true&select=scorecard_id&order=order_index.asc&limit=1`
-      );
-      if (fallback.length > 0 && fallback[0].scorecard_id) {
-        scorecard_id = fallback[0].scorecard_id;
-        console.log('[handleSubmit] scorecard resolved from any org stage', {
-          org: organization_id, received_scorecard: receivedScorecard, resolved_scorecard: scorecard_id,
-        });
+      const match = allStages.find(s => s.id === receivedStage);
+      if (match && match.scorecard_id) {
+        scorecard_id = match.scorecard_id;
+        resolvedFrom = `stage:${match.name}`;
       }
     }
+    if (!scorecard_id || resolvedFrom === null) {
+      const first = allStages.find(s => s.scorecard_id);
+      if (first) {
+        scorecard_id = first.scorecard_id;
+        resolvedFrom = `first-stage:${first.name}`;
+      }
+    }
+    console.log('[handleSubmit] scorecard resolved', {
+      org: organization_id,
+      resolved_from: resolvedFrom,
+      received_scorecard: receivedScorecard,
+      final_scorecard: scorecard_id,
+    });
   } catch (e) {
     console.error('[handleSubmit] scorecard resolution error', e);
   }
-  console.log('[handleSubmit] final scorecard_id', { org: organization_id, scorecard_id, stage: receivedStage });
+
+  if (!scorecard_id) {
+    return jsonResponse({ error: 'No scorecard available for this organization' }, 400, origin);
+  }
 
   const scorecard = await getScorecard(env, scorecard_id);
 
