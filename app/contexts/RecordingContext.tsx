@@ -168,7 +168,13 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ action: "transcribe", audio_base64: base64, organization_id: orgId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "No pudimos transcribir el audio.");
+      if (!res.ok) {
+        const raw = (data.error as string) || "";
+        if (/audio exceeds/i.test(raw)) {
+          throw new Error("El audio excede 25MB. Intenta con un archivo más corto.");
+        }
+        throw new Error(raw || "No pudimos transcribir el audio.");
+      }
 
       let text = data.text || "";
       const textWords = text.trim().split(/\s+/).filter(Boolean).length;
