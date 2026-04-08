@@ -72,7 +72,42 @@ export default function MiDiaPage() {
       }
       setAnalyses(all);
       setStreak(userRes.data?.current_streak || 0);
-      setFocusPhase(userRes.data?.current_focus_phase || null);
+
+      // super_admin may switch active org via the navbar; in that case
+      // users.current_focus_phase is tied to the *profile* org's history
+      // and shows stale data. Always recompute focus_phase for super_admin
+      // from analysis_phases scoped to the active org.
+      if (session.realRole === "super_admin") {
+        const { data: phRows } = await supabase
+          .from("analysis_phases")
+          .select("analysis_id, phase_id, phase_name, score, score_max")
+          .eq("user_id", session.userId)
+          .eq("organization_id", session.organizationId)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        const rows = phRows || [];
+        if (rows.length > 0) {
+          const uniqueIds = Array.from(new Set(rows.map(r => r.analysis_id))).slice(0, 5);
+          const recent = rows.filter(r => uniqueIds.includes(r.analysis_id));
+          const agg: Record<string, { total: number; max: number; name: string }> = {};
+          for (const p of recent) {
+            if (!agg[p.phase_id]) agg[p.phase_id] = { total: 0, max: 0, name: p.phase_name };
+            agg[p.phase_id].total += p.score;
+            agg[p.phase_id].max += p.score_max;
+          }
+          let worst: string | null = null;
+          let worstRatio = 1;
+          for (const a of Object.values(agg)) {
+            const ratio = a.max > 0 ? a.total / a.max : 1;
+            if (ratio < worstRatio) { worstRatio = ratio; worst = a.name; }
+          }
+          setFocusPhase(worst);
+        } else {
+          setFocusPhase(null);
+        }
+      } else {
+        setFocusPhase(userRes.data?.current_focus_phase || null);
+      }
 
       const sm: Record<string, string> = {};
       for (const s of sourcesRes.data || []) sm[s.id] = s.name;

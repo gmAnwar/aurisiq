@@ -625,21 +625,47 @@ async function handleSubmit(body, env, ctx, origin) {
     return jsonResponse({ error: 'Monthly analysis quota exceeded' }, 429, origin);
   }
 
-  // If a funnel_stage_id is provided, resolve its assigned scorecard and
-  // override the one the client sent. Funnel stages are the source of
-  // truth for which scorecard applies to each stage of the org's funnel.
-  if (body.funnel_stage_id) {
-    try {
+  // Funnel stages are the source of truth for which scorecard applies
+  // to each stage of an org's funnel. Resolve scorecard_id from the
+  // stage the client picked, or — when no stage was picked — from any
+  // active stage of the org, so we never fall through to the wrong
+  // client-provided scorecard.
+  const receivedScorecard = scorecard_id;
+  const receivedStage = body.funnel_stage_id || null;
+  try {
+    if (receivedStage) {
       const stageRows = await supabaseSelect(
         env,
         'funnel_stages',
-        `id=eq.${body.funnel_stage_id}&organization_id=eq.${organization_id}&select=scorecard_id`
+        `id=eq.${receivedStage}&organization_id=eq.${organization_id}&select=scorecard_id,name`
       );
       if (stageRows.length > 0 && stageRows[0].scorecard_id) {
         scorecard_id = stageRows[0].scorecard_id;
+        console.log('[handleSubmit] scorecard resolved from stage', {
+          org: organization_id, stage: receivedStage, stage_name: stageRows[0].name,
+          received_scorecard: receivedScorecard, resolved_scorecard: scorecard_id,
+        });
+      } else {
+        console.warn('[handleSubmit] stage has no scorecard_id', { stage: receivedStage, row: stageRows[0] });
       }
-    } catch { /* fall back to body.scorecard_id */ }
+    } else {
+      // No stage sent — pick any stage of the org that has a scorecard
+      const fallback = await supabaseSelect(
+        env,
+        'funnel_stages',
+        `organization_id=eq.${organization_id}&scorecard_id=not.is.null&active=eq.true&select=scorecard_id&order=order_index.asc&limit=1`
+      );
+      if (fallback.length > 0 && fallback[0].scorecard_id) {
+        scorecard_id = fallback[0].scorecard_id;
+        console.log('[handleSubmit] scorecard resolved from any org stage', {
+          org: organization_id, received_scorecard: receivedScorecard, resolved_scorecard: scorecard_id,
+        });
+      }
+    }
+  } catch (e) {
+    console.error('[handleSubmit] scorecard resolution error', e);
   }
+  console.log('[handleSubmit] final scorecard_id', { org: organization_id, scorecard_id, stage: receivedStage });
 
   const scorecard = await getScorecard(env, scorecard_id);
 
