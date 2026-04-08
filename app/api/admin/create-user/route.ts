@@ -54,13 +54,19 @@ export async function POST(req: Request) {
     const name = String(body.name || "").trim();
     const email = String(body.email || "").trim().toLowerCase();
     const role = body.role as string | undefined;
-    const organizationId = body.organization_id as string | undefined;
     const trainingMode = !!body.training_mode;
 
+    // Accept either organization_id (legacy, single) or organization_ids (new, array).
+    const rawIds = Array.isArray(body.organization_ids) ? body.organization_ids : null;
+    const orgIds: string[] = rawIds && rawIds.length > 0
+      ? rawIds.filter((v: unknown) => typeof v === "string")
+      : body.organization_id ? [String(body.organization_id)] : [];
+    const organizationId = orgIds[0]; // primary
+
     if (!name || !email || !role || !organizationId) {
-      errLog("missing fields", { name, email, role, organizationId });
+      errLog("missing fields", { name, email, role, orgIds });
       return NextResponse.json(
-        { error: "name, email, role y organization_id son requeridos", received: { name, email, role, organizationId } },
+        { error: "name, email, role y al menos una organización son requeridos", received: { name, email, role, orgIds } },
         { status: 400 }
       );
     }
@@ -135,6 +141,22 @@ export async function POST(req: Request) {
       );
     }
     log("profile inserted", newUserId);
+
+    // Insert user_organizations rows for every selected org (the primary
+    // org is also mirrored here so the multi-org policies pick it up).
+    try {
+      const membershipRows = orgIds.map(oid => ({
+        user_id: newUserId,
+        organization_id: oid,
+        role,
+      }));
+      const { error: memErr } = await admin
+        .from("user_organizations")
+        .upsert(membershipRows, { onConflict: "user_id,organization_id" });
+      if (memErr) errLog("user_organizations upsert failed", memErr);
+    } catch (e) {
+      errLog("user_organizations upsert exception", e);
+    }
 
     // Generate a magic/invite link we can show to the admin as backup
     let actionLink: string | null = null;

@@ -101,11 +101,19 @@ export default function AdminPage() {
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserRole, setNewUserRole] = useState("captadora");
-  const [newUserOrgId, setNewUserOrgId] = useState("");
+  const [newUserOrgIds, setNewUserOrgIds] = useState<string[]>([]);
   const [newUserTraining, setNewUserTraining] = useState(false);
   const [creatingUser, setCreatingUser] = useState(false);
   const [lastCreatedUserLink, setLastCreatedUserLink] = useState<string | null>(null);
   const [newUserErrors, setNewUserErrors] = useState<{ name?: string; email?: string; org?: string }>({});
+
+  // Memberships panel (per-user)
+  interface MembershipRow { id: string; organization_id: string; role: string; }
+  const [openUserMembershipsId, setOpenUserMembershipsId] = useState<string | null>(null);
+  const [userMemberships, setUserMemberships] = useState<MembershipRow[]>([]);
+  const [membershipsLoading, setMembershipsLoading] = useState(false);
+  const [addMembershipOrgId, setAddMembershipOrgId] = useState("");
+  const [addMembershipRole, setAddMembershipRole] = useState("captadora");
 
   function showToast(t: Toast) {
     setToast(t);
@@ -299,7 +307,7 @@ export default function AdminPage() {
     if (!name) errs.name = "El nombre es requerido";
     if (!email) errs.email = "El email es requerido";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = "Ingresa un email válido";
-    if (!newUserOrgId) errs.org = "Selecciona una organización";
+    if (newUserOrgIds.length === 0) errs.org = "Selecciona al menos una organización";
     setNewUserErrors(errs);
     if (Object.keys(errs).length > 0) return;
     setCreatingUser(true);
@@ -322,7 +330,8 @@ export default function AdminPage() {
           name: newUserName.trim(),
           email: newUserEmail.trim().toLowerCase(),
           role: newUserRole,
-          organization_id: newUserOrgId,
+          organization_id: newUserOrgIds[0],
+          organization_ids: newUserOrgIds,
           training_mode: newUserTraining,
         }),
       });
@@ -339,12 +348,96 @@ export default function AdminPage() {
       setNewUserName("");
       setNewUserEmail("");
       setNewUserRole("captadora");
+      setNewUserOrgIds([]);
       setNewUserTraining(false);
       await loadUsers();
     } catch (e) {
       showToast({ type: "err", msg: e instanceof Error ? e.message : "Error de red" });
     }
     setCreatingUser(false);
+  }
+
+  async function openUserMemberships(u: UserRow) {
+    if (openUserMembershipsId === u.id) {
+      setOpenUserMembershipsId(null);
+      setUserMemberships([]);
+      return;
+    }
+    setOpenUserMembershipsId(u.id);
+    setMembershipsLoading(true);
+    setAddMembershipOrgId("");
+    setAddMembershipRole(u.role);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch(`/api/admin/user-orgs?user_id=${encodeURIComponent(u.id)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const body = await res.json();
+      if (res.ok) setUserMemberships(body.memberships || []);
+      else showToast({ type: "err", msg: body.error || "Error cargando memberships" });
+    } catch (e) {
+      showToast({ type: "err", msg: e instanceof Error ? e.message : "Error de red" });
+    }
+    setMembershipsLoading(false);
+  }
+
+  async function addMembership(userId: string) {
+    if (!addMembershipOrgId) { showToast({ type: "err", msg: "Selecciona una org" }); return; }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch("/api/admin/user-orgs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          organization_id: addMembershipOrgId,
+          role: addMembershipRole,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) { showToast({ type: "err", msg: body.error || "Error" }); return; }
+      showToast({ type: "ok", msg: "Organización agregada al usuario" });
+      setAddMembershipOrgId("");
+      // Reload the memberships list
+      const u = users.find(x => x.id === userId);
+      if (u) await openUserMemberships(u);
+      // Re-open (openUserMemberships toggles, so we need a fresh load)
+      const res2 = await fetch(`/api/admin/user-orgs?user_id=${encodeURIComponent(userId)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const body2 = await res2.json();
+      if (res2.ok) {
+        setOpenUserMembershipsId(userId);
+        setUserMemberships(body2.memberships || []);
+      }
+    } catch (e) {
+      showToast({ type: "err", msg: e instanceof Error ? e.message : "Error de red" });
+    }
+  }
+
+  async function removeMembership(membershipId: string, userId: string) {
+    if (!window.confirm("¿Quitar esta organización del usuario?")) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch(`/api/admin/user-orgs?id=${encodeURIComponent(membershipId)}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { showToast({ type: "err", msg: body.error || "Error" }); return; }
+      showToast({ type: "ok", msg: "Organización removida" });
+      setUserMemberships(prev => prev.filter(m => m.id !== membershipId));
+      // Keep panel open
+      setOpenUserMembershipsId(userId);
+    } catch (e) {
+      showToast({ type: "err", msg: e instanceof Error ? e.message : "Error de red" });
+    }
   }
 
   async function toggleTrainingMode(u: UserRow) {
@@ -655,16 +748,32 @@ export default function AdminPage() {
                   <option value="super_admin">Super Admin</option>
                 </select>
               </div>
-              <div className="input-group">
-                <label className="input-label">Organización</label>
-                <select
-                  className="input-field c2-select"
-                  value={newUserOrgId}
-                  onChange={e => { setNewUserOrgId(e.target.value); if (newUserErrors.org) setNewUserErrors({ ...newUserErrors, org: undefined }); }}
-                >
-                  <option value="">— Selecciona org —</option>
-                  {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-                </select>
+              <div className="input-group" style={{ gridColumn: "1 / -1" }}>
+                <label className="input-label">Organizaciones (puede pertenecer a varias)</label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, border: "1px solid #e5e5e5", borderRadius: 8, padding: 10, maxHeight: 200, overflowY: "auto" }}>
+                  {orgs.length === 0 && <p className="c2-hint">Sin organizaciones disponibles.</p>}
+                  {orgs.map(o => {
+                    const checked = newUserOrgIds.includes(o.id);
+                    return (
+                      <label key={o.id} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={e => {
+                            setNewUserErrors({ ...newUserErrors, org: undefined });
+                            setNewUserOrgIds(prev =>
+                              e.target.checked
+                                ? Array.from(new Set([...prev, o.id]))
+                                : prev.filter(id => id !== o.id)
+                            );
+                          }}
+                        />
+                        <span>{o.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="c2-hint">La primera seleccionada será la org principal del perfil.</p>
                 {newUserErrors.org && <p className="c2-rec-error">{newUserErrors.org}</p>}
               </div>
               <div className="input-group" style={{ gridColumn: "1 / -1" }}>
@@ -677,7 +786,7 @@ export default function AdminPage() {
                 <button
                   className="btn-submit"
                   onClick={handleCreateUser}
-                  disabled={creatingUser || !newUserName || !newUserEmail || !newUserOrgId}
+                  disabled={creatingUser || !newUserName || !newUserEmail || newUserOrgIds.length === 0}
                 >
                   {creatingUser ? "Creando..." : "Crear usuario y enviar invitación"}
                 </button>
@@ -703,28 +812,83 @@ export default function AdminPage() {
               <span>Acciones</span>
             </div>
             {filteredUsers.map(u => (
-              <div key={u.id} className="admin-table-row" style={{ gridTemplateColumns: "1.2fr 1.4fr 1fr 1.2fr 0.8fr 1fr 1.2fr" }}>
-                <span className="admin-cell-name">{u.name}</span>
-                <span className="admin-cell-slug">{u.email}</span>
-                <span>
-                  <select className="input-field c2-select" value={u.role} onChange={e => changeUserRole(u.id, e.target.value)} style={{ padding: "6px 8px" }}>
-                    {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </span>
-                <span>{orgName(u.organization_id)}</span>
-                <span>
-                  <button className="admin-copy-btn" onClick={() => toggleUserActive(u)}>
-                    {u.active ? "Activo ✓" : "Inactivo ✗"}
-                  </button>
-                </span>
-                <span>
-                  <button className="admin-copy-btn" onClick={() => toggleTrainingMode(u)}>
-                    {u.training_mode ? "🎓 ON" : "OFF"}
-                  </button>
-                </span>
-                <span>
-                  <button className="admin-copy-btn" onClick={() => softDeleteUser(u)}>Eliminar</button>
-                </span>
+              <div key={u.id}>
+                <div className="admin-table-row" style={{ gridTemplateColumns: "1.2fr 1.4fr 1fr 1.2fr 0.8fr 1fr 1.4fr" }}>
+                  <span className="admin-cell-name">{u.name}</span>
+                  <span className="admin-cell-slug">{u.email}</span>
+                  <span>
+                    <select className="input-field c2-select" value={u.role} onChange={e => changeUserRole(u.id, e.target.value)} style={{ padding: "6px 8px" }}>
+                      {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </span>
+                  <span>{orgName(u.organization_id)}</span>
+                  <span>
+                    <button className="admin-copy-btn" onClick={() => toggleUserActive(u)}>
+                      {u.active ? "Activo ✓" : "Inactivo ✗"}
+                    </button>
+                  </span>
+                  <span>
+                    <button className="admin-copy-btn" onClick={() => toggleTrainingMode(u)}>
+                      {u.training_mode ? "🎓 ON" : "OFF"}
+                    </button>
+                  </span>
+                  <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <button className="admin-copy-btn" onClick={() => openUserMemberships(u)}>
+                      {openUserMembershipsId === u.id ? "Orgs ▲" : "Orgs"}
+                    </button>
+                    <button className="admin-copy-btn" onClick={() => softDeleteUser(u)}>Eliminar</button>
+                  </span>
+                </div>
+                {openUserMembershipsId === u.id && (
+                  <div className="admin-table-row" style={{ gridTemplateColumns: "1fr", background: "var(--color-surface-alt, #f9f9f9)", padding: 16 }}>
+                    <div>
+                      <h4 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 600 }}>Organizaciones de {u.name}</h4>
+                      {membershipsLoading ? (
+                        <p className="c2-hint">Cargando...</p>
+                      ) : (
+                        <>
+                          {userMemberships.length === 0 && (
+                            <p className="c2-hint">Sin memberships. Agrega la primera abajo.</p>
+                          )}
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+                            {userMemberships.map(m => (
+                              <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px", border: "1px solid #e5e5e5", borderRadius: 6, background: "#fff" }}>
+                                <strong style={{ flex: 1 }}>{orgName(m.organization_id)}</strong>
+                                <span style={{ fontSize: 13, color: "var(--ink-light)" }}>{m.role}</span>
+                                <button className="admin-copy-btn" onClick={() => removeMembership(m.id, u.id)}>Quitar</button>
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr auto", gap: 8, alignItems: "end" }}>
+                            <div className="input-group" style={{ margin: 0 }}>
+                              <label className="input-label">Organización</label>
+                              <select className="input-field c2-select" value={addMembershipOrgId} onChange={e => setAddMembershipOrgId(e.target.value)}>
+                                <option value="">— Elegir org —</option>
+                                {orgs
+                                  .filter(o => !userMemberships.some(m => m.organization_id === o.id))
+                                  .map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                              </select>
+                            </div>
+                            <div className="input-group" style={{ margin: 0 }}>
+                              <label className="input-label">Rol</label>
+                              <select className="input-field c2-select" value={addMembershipRole} onChange={e => setAddMembershipRole(e.target.value)}>
+                                {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                              </select>
+                            </div>
+                            <button
+                              className="btn-submit"
+                              style={{ marginTop: 0, flex: "none", padding: "10px 16px" }}
+                              onClick={() => addMembership(u.id)}
+                              disabled={!addMembershipOrgId}
+                            >
+                              Agregar
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
             {filteredUsers.length === 0 && <div className="g1-empty">Sin usuarios.</div>}
