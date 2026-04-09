@@ -218,14 +218,36 @@ export default function NuevaLlamadaPage() {
       setOrgId(effectiveOrgId);
       setIsSuperAdmin(session.realRole === "super_admin");
 
+      console.log("[C2 init]", {
+        userId: session.userId,
+        realRole: session.realRole,
+        effectiveRole: session.role,
+        trainingMode: session.trainingMode,
+        organizationId: effectiveOrgId,
+      });
+
+      // Unconditional fetch. RLS handles org scoping — no frontend
+      // role gate. Drop `active` filter so inactive-but-not-deleted
+      // sources still appear while the gerente is configuring them.
       const [sourcesRes, stagesRes] = await Promise.all([
-        supabase.from("lead_sources").select("id, name")
-          .eq("organization_id", effectiveOrgId).eq("active", true).order("name"),
+        supabase.from("lead_sources").select("id, name, active")
+          .eq("organization_id", effectiveOrgId).order("name"),
         supabase.from("funnel_stages").select("id, name")
           .eq("organization_id", effectiveOrgId).order("order_index"),
       ]);
 
-      const { data: sources, error } = sourcesRes;
+      console.log("[C2 lead_sources]", {
+        count: sourcesRes.data?.length ?? null,
+        error: sourcesRes.error?.message ?? null,
+        rows: sourcesRes.data,
+      });
+      console.log("[C2 funnel_stages]", {
+        count: stagesRes.data?.length ?? null,
+        error: stagesRes.error?.message ?? null,
+      });
+
+      const { data: sourcesRaw, error } = sourcesRes;
+      const sources = (sourcesRaw || []).filter(s => s.active !== false);
       setFunnelStages(stagesRes.data || []);
 
       if (error) {
