@@ -355,6 +355,34 @@ export default function AdminPage() {
     await loadUsers();
   }
 
+  async function resendInvite(u: UserRow) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch("/api/admin/resend-invite", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ email: u.email, user_id: u.id }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast({ type: "err", msg: body.error || "Error al reenviar invitación" });
+        return;
+      }
+      if (body.action_link) {
+        try { await navigator.clipboard.writeText(body.action_link); } catch { /* ignore */ }
+        showToast({ type: "ok", msg: `Invitación regenerada — link copiado al portapapeles${body.email_sent ? " (email enviado)" : ""}` });
+      } else {
+        showToast({ type: "ok", msg: "Invitación regenerada" });
+      }
+    } catch (e) {
+      showToast({ type: "err", msg: e instanceof Error ? e.message : "Error de red" });
+    }
+  }
+
   async function softDeleteUser(u: UserRow) {
     if (!window.confirm(`¿Eliminar (soft) a ${u.name}? Se marcará inactive.`)) return;
     const { error: e } = await supabase.from("users").update({ active: false }).eq("id", u.id);
@@ -707,7 +735,8 @@ export default function AdminPage() {
                     {u.training_mode ? "🎓 ON" : "OFF"}
                   </button>
                 </span>
-                <span>
+                <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <button className="admin-copy-btn" onClick={() => resendInvite(u)}>Reenviar</button>
                   <button className="admin-copy-btn" onClick={() => softDeleteUser(u)}>Eliminar</button>
                 </span>
               </div>
