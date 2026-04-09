@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../../../lib/supabase";
-import { requireAuth, getActiveOrgId } from "../../../lib/auth";
+import { requireAuth } from "../../../lib/auth";
 import { computeEditPercentage } from "../../../lib/text";
 import { useRecording } from "../../contexts/RecordingContext";
 
@@ -202,12 +202,18 @@ export default function NuevaLlamadaPage() {
   useEffect(() => {
     setMobile(isMobile());
     async function init() {
-      const session = await requireAuth(["captadora", "super_admin"]);
+      // Allow training_mode users (direccion / gerente / super_admin)
+      // to use C2 as captadora without being redirected. session.role
+      // already reflects the effective role from getSession (training
+      // override applied there).
+      const session = await requireAuth(["captadora", "super_admin", "gerente", "direccion"]);
       if (!session) return;
 
-      // super_admin may override the active org via the navbar selector;
-      // always resolve the effective org from localStorage first.
-      const effectiveOrgId = getActiveOrgId() || session.organizationId;
+      // session.organizationId is already the effective org (super_admin
+      // override is applied in getSession). No need to read localStorage
+      // here — it was causing non-super_admin users to pick up a stale
+      // admin_active_org_id and blow up RLS on lead_sources/funnel_stages.
+      const effectiveOrgId = session.organizationId;
       setUserId(session.userId);
       setOrgId(effectiveOrgId);
       setIsSuperAdmin(session.realRole === "super_admin");
@@ -472,7 +478,9 @@ export default function NuevaLlamadaPage() {
       // Super_admin may have an admin_active_org_id different from
       // their profile org. Always read it fresh at submit and send
       // it to the Worker instead of the profile org.
-      const submitOrgId = isSuperAdmin ? (getActiveOrgId() || orgId) : orgId;
+      // orgId already reflects the active org for super_admin via
+      // session.organizationId (see getSession override).
+      const submitOrgId = orgId;
 
       let scorecardId: string | null = null;
       if (isSuperAdmin) {
