@@ -97,6 +97,13 @@ export default function AdminPage() {
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const [savedUserId, setSavedUserId] = useState<string | null>(null);
 
+  // User orgs panel
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [userOrgs, setUserOrgs] = useState<{ id: string; organization_id: string; role: string }[]>([]);
+  const [userOrgsLoading, setUserOrgsLoading] = useState(false);
+  const [addOrgId, setAddOrgId] = useState("");
+  const [addOrgRole, setAddOrgRole] = useState("captadora");
+
   // Destructive confirm (analyses delete)
   const [pendingDeleteAnalysisId, setPendingDeleteAnalysisId] = useState<string | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -377,6 +384,66 @@ export default function AdminPage() {
 
   async function toggleTrainingMode(u: UserRow) {
     await updateUser(u.id, { training_mode: !u.training_mode });
+  }
+
+  async function toggleUserOrgs(u: UserRow) {
+    if (expandedUserId === u.id) { setExpandedUserId(null); return; }
+    setExpandedUserId(u.id);
+    setUserOrgsLoading(true);
+    setAddOrgId("");
+    setAddOrgRole(u.role);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch(`/api/admin/user-orgs?user_id=${encodeURIComponent(u.id)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const body = await res.json();
+      if (res.ok) setUserOrgs(body.memberships || []);
+    } catch { /* ignore */ }
+    setUserOrgsLoading(false);
+  }
+
+  async function addUserOrg(userId: string) {
+    if (!addOrgId) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch("/api/admin/user-orgs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ user_id: userId, organization_id: addOrgId, role: addOrgRole }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { showToast({ type: "err", msg: body.error || "Error" }); return; }
+      showToast({ type: "ok", msg: "Org agregada" });
+      setAddOrgId("");
+      // Reload memberships
+      const r2 = await fetch(`/api/admin/user-orgs?user_id=${encodeURIComponent(userId)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const b2 = await r2.json();
+      if (r2.ok) setUserOrgs(b2.memberships || []);
+    } catch (e) {
+      showToast({ type: "err", msg: e instanceof Error ? e.message : "Error" });
+    }
+  }
+
+  async function removeUserOrg(membershipId: string, userId: string) {
+    if (!window.confirm("¿Quitar esta organización del usuario?")) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch(`/api/admin/user-orgs?id=${encodeURIComponent(membershipId)}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); showToast({ type: "err", msg: b.error || "Error" }); return; }
+      showToast({ type: "ok", msg: "Org removida" });
+      setUserOrgs(prev => prev.filter(m => m.id !== membershipId));
+    } catch (e) {
+      showToast({ type: "err", msg: e instanceof Error ? e.message : "Error" });
+    }
   }
 
   async function resendInvite(u: UserRow) {
@@ -756,31 +823,73 @@ export default function AdminPage() {
               <span>Acciones</span>
             </div>
             {filteredUsers.map(u => (
-              <div key={u.id} className="admin-table-row" style={{ gridTemplateColumns: "1.2fr 1.4fr 1fr 1.2fr 0.8fr 1fr 1.2fr" }}>
-                <span className="admin-cell-name">{u.name}</span>
-                <span className="admin-cell-slug">{u.email}</span>
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <select className="input-field c2-select" value={u.role} onChange={e => changeUserRole(u.id, e.target.value)} style={{ padding: "6px 8px" }}>
-                    {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                  {savingUserId === u.id && <span style={{ fontSize: 11, color: "var(--ink-light)" }}>Guardando...</span>}
-                  {savedUserId === u.id && <span style={{ fontSize: 11, color: "#16a34a" }}>✓</span>}
-                </span>
-                <span>{orgName(u.organization_id)}</span>
-                <span>
-                  <button className="admin-copy-btn" onClick={() => toggleUserActive(u)}>
-                    {u.active ? "Activo ✓" : "Inactivo ✗"}
-                  </button>
-                </span>
-                <span>
-                  <button className="admin-copy-btn" onClick={() => toggleTrainingMode(u)}>
-                    {u.training_mode ? "🎓 ON" : "OFF"}
-                  </button>
-                </span>
-                <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  <button className="admin-copy-btn" onClick={() => resendInvite(u)}>Reenviar</button>
-                  <button className="admin-copy-btn" onClick={() => softDeleteUser(u)}>Eliminar</button>
-                </span>
+              <div key={u.id}>
+                <div className="admin-table-row" style={{ gridTemplateColumns: "1.2fr 1.4fr 1fr 1.2fr 0.8fr 1fr 1.4fr" }}>
+                  <span className="admin-cell-name">{u.name}</span>
+                  <span className="admin-cell-slug">{u.email}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <select className="input-field c2-select" value={u.role} onChange={e => changeUserRole(u.id, e.target.value)} style={{ padding: "6px 8px" }}>
+                      {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                    {savingUserId === u.id && <span style={{ fontSize: 11, color: "var(--ink-light)" }}>Guardando...</span>}
+                    {savedUserId === u.id && <span style={{ fontSize: 11, color: "#16a34a" }}>✓</span>}
+                  </span>
+                  <span>{orgName(u.organization_id)}</span>
+                  <span>
+                    <button className="admin-copy-btn" onClick={() => toggleUserActive(u)}>
+                      {u.active ? "Activo ✓" : "Inactivo ✗"}
+                    </button>
+                  </span>
+                  <span>
+                    <button className="admin-copy-btn" onClick={() => toggleTrainingMode(u)}>
+                      {u.training_mode ? "🎓 ON" : "OFF"}
+                    </button>
+                  </span>
+                  <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <button className="admin-copy-btn" onClick={() => toggleUserOrgs(u)}>
+                      {expandedUserId === u.id ? "Orgs ▲" : "Orgs"}
+                    </button>
+                    <button className="admin-copy-btn" onClick={() => resendInvite(u)}>Reenviar</button>
+                    <button className="admin-copy-btn" onClick={() => softDeleteUser(u)}>Eliminar</button>
+                  </span>
+                </div>
+                {expandedUserId === u.id && (
+                  <div style={{ padding: "12px 16px", background: "#f9f9f9", borderBottom: "1px solid #e5e5e5" }}>
+                    <h4 style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 600 }}>Organizaciones de {u.name}</h4>
+                    {userOrgsLoading ? (
+                      <p className="c2-hint">Cargando...</p>
+                    ) : (
+                      <>
+                        {userOrgs.length === 0 && <p className="c2-hint">Sin orgs asignadas.</p>}
+                        {userOrgs.map(m => (
+                          <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 0", borderBottom: "1px solid #eee" }}>
+                            <strong style={{ flex: 1, fontSize: 13 }}>{orgName(m.organization_id)}</strong>
+                            <span style={{ fontSize: 12, color: "#737373" }}>{m.role}</span>
+                            <button
+                              onClick={() => removeUserOrg(m.id, u.id)}
+                              style={{ background: "none", border: "none", color: "#a3a3a3", cursor: "pointer", padding: "2px 6px", fontSize: 16, lineHeight: 1 }}
+                              title="Quitar org"
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        ))}
+                        <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "end" }}>
+                          <select className="input-field c2-select" value={addOrgId} onChange={e => setAddOrgId(e.target.value)} style={{ flex: 1, padding: "6px 8px" }}>
+                            <option value="">Agregar org...</option>
+                            {orgs.filter(o => !userOrgs.some(m => m.organization_id === o.id)).map(o => (
+                              <option key={o.id} value={o.id}>{o.name}</option>
+                            ))}
+                          </select>
+                          <select className="input-field c2-select" value={addOrgRole} onChange={e => setAddOrgRole(e.target.value)} style={{ width: 130, padding: "6px 8px" }}>
+                            {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                          </select>
+                          <button className="admin-copy-btn" onClick={() => addUserOrg(u.id)} disabled={!addOrgId}>Agregar</button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
             {filteredUsers.length === 0 && <div className="g1-empty">Sin usuarios.</div>}
