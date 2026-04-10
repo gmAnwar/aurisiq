@@ -136,31 +136,33 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
     setStep("saving");
     setErrorMsg("");
 
-    // Upsert into users table — try with city first, fall back if column missing
-    const baseRow = {
-      id: authedUserId,
-      organization_id: org.id,
-      email: authedEmail || "",
-      name: name.trim(),
-      role: chosenRole,
-      active: true,
-    };
-
-    let { error } = await supabase
-      .from("users")
-      .upsert({ ...baseRow, city: city.trim() }, { onConflict: "id" });
-
-    if (error && error.message?.includes("city")) {
-      // Migration 016 not applied — save without city
-      const retry = await supabase
-        .from("users")
-        .upsert(baseRow, { onConflict: "id" });
-      error = retry.error;
-    }
-
-    if (error) {
+    // Upsert via service-role endpoint (bypasses RLS which blocks
+    // the browser client for newly-invited users).
+    try {
+      const { data: { session: s } } = await supabase.auth.getSession();
+      const accessToken = s?.access_token;
+      const res = await fetch("/api/join/complete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({
+          token,
+          name: name.trim(),
+          role: chosenRole,
+          city: city.trim(),
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStep("questions");
+        setErrorMsg("Error al guardar: " + (body.error || `HTTP ${res.status}`));
+        return;
+      }
+    } catch (e) {
       setStep("questions");
-      setErrorMsg("Error al guardar: " + error.message);
+      setErrorMsg("Error de red al guardar: " + (e instanceof Error ? e.message : "desconocido"));
       return;
     }
 
