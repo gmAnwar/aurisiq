@@ -1818,6 +1818,32 @@ body.has-nav {
   font-weight: 700;
 }
 
+/* Historial delete button — hidden until row hover */
+.historial-delete-btn {
+  background: none;
+  border: none;
+  color: #a3a3a3;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.historial-delete-btn:hover {
+  color: #dc2626;
+}
+/* Show on parent row hover */
+.c4-item:hover ~ .historial-delete-btn,
+.historial-delete-btn:hover,
+.historial-delete-btn:focus-visible {
+  opacity: 1;
+}
+/* Fallback: also show when parent wrapper is hovered */
+div:has(> .c4-item):hover .historial-delete-btn {
+  opacity: 1;
+}
+
 /* C1 — Streak, tip, delta */
 .c1-streak {
   display: inline-block;
