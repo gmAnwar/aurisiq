@@ -13,7 +13,7 @@ function formatTime(secs: number) {
 export default function RecordingBar() {
   const {
     recMode, recElapsed, pauseRecording, resumeRecording, stopRecording,
-    transcribePct, transcribePhase,
+    transcribePct, transcribePhase, transcriptionResult,
   } = useRecording();
   const pathname = usePathname();
   const router = useRouter();
@@ -30,6 +30,15 @@ export default function RecordingBar() {
     }
     return () => { document.body.classList.remove("has-recording-bar"); };
   }, [visible]);
+
+  // When the transcription finishes on a screen other than C2, auto
+  // navigate the user to C2 so they don't lose the recording. C2 will
+  // hydrate the transcription from sessionStorage on mount.
+  useEffect(() => {
+    if (!isOnC2 && transcriptionResult && transcriptionResult.text) {
+      router.push("/analisis/nueva");
+    }
+  }, [transcriptionResult, isOnC2, router]);
 
   if (!visible) return null;
 
