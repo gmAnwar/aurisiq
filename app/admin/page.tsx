@@ -394,16 +394,32 @@ export default function AdminPage() {
   // ----- Analyses -----
   function requestDeleteAnalysis(id: string) {
     setPendingDeleteAnalysisId(id);
-    setDeleteConfirmText("");
   }
   async function confirmDeleteAnalysis() {
-    if (deleteConfirmText !== "ELIMINAR" || !pendingDeleteAnalysisId) return;
-    const { error: e } = await supabase.from("analyses").delete().eq("id", pendingDeleteAnalysisId);
-    if (e) { showToast({ type: "err", msg: e.message }); return; }
-    showToast({ type: "ok", msg: "Análisis eliminado" });
-    setPendingDeleteAnalysisId(null);
-    setDeleteConfirmText("");
-    await loadAnalyses();
+    if (!pendingDeleteAnalysisId) return;
+    const targetId = pendingDeleteAnalysisId;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch("/api/admin/delete-analysis", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ analysis_id: targetId }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast({ type: "err", msg: body.error || "Error al eliminar" });
+        return;
+      }
+      showToast({ type: "ok", msg: "Análisis eliminado" });
+      setAnalyses(prev => prev.filter(a => a.id !== targetId));
+      setPendingDeleteAnalysisId(null);
+    } catch (e) {
+      showToast({ type: "err", msg: e instanceof Error ? e.message : "Error de red" });
+    }
   }
 
   // ----- Speech versions -----
@@ -778,23 +794,28 @@ export default function AdminPage() {
                   <span>{userName(a.user_id)}</span>
                   <span>{a.score_general ?? "—"}</span>
                   <span>{a.clasificacion || "—"}</span>
-                  <span>{a.created_at.slice(0, 10)}</span>
+                  <span>{a.created_at ? a.created_at.slice(0, 10) : "—"}</span>
                   <span>{a.status || "—"}</span>
                   <span>
                     <button className="admin-copy-btn" onClick={() => requestDeleteAnalysis(a.id)}>Eliminar</button>
                   </span>
                 </div>
                 {pendingDeleteAnalysisId === a.id && (
-                  <div className="admin-table-row" style={{ gridTemplateColumns: "1fr", padding: 16, background: "#fff4f4" }}>
-                    <div className="input-group">
-                      <label className="input-label">Escribe ELIMINAR para confirmar el borrado</label>
-                      <input className="input-field" value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)} />
-                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                        <button className="btn-submit" style={{ marginTop: 0, flex: "none", padding: "10px 16px" }} onClick={confirmDeleteAnalysis} disabled={deleteConfirmText !== "ELIMINAR"}>
-                          Confirmar borrado
-                        </button>
-                        <button className="admin-copy-btn" onClick={() => { setPendingDeleteAnalysisId(null); setDeleteConfirmText(""); }}>
+                  <div className="admin-table-row" style={{ gridTemplateColumns: "1fr", padding: 14, background: "#fff4f4" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                      <p style={{ margin: 0, color: "#991b1b" }}>
+                        ¿Eliminar este análisis? Esta acción no se puede deshacer.
+                      </p>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button className="admin-copy-btn" onClick={() => setPendingDeleteAnalysisId(null)}>
                           Cancelar
+                        </button>
+                        <button
+                          className="btn-submit"
+                          style={{ marginTop: 0, flex: "none", padding: "8px 16px", background: "#dc2626" }}
+                          onClick={confirmDeleteAnalysis}
+                        >
+                          Confirmar
                         </button>
                       </div>
                     </div>
@@ -827,7 +848,7 @@ export default function AdminPage() {
                     {s.published ? "Sí" : "No"}
                   </span>
                 </span>
-                <span>{s.created_at.slice(0, 10)}</span>
+                <span>{s.created_at ? s.created_at.slice(0, 10) : "—"}</span>
                 <span>{firstPhaseOf(s.content)}</span>
                 <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {s.published && (
