@@ -93,6 +93,10 @@ export default function AdminPage() {
   const [analysisOrgFilter, setAnalysisOrgFilter] = useState<string>("");
   const [analysisDateFilter, setAnalysisDateFilter] = useState<string>("");
 
+  // Per-user saving indicator
+  const [savingUserId, setSavingUserId] = useState<string | null>(null);
+  const [savedUserId, setSavedUserId] = useState<string | null>(null);
+
   // Destructive confirm (analyses delete)
   const [pendingDeleteAnalysisId, setPendingDeleteAnalysisId] = useState<string | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -279,18 +283,42 @@ export default function AdminPage() {
   }
 
   // ----- Users -----
+  async function updateUser(userId: string, updates: Record<string, unknown>) {
+    setSavingUserId(userId);
+    setSavedUserId(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch("/api/admin/update-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ user_id: userId, updates }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast({ type: "err", msg: body.error || "Error al actualizar" });
+        setSavingUserId(null);
+        return;
+      }
+      // Optimistic update local state
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updates } as UserRow : u));
+      setSavingUserId(null);
+      setSavedUserId(userId);
+      setTimeout(() => setSavedUserId(prev => prev === userId ? null : prev), 2000);
+    } catch (e) {
+      showToast({ type: "err", msg: e instanceof Error ? e.message : "Error de red" });
+      setSavingUserId(null);
+    }
+  }
+
   async function changeUserRole(id: string, role: string) {
-    const { error: e } = await supabase.from("users").update({ role }).eq("id", id);
-    if (e) { showToast({ type: "err", msg: e.message }); return; }
-    showToast({ type: "ok", msg: "Rol actualizado" });
-    await loadUsers();
+    await updateUser(id, { role });
   }
   async function toggleUserActive(u: UserRow) {
-    const next = !u.active;
-    const { error: e } = await supabase.from("users").update({ active: next }).eq("id", u.id);
-    if (e) { showToast({ type: "err", msg: e.message }); return; }
-    showToast({ type: "ok", msg: next ? "Usuario activado" : "Usuario desactivado" });
-    await loadUsers();
+    await updateUser(u.id, { active: !u.active });
   }
   async function handleCreateUser() {
     const name = newUserName.trim();
@@ -348,11 +376,7 @@ export default function AdminPage() {
   }
 
   async function toggleTrainingMode(u: UserRow) {
-    const next = !u.training_mode;
-    const { error: e } = await supabase.from("users").update({ training_mode: next }).eq("id", u.id);
-    if (e) { showToast({ type: "err", msg: e.message }); return; }
-    showToast({ type: "ok", msg: next ? "Modo capacitación activado" : "Modo capacitación desactivado" });
-    await loadUsers();
+    await updateUser(u.id, { training_mode: !u.training_mode });
   }
 
   async function resendInvite(u: UserRow) {
@@ -735,10 +759,12 @@ export default function AdminPage() {
               <div key={u.id} className="admin-table-row" style={{ gridTemplateColumns: "1.2fr 1.4fr 1fr 1.2fr 0.8fr 1fr 1.2fr" }}>
                 <span className="admin-cell-name">{u.name}</span>
                 <span className="admin-cell-slug">{u.email}</span>
-                <span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <select className="input-field c2-select" value={u.role} onChange={e => changeUserRole(u.id, e.target.value)} style={{ padding: "6px 8px" }}>
                     {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
+                  {savingUserId === u.id && <span style={{ fontSize: 11, color: "var(--ink-light)" }}>Guardando...</span>}
+                  {savedUserId === u.id && <span style={{ fontSize: 11, color: "#16a34a" }}>✓</span>}
                 </span>
                 <span>{orgName(u.organization_id)}</span>
                 <span>
