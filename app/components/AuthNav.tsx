@@ -89,29 +89,42 @@ export default function AuthNav() {
           setRoleLabelVendedor((orgRes.data as { role_label_vendedor?: string | null }).role_label_vendedor || null);
         }
 
-        // super_admin: fetch all orgs for the navbar selector
-        if (realRole === "super_admin") {
-          try {
-            const res = await fetch("/api/admin/data", {
+        // Fetch orgs the user has access to (profile + user_organizations).
+        // super_admin additionally gets ALL orgs via /api/admin/data.
+        try {
+          let opts: OrgOption[] = [];
+
+          // All users: fetch their own accessible orgs
+          const meRes = await fetch("/api/me/orgs", {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          if (meRes.ok) {
+            const meBody = await meRes.json();
+            opts = (meBody.orgs || []).map((o: { id: string; name: string }) => ({ id: o.id, name: o.name }));
+          }
+
+          // super_admin: merge all orgs so they can switch to any
+          if (realRole === "super_admin") {
+            const adminRes = await fetch("/api/admin/data", {
               headers: { Authorization: `Bearer ${session.access_token}` },
             });
-            if (res.ok) {
-              const body = await res.json();
-              const opts: OrgOption[] = (body.orgs || []).map((o: { id: string; name: string }) => ({
-                id: o.id,
-                name: o.name,
-              }));
-              setOrgOptions(opts);
-              const active = getActiveOrgId();
-              const current = active && opts.some(o => o.id === active)
-                ? active
-                : (data.organization_id || opts[0]?.id || null);
-              setActiveOrgIdState(current);
-              // Ensure localStorage reflects the effective org so getSession picks it up
-              if (current && current !== getActiveOrgId()) setActiveOrgId(current);
+            if (adminRes.ok) {
+              const adminBody = await adminRes.json();
+              const all: OrgOption[] = (adminBody.orgs || []).map((o: { id: string; name: string }) => ({ id: o.id, name: o.name }));
+              const byId = new Map(opts.map(o => [o.id, o]));
+              for (const o of all) if (!byId.has(o.id)) byId.set(o.id, o);
+              opts = Array.from(byId.values());
             }
-          } catch { /* ignore */ }
-        }
+          }
+
+          setOrgOptions(opts);
+          const active = getActiveOrgId();
+          const current = active && opts.some(o => o.id === active)
+            ? active
+            : (data.organization_id || opts[0]?.id || null);
+          setActiveOrgIdState(current);
+          if (current && current !== getActiveOrgId()) setActiveOrgId(current);
+        } catch { /* ignore */ }
       }
 
       document.body.classList.add("has-nav");

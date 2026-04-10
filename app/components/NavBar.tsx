@@ -181,7 +181,7 @@ export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVe
         )}
 
         {/* super_admin org selector */}
-        {role === "super_admin" && orgOptions && orgOptions.length > 0 && (
+        {orgOptions && orgOptions.length > 1 && (
           <select
             className="navbar-org-select"
             value={activeOrgId || ""}

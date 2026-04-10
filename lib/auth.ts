@@ -126,12 +126,12 @@ export async function getSession(): Promise<UserSession | null> {
   const trainingRole = trainingMode ? getTrainingRole() : null;
   const effectiveRole = trainingRole || realRole;
 
-  // super_admin: override organization with admin_active_org_id if set
+  // Any multi-org user (or super_admin) can switch active org via the
+  // navbar selector. The active org is stored in localStorage and read
+  // here so every page that uses session.organizationId sees it.
   let effectiveOrgId = userData.organization_id;
-  if (realRole === "super_admin") {
-    const activeOrg = getActiveOrgId();
-    if (activeOrg) effectiveOrgId = activeOrg;
-  }
+  const activeOrg = getActiveOrgId();
+  if (activeOrg) effectiveOrgId = activeOrg;
 
   // Fetch organization data. Try with role_label_vendedor first; if the
   // column doesn't exist yet (migration 014 not applied), fall back.
