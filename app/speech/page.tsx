@@ -326,7 +326,7 @@ export default function SpeechPage() {
       )}
 
       {current && (
-        <div className="c5-phases">
+        <div key={selectedStageId} className="c5-phases">
           {current.phases.map((phase, i) => (
             <div key={i} className="c5-phase-card">
               <h3 className="c5-phase-name">{phase.phase_name}</h3>
