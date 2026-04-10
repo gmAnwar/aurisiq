@@ -8,6 +8,7 @@ import EditableField from "../components/EditableName";
 import { getSampleAnalyses } from "../../lib/sampleData";
 import { getOrgTimezone, todayStart, monthStart as getMonthStart, todayDisplay } from "../../lib/dates";
 import { stripJson } from "../../lib/text";
+import { useRecording } from "../contexts/RecordingContext";
 
 interface Analysis {
   id: string;
@@ -25,6 +26,7 @@ interface Analysis {
 }
 
 export default function MiDiaPage() {
+  const rec = useRecording();
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [leadSources, setLeadSources] = useState<Record<string, string>>({});
   const [descalMap, setDescalMap] = useState<Record<string, string>>({});
@@ -276,6 +278,16 @@ export default function MiDiaPage() {
         <p className="c4-date">{todayStr}</p>
         {streak > 0 && <span className="c1-streak">{streak} día{streak > 1 ? "s" : ""} de racha</span>}
       </div>
+
+      {/* Offline recordings banner */}
+      {rec.pendingOfflineCount > 0 && (
+        <div className="c1-sample-banner" style={{ background: "#fef3c7", borderColor: "#f59e0b" }}>
+          <p className="c1-sample-text" style={{ color: "#92400e" }}>
+            Tienes {rec.pendingOfflineCount} grabación{rec.pendingOfflineCount > 1 ? "es" : ""} pendiente{rec.pendingOfflineCount > 1 ? "s" : ""} de procesar
+          </p>
+          <button className="c1-sample-cta" style={{ color: "#92400e" }} onClick={rec.retryOffline}>Reintentar ahora</button>
+        </div>
+      )}
 
       {/* Sample data banner */}
       {usingSampleData && (

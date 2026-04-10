@@ -27,6 +27,9 @@ interface RecordingContextType {
   useDraft: (orgId: string) => Promise<void>;
   deleteDraft: () => Promise<void>;
 
+  pendingOfflineCount: number;
+  retryOffline: () => void;
+
   startRecording: (orgId: string) => Promise<void>;
   stopRecording: () => void;
   cancelRecording: () => void;
@@ -52,14 +55,63 @@ function isMobile(): boolean {
 const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
 const DB_NAME = "aurisiq_drafts";
 const STORE_NAME = "recordings";
+const OFFLINE_STORE = "offline_queue";
+
+interface OfflineEntry {
+  id: string;
+  blob: Blob;
+  orgId: string;
+  elapsed: number;
+  timestamp: number;
+  status: "pending" | "uploading" | "error";
+  attempts: number;
+}
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => { req.result.createObjectStore(STORE_NAME); };
+    const req = indexedDB.open(DB_NAME, 2);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+      if (!db.objectStoreNames.contains(OFFLINE_STORE)) {
+        db.createObjectStore(OFFLINE_STORE, { keyPath: "id" });
+      }
+    };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
+}
+
+async function getAllOffline(): Promise<OfflineEntry[]> {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(OFFLINE_STORE, "readonly");
+      const req = tx.objectStore(OFFLINE_STORE).getAll();
+      req.onsuccess = () => { db.close(); resolve(req.result || []); };
+      req.onerror = () => { db.close(); resolve([]); };
+    });
+  } catch { return []; }
+}
+
+async function putOffline(entry: OfflineEntry) {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(OFFLINE_STORE, "readwrite");
+    tx.objectStore(OFFLINE_STORE).put(entry);
+    db.close();
+  } catch { /* ignore */ }
+}
+
+async function deleteOffline(id: string) {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(OFFLINE_STORE, "readwrite");
+    tx.objectStore(OFFLINE_STORE).delete(id);
+    db.close();
+  } catch { /* ignore */ }
 }
 
 export function RecordingProvider({ children }: { children: React.ReactNode }) {
@@ -76,6 +128,8 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
 
   const [hasDraft, setHasDraft] = useState(false);
   const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
+  const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
+  const processingOfflineRef = useRef(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -141,13 +195,73 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     } catch { /* ignore */ }
   };
 
-  // Check for drafts on mount
+  // Check for drafts + offline queue on mount
   useEffect(() => {
     (async () => {
       const draft = await loadDraft();
       if (draft && draft.size > 1024) setHasDraft(true);
+      const offline = await getAllOffline();
+      setPendingOfflineCount(offline.filter(e => e.status !== "uploading").length);
     })();
   }, []);
+
+  // ─── Offline queue processing ─────────────────────────────
+  const processOfflineQueue = useCallback(async () => {
+    if (processingOfflineRef.current) return;
+    processingOfflineRef.current = true;
+
+    try {
+      const entries = await getAllOffline();
+      const pending = entries.filter(e => e.status === "pending" || e.status === "error");
+      for (const entry of pending) {
+        if (!navigator.onLine) break;
+        entry.status = "uploading";
+        entry.attempts += 1;
+        await putOffline(entry);
+
+        const result = await transcribeAudioBlob(entry.blob, entry.elapsed, entry.orgId);
+        if (result) {
+          await deleteOffline(entry.id);
+          setTranscriptionResult(result);
+          sessionStorage.setItem("c2_transcription", result.text);
+          sessionStorage.setItem("c2_original", result.original);
+          sessionStorage.setItem("c2_source_type", "audio");
+        } else {
+          entry.status = entry.attempts >= 3 ? "error" : "pending";
+          await putOffline(entry);
+        }
+      }
+    } catch { /* ignore */ }
+
+    processingOfflineRef.current = false;
+    const remaining = await getAllOffline();
+    setPendingOfflineCount(remaining.filter(e => e.status !== "uploading").length);
+  }, []);
+
+  // Listen for connectivity recovery
+  useEffect(() => {
+    const handler = () => { processOfflineQueue(); };
+    window.addEventListener("online", handler);
+    // Also try on mount in case we're already online with pending items
+    if (navigator.onLine) processOfflineQueue();
+    return () => { window.removeEventListener("online", handler); };
+  }, [processOfflineQueue]);
+
+  const retryOffline = useCallback(() => {
+    // Reset error entries to pending so processOfflineQueue picks them up
+    (async () => {
+      const entries = await getAllOffline();
+      for (const e of entries) {
+        if (e.status === "error") {
+          e.status = "pending";
+          e.attempts = 0;
+          await putOffline(e);
+        }
+      }
+      setPendingOfflineCount(entries.length);
+      processOfflineQueue();
+    })();
+  }, [processOfflineQueue]);
 
   // ─── Transcription ────────────────────────────────────────
   const transcribeAudioBlob = async (blob: Blob, elapsed: number, orgId: string): Promise<TranscriptionResult | null> => {
@@ -367,7 +481,30 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // Start transcription
+        const elapsed = recElapsedRef.current;
+        const currentOrgId = orgIdRef.current;
+
+        // If offline, save to IndexedDB queue and exit early
+        if (!navigator.onLine) {
+          const entry: OfflineEntry = {
+            id: `rec_${Date.now()}`,
+            blob,
+            orgId: currentOrgId,
+            elapsed,
+            timestamp: Date.now(),
+            status: "pending",
+            attempts: 0,
+          };
+          putOffline(entry).then(() => {
+            getAllOffline().then(all => setPendingOfflineCount(all.length));
+          });
+          setTranscribePhase("Sin conexión — se enviará automáticamente cuando haya internet");
+          setRecMode("off");
+          setRecElapsed(0);
+          return;
+        }
+
+        // Start transcription (online)
         setRecMode("transcribing");
         setTranscribePct(0);
         setTranscribePhase("Procesando audio...");
@@ -388,8 +525,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
           setTranscribePct(p);
         }, 500);
 
-        const elapsed = recElapsedRef.current;
-        transcribeAudioBlob(blob, elapsed, orgIdRef.current).then((result) => {
+        transcribeAudioBlob(blob, elapsed, currentOrgId).then((result) => {
           if (transcribeProgressRef.current) clearInterval(transcribeProgressRef.current);
           setTranscribePct(100);
           setTranscribePhase("Transcripción lista");
@@ -491,6 +627,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
       recMode, recElapsed, pauseCount, totalPausedSecs, recError, recLabel,
       transcribePct, transcribePhase, transcriptionResult, clearTranscriptionResult,
       hasDraft, useDraft: useDraftFn, deleteDraft,
+      pendingOfflineCount, retryOffline,
       startRecording, stopRecording, cancelRecording, pauseRecording, resumeRecording,
       analyserNode,
     }}>
