@@ -51,36 +51,24 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
         return;
       }
 
-      // 2. Look up org by token
-      let orgRes = await supabase
-        .from("organizations")
-        .select("id, name, slug, role_label_vendedor")
-        .eq("invite_token", token)
-        .maybeSingle();
+      // 2. Look up org by token via service-role endpoint (RLS blocks
+      //    the organizations table for unauthenticated / new users).
+      let orgData: Org | null = null;
+      try {
+        const res = await fetch(`/api/join/org?token=${encodeURIComponent(token)}`);
+        if (res.ok) {
+          const body = await res.json();
+          orgData = body.org as Org;
+        }
+      } catch { /* ignore */ }
 
-      if (orgRes.error && orgRes.error.message?.includes("invite_token")) {
-        // Migration 015 not applied
-        setStep("invalid");
-        setErrorMsg("El sistema de invitaciones aún no está habilitado. Contacta a soporte.");
-        return;
-      }
-
-      if (orgRes.error && orgRes.error.message?.includes("role_label_vendedor")) {
-        const retry = await supabase
-          .from("organizations")
-          .select("id, name, slug")
-          .eq("invite_token", token)
-          .maybeSingle();
-        orgRes = retry as typeof orgRes;
-      }
-
-      if (!orgRes.data) {
+      if (!orgData) {
         setStep("invalid");
         setErrorMsg("Este link de invitación no es válido. Pide uno nuevo a tu gerente.");
         return;
       }
 
-      setOrg(orgRes.data as Org);
+      setOrg(orgData);
 
       // 3. Check existing session
       const { data: { session } } = await supabase.auth.getSession();
@@ -95,7 +83,7 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
           .eq("id", session.user.id)
           .maybeSingle();
 
-        if (existing && existing.organization_id !== orgRes.data.id) {
+        if (existing && existing.organization_id !== orgData.id) {
           setStep("error");
           setErrorMsg("Este correo ya está registrado en otra organización. Contacta soporte.");
           return;
