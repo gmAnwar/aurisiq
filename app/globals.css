@@ -800,6 +800,37 @@ body.has-nav {
   margin-top: 4px;
 }
 
+/* C2 collapsible panels */
+.c2-collapse {
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.c2-collapse-summary {
+  padding: 10px 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.c2-collapse-summary::before {
+  content: '▸';
+  font-size: 12px;
+  transition: transform 0.15s ease;
+}
+.c2-collapse[open] > .c2-collapse-summary::before {
+  transform: rotate(90deg);
+}
+.c2-collapse-summary::-webkit-details-marker { display: none; }
+.c2-collapse-body {
+  padding: 0 14px 14px;
+}
+
 /* C2 file drop zone */
 .c2-drop-zone {
   position: relative;

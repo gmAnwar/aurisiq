@@ -559,6 +559,7 @@ PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en l
       sale_reason: parsed.sale_reason,
       prospect_phone: body.prospect_phone || parsed.prospect_phone,
       checklist_results: parsed.checklist_results,
+      notes: body.call_notes || null,
       related_analysis_id: relatedId,
       status: 'completado',
     };

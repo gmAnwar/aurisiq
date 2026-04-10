@@ -35,6 +35,7 @@ export default function NuevaLlamadaPage() {
   const [selectedStage, setSelectedStage] = useState("");
   const [transcription, setTranscription] = useState("");
   const [notes, setNotes] = useState("");
+  const [callNotes, setCallNotes] = useState("");
   const [prospectPhone, setProspectPhone] = useState("");
   const [dragging, setDragging] = useState(false);
   const [fileMsg, setFileMsg] = useState("");
@@ -291,6 +292,8 @@ export default function NuevaLlamadaPage() {
       if (savedSource) setSelectedSource(savedSource);
       if (savedNotes) setNotes(savedNotes);
       if (savedPhone) setProspectPhone(savedPhone);
+      const savedCallNotes = sessionStorage.getItem("c2_call_notes");
+      if (savedCallNotes) setCallNotes(savedCallNotes);
       if (savedOriginal) {
         setTranscriptionOriginal(savedOriginal);
         setTranscriptionSource((savedSrc as "manual" | "audio") || "manual");
@@ -545,6 +548,7 @@ export default function NuevaLlamadaPage() {
             ? transcription.trim() : null,
           edit_percentage: transcriptionOriginal && transcription.trim() !== transcriptionOriginal
             ? editPct : 0,
+          call_notes: callNotes.trim() || null,
           has_audio: transcriptionSource === "audio",
           pause_count: rec.pauseCount,
           total_paused_seconds: rec.totalPausedSecs,
@@ -595,6 +599,7 @@ export default function NuevaLlamadaPage() {
               sessionStorage.removeItem("c2_stage");
               sessionStorage.removeItem("c2_source");
               sessionStorage.removeItem("c2_notes");
+              sessionStorage.removeItem("c2_call_notes");
               sessionStorage.removeItem("c2_phone");
               sessionStorage.removeItem("c2_original");
               sessionStorage.removeItem("c2_source_type");
@@ -889,6 +894,72 @@ export default function NuevaLlamadaPage() {
             style={{ minHeight: 60, resize: "vertical" }}
           />
           <p className="c2-hint">Contexto adicional que ayude a interpretar mejor esta llamada.</p>
+        </div>
+
+        {/* Collapsible reference panels */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {/* 1. Mi Speech */}
+          <details className="c2-collapse">
+            <summary className="c2-collapse-summary">Mi Speech</summary>
+            <div className="c2-collapse-body">
+              {guidePhases.length === 0 ? (
+                <p className="c2-hint">{selectedStage ? "No hay speech publicado para esta etapa." : "Selecciona una etapa para ver tu speech."}</p>
+              ) : (
+                guidePhases.map((phase, i) => (
+                  <div key={i} style={{ marginBottom: 12 }}>
+                    <strong style={{ fontSize: 14 }}>{phase.phase_name}</strong>
+                    {phase.transition && <p className="c2-hint" style={{ margin: "2px 0 4px" }}>{phase.transition}</p>}
+                    {phase.phrases && phase.phrases.length > 0 && (
+                      <ul style={{ margin: "4px 0 0", paddingLeft: 18, fontSize: 13 }}>
+                        {phase.phrases.map((p, j) => <li key={j} style={{ marginBottom: 2 }}>{p}</li>)}
+                      </ul>
+                    )}
+                    {phase.fields && phase.fields.length > 0 && phase.fields.map((f, k) => (
+                      <div key={k} style={{ marginLeft: 8, marginTop: 4 }}>
+                        <span style={{ fontSize: 13, fontWeight: 500 }}>{f.field_name}:</span>
+                        <ul style={{ margin: "2px 0 0 10px", paddingLeft: 12, fontSize: 13 }}>
+                          {f.phrases.map((p, l) => <li key={l} style={{ marginBottom: 1 }}>{p}</li>)}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                ))
+              )}
+            </div>
+          </details>
+
+          {/* 2. Checklist */}
+          <details className="c2-collapse">
+            <summary className="c2-collapse-summary">Checklist de referencia</summary>
+            <div className="c2-collapse-body">
+              <p className="c2-hint" style={{ marginBottom: 8 }}>Campos que deberías cubrir en la llamada:</p>
+              <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, columns: 2, columnGap: 24 }}>
+                {(missedFields.length > 0
+                  ? missedFields
+                  : ["Nombre completo", "Ubicación del negocio", "Tipo de negocio", "Antigüedad", "Ingresos estimados", "Equipo a financiar", "Monto solicitado", "Plazo", "Enganche", "Historial crediticio", "Documentación", "Disponibilidad para visita", "Fecha propuesta"]
+                ).map((f, i) => (
+                  <li key={i} style={{ marginBottom: 3 }}>{f}</li>
+                ))}
+              </ul>
+            </div>
+          </details>
+
+          {/* 3. Notas de llamada */}
+          <details className="c2-collapse">
+            <summary className="c2-collapse-summary">Notas de llamada</summary>
+            <div className="c2-collapse-body">
+              <textarea
+                className="input-field"
+                placeholder="Escribe tus notas durante o después de la llamada..."
+                value={callNotes}
+                onChange={(e) => { setCallNotes(e.target.value); sessionStorage.setItem("c2_call_notes", e.target.value); }}
+                disabled={status === "analyzing"}
+                rows={4}
+                style={{ resize: "vertical" }}
+              />
+              <p className="c2-hint">Estas notas se guardan con el análisis y son visibles en los resultados.</p>
+            </div>
+          </details>
         </div>
 
         {status === "analyzing" && (

@@ -39,6 +39,7 @@ interface Analysis {
   prospect_phone: string | null;
   checklist_results: ChecklistItem[] | null;
   manager_note: string | null;
+  notes: string | null;
   related_analysis_id: string | null;
   created_at: string;
 }
@@ -103,7 +104,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
 
       const { data: a, error: aErr } = await supabase
         .from("analyses")
-        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, related_analysis_id, created_at, scorecard_id")
+        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, notes, related_analysis_id, created_at, scorecard_id")
         .eq("id", id)
         .single();
 
@@ -287,6 +288,12 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
             onSave={(v) => handleFieldSave("prospect_phone", v)}
           />
         </p>
+        {analysis.notes && (
+          <div style={{ marginTop: 8, padding: "8px 12px", background: "rgba(0,0,0,0.03)", borderRadius: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-light)" }}>Notas de llamada</span>
+            <p style={{ margin: "4px 0 0", fontSize: 14, whiteSpace: "pre-wrap" }}>{analysis.notes}</p>
+          </div>
+        )}
       </div>
 
       {/* 1b. RELATED CALLS */}
