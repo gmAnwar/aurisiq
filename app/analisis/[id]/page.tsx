@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
 import { stripJson } from "../../../lib/text";
@@ -53,6 +54,7 @@ interface RelatedCall {
 
 export default function ResultadoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [phases, setPhases] = useState<Phase[]>([]);
   const [descalLabels, setDescalLabels] = useState<Record<string, string>>({});
@@ -82,6 +84,14 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
             setLoading(false);
             return;
           }
+          // If the analysis belongs to a different org than the active
+          // one (user just switched orgs in the navbar), redirect to the
+          // list instead of showing stale cross-org data.
+          if (body.analysis?.organization_id && body.analysis.organization_id !== session.organizationId) {
+            router.replace("/analisis");
+            return;
+          }
+
           setAnalysis(body.analysis);
           setVertical(body.vertical || null);
           setPhases(body.phases || []);
