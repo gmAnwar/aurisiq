@@ -432,8 +432,38 @@ export default function NuevaLlamadaPage() {
     }));
   }
 
-  // Reset guide when stage changes
-  useEffect(() => { setGuidePhases([]); }, [selectedStage]);
+  // Reload speech when stage or org changes — 2-step priority:
+  // 1. Published speech for the specific stage
+  // 2. Published global speech (funnel_stage_id IS NULL)
+  useEffect(() => {
+    setGuidePhases([]);
+    if (!orgId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        let data: { content: unknown }[] | null = null;
+
+        if (selectedStage) {
+          const r1 = await supabase.from("speech_versions").select("content")
+            .eq("organization_id", orgId).eq("published", true)
+            .eq("funnel_stage_id", selectedStage).limit(1);
+          data = r1?.data ?? null;
+        }
+
+        if (!data?.length) {
+          const r2 = await supabase.from("speech_versions").select("content")
+            .eq("organization_id", orgId).eq("published", true)
+            .is("funnel_stage_id", null).limit(1);
+          data = r2?.data ?? null;
+        }
+
+        if (!cancelled && data?.length && data[0]?.content) {
+          setGuidePhases(parseGuideContent(data[0].content as unknown));
+        }
+      } catch { /* ignore — guidePhases stays empty */ }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedStage, orgId]);
 
   // Fetch missed fields from last 5 analyses for this stage
   useEffect(() => {
