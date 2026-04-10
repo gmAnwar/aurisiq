@@ -117,7 +117,7 @@ async function getScorecard(env, scorecardId) {
   const rows = await supabaseSelect(
     env,
     'scorecards',
-    `id=eq.${scorecardId}&select=prompt_template,phases,name,version`
+    `id=eq.${scorecardId}&select=prompt_template,phases,name,version,vertical`
   );
   if (!rows.length) throw new Error(`Scorecard ${scorecardId} not found`);
   return rows[0];
@@ -456,9 +456,31 @@ async function processAnalysis(env, analysisId, body, scorecard) {
     // Tone guidance for patron_error — coaching-positive, never aggressive
     promptWithDescal += `\n\n---\nTONO Y FORMATO DEL PATRÓN DE ERROR\nEl bloque PATRÓN DE ERROR PRINCIPAL debe ser BREVE: máximo 2-3 oraciones concretas y accionables. No es un análisis completo — es un tip rápido. Usa tono de coaching positivo. Empieza con "Para tu siguiente llamada, enfócate en...", "Un área de oportunidad es...", "Esta semana puedes mejorar en...". NUNCA uses "cometió un error", "falla más común", "error costoso". El objetivo es motivar, no señalar fallos.\n\nIDIOMA: Responde completamente en español. No uses anglicismos ni palabras en inglés (no "follow-up", "lead", "goodwill", "call to action", "closing"). Usa los equivalentes en español: seguimiento, prospecto, confianza, llamado a la acción, cierre.`;
 
-    // Prospect extraction + checklist
-    promptWithDescal += `\n\n---\nEXTRACCION DE DATOS DEL PROSPECTO\nAl final de tu respuesta, incluye estas líneas:\nPROSPECTO_NOMBRE: [nombre del prospecto si se menciona, o "No identificado"]\nPROSPECTO_ZONA: [colonia, zona o municipio si se menciona, o "No identificada"]\nTIPO_PROPIEDAD: [casa, departamento, terreno, local, o "No identificado"]\nMOTIVO_VENTA: [razón por la que vende, o "No mencionado"]
-PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en la transcripción, o "No detectado"]\n\nCHECKLIST: [JSON array con cada campo evaluado]\nFormato: [{"field":"Nombre completo","covered":true},{"field":"Dirección de la propiedad","covered":true},...]\nLos 26 campos del checklist son: Nombre completo, Dirección de la propiedad, Dirección INE, Estado civil, Libre de gravamen, Pagos puntuales, Adeudos en tiempo consecutivo, Crédito individual o conyugal, NSS, NC, Papelería/escrituras, Descripción del domicilio, Casa habitada o desocupada, Servicios a nombre de quién, Adeudos de servicios, Financiamiento de adeudos, Motivo de venta, Expectativa del cliente, Precio estimado de venta, Precio estimado de captación, Disponibilidad para visita, Fecha y hora propuesta, Lectura de urgencia, Lectura de disposición, Lectura de resistencia, Promesa de venta.\nMarca covered=true si la captadora PREGUNTÓ o mencionó ese punto, covered=false si no.`;
+    // Prospect extraction + checklist — both vary by vertical
+    const vertical = scorecard.vertical || 'inmobiliario';
+
+    const PROSPECT_BLOCK = {
+      inmobiliario: `PROSPECTO_NOMBRE: [nombre del prospecto si se menciona, o "No identificado"]
+PROSPECTO_ZONA: [colonia, zona o municipio si se menciona, o "No identificada"]
+TIPO_PROPIEDAD: [casa, departamento, terreno, local, o "No identificado"]
+MOTIVO_VENTA: [razón por la que vende, o "No mencionado"]
+PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en la transcripción, o "No detectado"]`,
+      financiero: `PROSPECTO_NOMBRE: [nombre del prospecto si se menciona, o "No identificado"]
+PROSPECTO_ZONA: [colonia, zona o municipio del negocio si se menciona, o "No identificada"]
+TIPO_NEGOCIO: [tortillería, tienda de abarrotes, taller, ambulante, etc. o "No mencionado"]
+TIPO_EQUIPO: [horno, vitrina, refrigerador, máquina tortilladora, etc. o "No mencionado"]
+PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en la transcripción, o "No detectado"]`,
+    };
+
+    const CHECKLIST_BLOCK = {
+      inmobiliario: `Los 26 campos del checklist son: Nombre completo, Dirección de la propiedad, Dirección INE, Estado civil, Libre de gravamen, Pagos puntuales, Adeudos en tiempo consecutivo, Crédito individual o conyugal, NSS, NC, Papelería/escrituras, Descripción del domicilio, Casa habitada o desocupada, Servicios a nombre de quién, Adeudos de servicios, Financiamiento de adeudos, Motivo de venta, Expectativa del cliente, Precio estimado de venta, Precio estimado de captación, Disponibilidad para visita, Fecha y hora propuesta, Lectura de urgencia, Lectura de disposición, Lectura de resistencia, Promesa de venta.`,
+      financiero: `Los 14 campos del checklist son: Nombre del titular, Nombre del negocio, Tipo de negocio, Ubicación del negocio, Antigüedad del negocio, Ingresos mensuales estimados, Equipo que necesita financiar, Monto de crédito solicitado, Plazo deseado, Enganche disponible, Historial crediticio, Documentación disponible, Disponibilidad para visita, Fecha y hora propuesta.`,
+    };
+
+    const prospectFields = PROSPECT_BLOCK[vertical] || PROSPECT_BLOCK.inmobiliario;
+    const checklistFields = CHECKLIST_BLOCK[vertical] || CHECKLIST_BLOCK.inmobiliario;
+
+    promptWithDescal += `\n\n---\nEXTRACCION DE DATOS DEL PROSPECTO\nAl final de tu respuesta, incluye estas líneas:\n${prospectFields}\n\nCHECKLIST: [JSON array con cada campo evaluado]\nFormato: [{"field":"Nombre del titular","covered":true},{"field":"Tipo de negocio","covered":true},...]\n${checklistFields}\nMarca covered=true si el asesor PREGUNTÓ o mencionó ese punto, covered=false si no.`;
 
     if (orgStages.length > 0) {
       const stageList = orgStages.map(s => `- ${s.name}`).join('\n');
