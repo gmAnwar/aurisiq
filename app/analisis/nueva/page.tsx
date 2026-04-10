@@ -432,53 +432,8 @@ export default function NuevaLlamadaPage() {
     }));
   }
 
-  // Reload guide when stage changes (or on first load with no stage)
-  // so the collapsible "Mi Speech" panel always has content.
-  useEffect(() => {
-    setGuidePhases([]);
-    if (!orgId) return;
-    (async () => {
-      setGuideLoading(true);
-      let data: { content: unknown }[] | null = null;
-
-      if (selectedStage) {
-        // 1. Published for this specific stage
-        const res = await supabase.from("speech_versions").select("content")
-          .eq("organization_id", orgId).eq("published", true)
-          .eq("funnel_stage_id", selectedStage).limit(1);
-        data = res.data;
-
-        // 2. Provisional for this stage
-        if (!data?.length) {
-          const r2 = await supabase.from("speech_versions").select("content")
-            .eq("organization_id", orgId).eq("is_provisional", true)
-            .eq("funnel_stage_id", selectedStage).limit(1);
-          data = r2.data;
-        }
-      }
-
-      // 3. Published global (funnel_stage_id IS NULL)
-      if (!data?.length) {
-        const r3 = await supabase.from("speech_versions").select("content")
-          .eq("organization_id", orgId).eq("published", true)
-          .is("funnel_stage_id", null).limit(1);
-        data = r3.data;
-      }
-
-      // 4. Provisional global
-      if (!data?.length) {
-        const r4 = await supabase.from("speech_versions").select("content")
-          .eq("organization_id", orgId).eq("is_provisional", true)
-          .is("funnel_stage_id", null).limit(1);
-        data = r4.data;
-      }
-
-      if (data?.length) {
-        setGuidePhases(parseGuideContent(data[0].content as unknown));
-      }
-      setGuideLoading(false);
-    })();
-  }, [selectedStage, orgId]);
+  // Reset guide when stage changes
+  useEffect(() => { setGuidePhases([]); }, [selectedStage]);
 
   // Fetch missed fields from last 5 analyses for this stage
   useEffect(() => {
