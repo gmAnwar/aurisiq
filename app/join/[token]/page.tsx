@@ -19,7 +19,7 @@ const SELECTABLE_ROLES: { value: string; label: string }[] = [
   { value: "direccion", label: "Dirección" },
 ];
 
-type Step = "loading" | "invalid" | "needs_email" | "email_sent" | "questions" | "saving" | "error";
+type Step = "loading" | "invalid" | "signup" | "questions" | "saving" | "error";
 
 export default function JoinPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
@@ -31,9 +31,11 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
   const [authedUserId, setAuthedUserId] = useState<string | null>(null);
   const [authedEmail, setAuthedEmail] = useState<string | null>(null);
 
-  // Email step
+  // Signup step
   const [email, setEmail] = useState("");
-  const [sendingLink, setSendingLink] = useState(false);
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [signingUp, setSigningUp] = useState(false);
 
   // 3 questions
   const [name, setName] = useState("");
@@ -103,28 +105,58 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
         if (existing?.name) setName(existing.name);
         setStep("questions");
       } else {
-        setStep("needs_email");
+        setStep("signup");
       }
     }
 
     init();
   }, [token]);
 
-  async function sendMagicLink() {
-    if (!email.trim()) return;
-    setSendingLink(true);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        emailRedirectTo: `${window.location.origin}/join/${token}`,
-      },
-    });
-    setSendingLink(false);
-    if (error) {
-      setErrorMsg("No se pudo enviar el link: " + error.message);
+  async function handleSignup() {
+    if (!email.trim() || !password) return;
+    setErrorMsg("");
+    if (password.length < 8) {
+      setErrorMsg("La contraseña debe tener al menos 8 caracteres");
       return;
     }
-    setStep("email_sent");
+    if (password !== passwordConfirm) {
+      setErrorMsg("Las contraseñas no coinciden");
+      return;
+    }
+    setSigningUp(true);
+
+    try {
+      // 1. Create auth user via service-role endpoint
+      const res = await fetch("/api/join/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password, invite_token: token }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErrorMsg(body.error || "Error al crear la cuenta");
+        setSigningUp(false);
+        return;
+      }
+
+      // 2. Sign in with the new credentials
+      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (signInErr || !signInData?.session) {
+        setErrorMsg("Cuenta creada pero no pudimos iniciar sesión: " + (signInErr?.message || "intenta entrar desde /login"));
+        setSigningUp(false);
+        return;
+      }
+
+      setAuthedUserId(signInData.session.user.id);
+      setAuthedEmail(signInData.session.user.email || null);
+      setStep("questions");
+    } catch (e) {
+      setErrorMsg("Error de red: " + (e instanceof Error ? e.message : "desconocido"));
+    }
+    setSigningUp(false);
   }
 
   async function saveOnboarding() {
@@ -192,13 +224,13 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
     );
   }
 
-  if (step === "needs_email") {
+  if (step === "signup") {
     return (
       <div className="join-wrapper">
         <div className="join-card">
-          <p className="join-eyebrow">Te invitaron a</p>
+          <p className="join-eyebrow">Únete a</p>
           <h1 className="join-title">{org?.name}</h1>
-          <p className="join-sub">Para empezar, escribe tu correo. Te enviaremos un link para entrar sin contraseña.</p>
+          <p className="join-sub">Crea tu cuenta para empezar a usar aurisIQ.</p>
           <div className="input-group">
             <label className="input-label">Correo</label>
             <input
@@ -207,24 +239,38 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="tu@correo.com"
-              onKeyDown={e => { if (e.key === "Enter") sendMagicLink(); }}
+              autoComplete="email"
             />
           </div>
-          <button className="btn-submit" onClick={sendMagicLink} disabled={sendingLink || !email.trim()}>
-            {sendingLink ? "Enviando..." : "Continuar"}
+          <div className="input-group">
+            <label className="input-label">Contraseña</label>
+            <input
+              className="input-field"
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="Mínimo 8 caracteres"
+              autoComplete="new-password"
+              minLength={8}
+            />
+          </div>
+          <div className="input-group">
+            <label className="input-label">Confirmar contraseña</label>
+            <input
+              className="input-field"
+              type="password"
+              value={passwordConfirm}
+              onChange={e => setPasswordConfirm(e.target.value)}
+              placeholder="Repite la contraseña"
+              autoComplete="new-password"
+              minLength={8}
+              onKeyDown={e => { if (e.key === "Enter") handleSignup(); }}
+            />
+          </div>
+          {errorMsg && <p className="join-error">{errorMsg}</p>}
+          <button className="btn-submit" onClick={handleSignup} disabled={signingUp || !email.trim() || !password || !passwordConfirm}>
+            {signingUp ? "Creando cuenta..." : "Continuar"}
           </button>
-          {errorMsg && <p className="join-error" style={{ marginTop: 12 }}>{errorMsg}</p>}
-        </div>
-      </div>
-    );
-  }
-
-  if (step === "email_sent") {
-    return (
-      <div className="join-wrapper">
-        <div className="join-card">
-          <h1 className="join-title">Revisa tu correo</h1>
-          <p className="join-sub">Te enviamos un link a <strong>{email}</strong>. Ábrelo desde este mismo dispositivo para continuar.</p>
         </div>
       </div>
     );
