@@ -1926,6 +1926,54 @@ div:has(> .c4-item):hover .historial-delete-btn {
   opacity: 1;
 }
 
+/* Historial filters + pagination */
+.historial-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.historial-search {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  padding: 7px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  background: #fff;
+  color: #111;
+  flex: 1;
+  min-width: 160px;
+}
+.historial-search::placeholder { color: #9ca3af; }
+.historial-search:focus { outline: none; border-color: #00C2E0; }
+.historial-select {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  padding: 7px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  background: #fff;
+  color: #111;
+  cursor: pointer;
+}
+.historial-select:focus { outline: none; border-color: #00C2E0; }
+.historial-load-more {
+  display: block;
+  width: 100%;
+  margin: 16px 0;
+  padding: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.historial-load-more:hover { background: #f3f4f6; }
+
 /* C1 — Streak, tip, delta */
 .c1-streak {
   display: inline-block;
