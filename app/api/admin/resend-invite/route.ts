@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServiceSupabase, requireSuperAdmin } from "../../../../lib/supabase-server";
 
+// The action_link returned by this endpoint is a one-time Supabase invite URL.
+// It expires in 24h and grants account access — only expose to super_admin.
+// To resend, we generate a fresh link each time via admin.auth.admin.generateLink.
 export async function POST(req: Request) {
   try {
     const auth = await requireSuperAdmin(req);
