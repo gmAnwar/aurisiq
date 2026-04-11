@@ -62,6 +62,22 @@ const ACCESS_STATUS_CLASS: Record<string, string> = {
 };
 
 type Toast = { type: "ok" | "err"; msg: string } | null;
+type Tab = "orgs" | "users" | "analyses" | "speech";
+
+const ROLE_COLOR: Record<string, string> = {
+  captadora: "#3b82f6",
+  gerente: "#22c55e",
+  direccion: "#06b6d4",
+  agencia: "#f59e0b",
+  super_admin: "#ef4444",
+};
+
+function scoreBadgeClass(score: number | null): string {
+  if (score === null) return "adm-score-none";
+  if (score >= 75) return "adm-score-green";
+  if (score >= 50) return "adm-score-yellow";
+  return "adm-score-red";
+}
 
 export default function AdminPage() {
   const [orgs, setOrgs] = useState<Organization[]>([]);
@@ -72,6 +88,9 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toast, setToast] = useState<Toast>(null);
+  const [activeTab, setActiveTab] = useState<Tab>("orgs");
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
   // Create org form
   const [newName, setNewName] = useState("");
@@ -541,444 +560,348 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <div className="g1-wrapper"><div className="g1-container">
-        <div className="skeleton-block skeleton-title" />
-        <div className="skeleton-block skeleton-textarea" />
-      </div></div>
+      <div className="adm-shell">
+        <div className="adm-header"><h1 className="adm-title">Admin</h1></div>
+        <div className="adm-skeleton-rows">
+          {[1,2,3,4,5].map(i => <div key={i} className="adm-skeleton-row" />)}
+        </div>
+      </div>
     );
   }
 
   const filteredUsers = userOrgFilter ? users.filter(u => u.organization_id === userOrgFilter) : users;
   const filteredAnalyses = analyses.filter(a => {
     if (analysisOrgFilter && a.organization_id !== analysisOrgFilter) return false;
-    if (analysisDateFilter && !a.created_at.startsWith(analysisDateFilter)) return false;
+    if (analysisDateFilter && a.created_at && !a.created_at.startsWith(analysisDateFilter)) return false;
     return true;
   });
 
+  const tabs: { key: Tab; label: string; count: number }[] = [
+    { key: "orgs", label: "Organizaciones", count: orgs.length },
+    { key: "users", label: "Usuarios", count: users.length },
+    { key: "analyses", label: "Análisis", count: analyses.length },
+    { key: "speech", label: "Speech", count: speechVersions.length },
+  ];
+
   return (
-    <div className="g1-wrapper">
-      <div className="g1-container">
-        <div className="g1-header">
-          <h1 className="g1-title">Admin — Panel completo</h1>
+    <div className="adm-shell">
+      {/* Toast */}
+      {toast && (
+        <div className={`adm-toast ${toast.type === "ok" ? "adm-toast-ok" : "adm-toast-err"}`}>
+          {toast.msg}
         </div>
+      )}
 
-        {error && (
-          <div className="message-box message-error" style={{ marginBottom: 16 }}>
-            <p>{error}</p>
-          </div>
+      {error && <div className="adm-error">{error}</div>}
+
+      {/* Header + Tabs */}
+      <div className="adm-header">
+        <h1 className="adm-title">Admin</h1>
+        {activeTab === "users" && (
+          <button className="adm-btn-primary" onClick={() => setShowCreateUser(true)}>+ Nuevo usuario</button>
         )}
+      </div>
+      <div className="adm-tabs">
+        {tabs.map(t => (
+          <button key={t.key} className={`adm-tab ${activeTab === t.key ? "adm-tab-active" : ""}`} onClick={() => setActiveTab(t.key)}>
+            {t.label} <span className="adm-tab-count">{t.count}</span>
+          </button>
+        ))}
+      </div>
 
-        {toast && (
-          <div
-            className={`message-box ${toast.type === "ok" ? "message-success" : "message-error"}`}
-            style={{ position: "fixed", top: 16, right: 16, zIndex: 1000, maxWidth: 360 }}
-          >
-            <p>{toast.msg}</p>
-          </div>
-        )}
-
-        {/* ===== Section 1: Organizaciones ===== */}
-        <div className="g1-section">
-          <h2 className="g1-section-title">Organizaciones ({orgs.length})</h2>
-          <div className="admin-table">
-            <div className="admin-table-header" style={{ gridTemplateColumns: "1.3fr 1fr 0.8fr 1fr 0.9fr 1.4fr 1fr" }}>
-              <span>Nombre</span>
-              <span>Slug</span>
-              <span>Plan</span>
-              <span>Análisis</span>
-              <span>Estado</span>
-              <span>TeamLink</span>
-              <span>Acciones</span>
+      {/* ===== TAB: Organizaciones ===== */}
+      {activeTab === "orgs" && (
+        <div className="adm-section">
+          {orgs.length === 0 ? (
+            <div className="adm-empty">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#d4d4d4" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 12h6M12 9v6"/></svg>
+              <p>Sin organizaciones</p>
             </div>
-            {orgs.map(o => (
-              <div key={o.id}>
-                <div className="admin-table-row" style={{ gridTemplateColumns: "1.3fr 1fr 0.8fr 1fr 0.9fr 1.4fr 1fr" }}>
-                  <span className="admin-cell-name">{o.name}</span>
-                  <span className="admin-cell-slug">{o.slug}</span>
-                  <span className="admin-cell-plan">{o.plan || "—"}</span>
-                  <span className="admin-cell-count">{o.analyses_count || 0}</span>
-                  <span>
-                    <span className={`admin-badge ${ACCESS_STATUS_CLASS[o.access_status || "active"] || ""}`}>
-                      {ACCESS_STATUS_LABEL[o.access_status || "active"] || o.access_status}
-                    </span>
-                  </span>
-                  <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {o.invite_token ? (
-                      <>
-                        <button className="admin-copy-btn" onClick={() => copyTeamLink(o.invite_token, o.id)}>
-                          {copiedFor === o.id ? "Copiado ✓" : "Copiar"}
-                        </button>
-                        <button className="admin-copy-btn" onClick={() => regenerateTeamLink(o.id)}>
-                          Regenerar
-                        </button>
-                      </>
-                    ) : (
-                      <button className="admin-copy-btn" onClick={() => regenerateTeamLink(o.id)}>
-                        Generar TeamLink
-                      </button>
-                    )}
-                  </span>
-                  <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <button className="admin-copy-btn" onClick={() => startEditOrg(o)}>Editar</button>
-                    <button className="admin-copy-btn" onClick={() => { setUserOrgFilter(o.id); window.scrollTo({ top: document.getElementById("sec-users")?.offsetTop || 0, behavior: "smooth" }); }}>
-                      Usuarios →
-                    </button>
-                    <button className="admin-copy-btn" onClick={() => resetAnalysesCount(o.id)}>Reset #</button>
-                  </span>
+          ) : orgs.map(o => (
+            <div key={o.id} className="adm-card">
+              <div className="adm-card-main">
+                <div>
+                  <span className="adm-card-name">{o.name}</span>
+                  <span className="adm-card-slug">{o.slug}</span>
                 </div>
-                {editingOrgId === o.id && (
-                  <div className="admin-table-row" style={{ gridTemplateColumns: "1fr", background: "var(--color-surface-alt, #f9f9f9)", padding: 16 }}>
-                    <div className="admin-form" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                      <div className="input-group">
-                        <label className="input-label">Nombre</label>
-                        <input className="input-field" value={editOrgDraft.name || ""} onChange={e => setEditOrgDraft({ ...editOrgDraft, name: e.target.value })} />
-                      </div>
-                      <div className="input-group">
-                        <label className="input-label">Plan</label>
-                        <select className="input-field c2-select" value={editOrgDraft.plan || ""} onChange={e => setEditOrgDraft({ ...editOrgDraft, plan: e.target.value })}>
-                          {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
-                        </select>
-                      </div>
-                      <div className="input-group">
-                        <label className="input-label">Access status</label>
-                        <select className="input-field c2-select" value={editOrgDraft.access_status || ""} onChange={e => setEditOrgDraft({ ...editOrgDraft, access_status: e.target.value })}>
-                          {ACCESS_STATUSES.map(s => <option key={s} value={s}>{ACCESS_STATUS_LABEL[s]}</option>)}
-                        </select>
-                      </div>
-                      <div className="input-group">
-                        <label className="input-label">Etiqueta del rol vendedor</label>
-                        <input className="input-field" value={editOrgDraft.role_label_vendedor || ""} onChange={e => setEditOrgDraft({ ...editOrgDraft, role_label_vendedor: e.target.value })} />
-                      </div>
-                      <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8 }}>
-                        <button className="btn-submit" style={{ marginTop: 0, flex: "none", padding: "10px 16px" }} onClick={() => saveEditOrg(o.id)}>Guardar</button>
-                        <button className="admin-copy-btn" onClick={cancelEditOrg}>Cancelar</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                <div className="adm-card-meta">
+                  <span className="adm-pill" style={{ background: "#f3f4f6", color: "#374151" }}>{o.plan || "—"}</span>
+                  <span className={`adm-pill ${ACCESS_STATUS_CLASS[o.access_status || "active"] || ""}`}>
+                    {ACCESS_STATUS_LABEL[o.access_status || "active"] || o.access_status}
+                  </span>
+                  <span className="adm-card-stat">{o.analyses_count || 0} análisis</span>
+                </div>
+                <div className="adm-card-actions">
+                  {o.invite_token ? (
+                    <button className="adm-btn-ghost" onClick={() => copyTeamLink(o.invite_token, o.id)}>
+                      {copiedFor === o.id ? "✓ Copiado" : "Copiar TeamLink"}
+                    </button>
+                  ) : (
+                    <button className="adm-btn-ghost" onClick={() => regenerateTeamLink(o.id)}>Generar TeamLink</button>
+                  )}
+                  <button className="adm-btn-ghost" onClick={() => startEditOrg(o)}>Editar</button>
+                  <button className="adm-btn-ghost" onClick={() => { setActiveTab("users"); setUserOrgFilter(o.id); }}>Ver usuarios</button>
+                </div>
               </div>
-            ))}
-            {orgs.length === 0 && <div className="g1-empty">Sin organizaciones todavía.</div>}
-          </div>
-        </div>
-
-        {/* ===== Section 2: Crear organización ===== */}
-        <div className="g1-section">
-          <h2 className="g1-section-title">Crear nueva organización</h2>
-
-          {createdOrg && (
-            <div className="admin-created-box">
-              <p className="admin-created-title">✓ Organización creada: {createdOrg.name}</p>
-              {createdOrg.invite_token && (
-                <div className="admin-created-link-row">
-                  <input className="input-field" readOnly value={buildTeamLink(createdOrg.invite_token) || ""} />
-                  <button className="btn-submit" style={{ marginTop: 0, flex: "none", minWidth: "auto", padding: "10px 16px" }} onClick={() => copyTeamLink(createdOrg.invite_token, createdOrg.id)}>
-                    {copiedFor === createdOrg.id ? "Copiado ✓" : "Copiar"}
-                  </button>
+              {editingOrgId === o.id && (
+                <div className="adm-card-edit">
+                  <div className="adm-edit-grid">
+                    <div className="input-group"><label className="input-label">Nombre</label><input className="input-field" value={editOrgDraft.name || ""} onChange={e => setEditOrgDraft({ ...editOrgDraft, name: e.target.value })} /></div>
+                    <div className="input-group"><label className="input-label">Plan</label><select className="input-field" value={editOrgDraft.plan || ""} onChange={e => setEditOrgDraft({ ...editOrgDraft, plan: e.target.value })}>{PLANS.map(p => <option key={p} value={p}>{p}</option>)}</select></div>
+                    <div className="input-group"><label className="input-label">Estado</label><select className="input-field" value={editOrgDraft.access_status || ""} onChange={e => setEditOrgDraft({ ...editOrgDraft, access_status: e.target.value })}>{ACCESS_STATUSES.map(s => <option key={s} value={s}>{ACCESS_STATUS_LABEL[s]}</option>)}</select></div>
+                    <div className="input-group"><label className="input-label">Label vendedor</label><input className="input-field" value={editOrgDraft.role_label_vendedor || ""} onChange={e => setEditOrgDraft({ ...editOrgDraft, role_label_vendedor: e.target.value })} /></div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                    <button className="adm-btn-primary" onClick={() => saveEditOrg(o.id)}>Guardar</button>
+                    <button className="adm-btn-ghost" onClick={cancelEditOrg}>Cancelar</button>
+                  </div>
                 </div>
               )}
             </div>
-          )}
+          ))}
 
-          <div className="admin-form">
-            <div className="input-group">
-              <label className="input-label">Nombre</label>
-              <input className="input-field" value={newName} onChange={e => handleNameChange(e.target.value)} placeholder="Ej. Mi Inmobiliaria" />
+          {/* Create org form */}
+          <details className="adm-details">
+            <summary className="adm-details-summary">+ Crear organización</summary>
+            <div className="adm-edit-grid" style={{ marginTop: 12 }}>
+              <div className="input-group"><label className="input-label">Nombre</label><input className="input-field" value={newName} onChange={e => handleNameChange(e.target.value)} placeholder="Mi Inmobiliaria" /></div>
+              <div className="input-group"><label className="input-label">Slug</label><input className="input-field" value={newSlug} onChange={e => handleSlugChange(e.target.value)} onBlur={validateSlug} placeholder="mi_inmobiliaria" />{slugError && <p className="adm-field-err">{slugError}</p>}</div>
+              <div className="input-group"><label className="input-label">Plan</label><select className="input-field" value={newPlan} onChange={e => setNewPlan(e.target.value)}>{PLANS.map(p => <option key={p} value={p}>{p}</option>)}</select></div>
+              <div className="input-group"><label className="input-label">Label vendedor</label><input className="input-field" value={newRoleLabel} onChange={e => setNewRoleLabel(e.target.value)} placeholder="Captadora" /></div>
             </div>
-            <div className="input-group">
-              <label className="input-label">Slug</label>
-              <input className="input-field" value={newSlug} onChange={e => handleSlugChange(e.target.value)} onBlur={validateSlug} placeholder="mi_inmobiliaria" />
-              {slugError && <p className="c2-rec-error">{slugError}</p>}
-            </div>
-            <div className="input-group">
-              <label className="input-label">Plan</label>
-              <select className="input-field c2-select" value={newPlan} onChange={e => setNewPlan(e.target.value)}>
-                {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
-            <div className="input-group">
-              <label className="input-label">Etiqueta del rol vendedor</label>
-              <input className="input-field" value={newRoleLabel} onChange={e => setNewRoleLabel(e.target.value)} placeholder="Captadora, Ejecutivo, Asesor..." />
-            </div>
-            <button className="btn-submit" onClick={handleCreate} disabled={creating || !newName || !newSlug || !!slugError}>
-              {creating ? "Creando..." : "Crear organización"}
-            </button>
-          </div>
+            <button className="adm-btn-primary" style={{ marginTop: 12 }} onClick={handleCreate} disabled={creating || !newName || !newSlug || !!slugError}>{creating ? "Creando..." : "Crear"}</button>
+            {createdOrg && <p className="adm-success-msg">✓ {createdOrg.name} creada</p>}
+          </details>
         </div>
+      )}
 
-        {/* ===== Section 3: Usuarios ===== */}
-        <div className="g1-section" id="sec-users">
-          <h2 className="g1-section-title">Usuarios ({filteredUsers.length})</h2>
-
-          {/* Crear usuario */}
-          <div style={{ border: "1px solid #e5e5e5", borderRadius: 8, padding: 16, marginBottom: 20 }}>
-            <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 15, fontWeight: 600 }}>Crear usuario nuevo</h3>
-            {lastCreatedUserLink && (
-              <div className="admin-created-box" style={{ marginBottom: 12 }}>
-                <p className="admin-created-title">Link de invitación (respaldo):</p>
-                <div className="admin-created-link-row">
-                  <input className="input-field" readOnly value={lastCreatedUserLink} />
-                  <button
-                    className="btn-submit"
-                    style={{ marginTop: 0, flex: "none", padding: "10px 16px" }}
-                    onClick={() => { navigator.clipboard.writeText(lastCreatedUserLink).catch(() => {}); showToast({ type: "ok", msg: "Link copiado" }); }}
-                  >
-                    Copiar
-                  </button>
-                </div>
-              </div>
-            )}
-            <div className="admin-form" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div className="input-group">
-                <label className="input-label">Nombre</label>
-                <input
-                  className="input-field"
-                  value={newUserName}
-                  onChange={e => { setNewUserName(e.target.value); if (newUserErrors.name) setNewUserErrors({ ...newUserErrors, name: undefined }); }}
-                  placeholder="Elizabeth R."
-                />
-                {newUserErrors.name && <p className="c2-rec-error">{newUserErrors.name}</p>}
-              </div>
-              <div className="input-group">
-                <label className="input-label">Email</label>
-                <input
-                  className="input-field"
-                  type="email"
-                  value={newUserEmail}
-                  onChange={e => { setNewUserEmail(e.target.value); if (newUserErrors.email) setNewUserErrors({ ...newUserErrors, email: undefined }); }}
-                  placeholder="usuario@empresa.com"
-                />
-                {newUserErrors.email && <p className="c2-rec-error">{newUserErrors.email}</p>}
-              </div>
-              <div className="input-group">
-                <label className="input-label">Rol</label>
-                <select className="input-field c2-select" value={newUserRole} onChange={e => setNewUserRole(e.target.value)}>
-                  <option value="captadora">Captadora</option>
-                  <option value="gerente">Gerente</option>
-                  <option value="direccion">Dirección</option>
-                  <option value="agencia">Agencia</option>
-                  <option value="super_admin">Super Admin</option>
-                </select>
-              </div>
-              <div className="input-group">
-                <label className="input-label">Organización</label>
-                <select
-                  className="input-field c2-select"
-                  value={newUserOrgId}
-                  onChange={e => { setNewUserOrgId(e.target.value); if (newUserErrors.org) setNewUserErrors({ ...newUserErrors, org: undefined }); }}
-                >
-                  <option value="">— Selecciona org —</option>
-                  {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-                </select>
-                {newUserErrors.org && <p className="c2-rec-error">{newUserErrors.org}</p>}
-              </div>
-              <div className="input-group" style={{ gridColumn: "1 / -1" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                  <input type="checkbox" checked={newUserTraining} onChange={e => setNewUserTraining(e.target.checked)} />
-                  <span>Modo capacitación (permite cambiar de rol en la app)</span>
-                </label>
-              </div>
-              <div style={{ gridColumn: "1 / -1" }}>
-                <button
-                  className="btn-submit"
-                  onClick={handleCreateUser}
-                  disabled={creatingUser || !newUserName || !newUserEmail || !newUserOrgId}
-                >
-                  {creatingUser ? "Creando..." : "Crear usuario y enviar invitación"}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="input-group" style={{ maxWidth: 320 }}>
-            <label className="input-label">Filtrar por organización</label>
-            <select className="input-field c2-select" value={userOrgFilter} onChange={e => setUserOrgFilter(e.target.value)}>
-              <option value="">Todas</option>
+      {/* ===== TAB: Usuarios ===== */}
+      {activeTab === "users" && (
+        <div className="adm-section">
+          <div style={{ marginBottom: 12 }}>
+            <select className="input-field" value={userOrgFilter} onChange={e => setUserOrgFilter(e.target.value)} style={{ maxWidth: 240, padding: "6px 10px" }}>
+              <option value="">Todas las orgs</option>
               {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
           </div>
-          <div className="admin-table">
-            <div className="admin-table-header" style={{ gridTemplateColumns: "1.2fr 1.4fr 1fr 1.2fr 0.8fr 1fr 1.2fr" }}>
-              <span>Nombre</span>
-              <span>Email</span>
-              <span>Rol</span>
-              <span>Organización</span>
-              <span>Activo</span>
-              <span>Training</span>
-              <span>Acciones</span>
-            </div>
-            {filteredUsers.map(u => (
-              <div key={u.id}>
-                <div className="admin-table-row" style={{ gridTemplateColumns: "1.2fr 1.4fr 1fr 1.2fr 0.8fr 1fr 1.4fr" }}>
-                  <span className="admin-cell-name">{u.name}</span>
-                  <span className="admin-cell-slug">{u.email}</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <select className="input-field c2-select" value={u.role} onChange={e => changeUserRole(u.id, e.target.value)} style={{ padding: "6px 8px" }}>
-                      {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                    {savingUserId === u.id && <span style={{ fontSize: 11, color: "var(--ink-light)" }}>Guardando...</span>}
-                    {savedUserId === u.id && <span style={{ fontSize: 11, color: "#16a34a" }}>✓</span>}
-                  </span>
-                  <span>{orgName(u.organization_id)}</span>
-                  <span>
-                    <button className="admin-copy-btn" onClick={() => toggleUserActive(u)}>
-                      {u.active ? "Activo ✓" : "Inactivo ✗"}
-                    </button>
-                  </span>
-                  <span>
-                    <button className="admin-copy-btn" onClick={() => toggleTrainingMode(u)}>
-                      {u.training_mode ? "🎓 ON" : "OFF"}
-                    </button>
-                  </span>
-                  <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <button className="admin-copy-btn" onClick={() => resendInvite(u)}>Reenviar</button>
-                    <button className="admin-copy-btn" onClick={() => softDeleteUser(u)}>Eliminar</button>
-                  </span>
-                </div>
-                {/* Orgs — always visible */}
-                <div style={{ padding: "6px 16px 10px", background: "#fafafa", borderBottom: "1px solid #eee", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 12, color: "#737373", fontWeight: 500 }}>Orgs:</span>
-                  {userMemberships(u.id).map(m => (
-                    <span key={m.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#e5e7eb", borderRadius: 12, padding: "2px 10px", fontSize: 12 }}>
-                      {orgName(m.organization_id)}
-                      <span style={{ color: "#9ca3af", fontSize: 11 }}>({m.role})</span>
-                      <button
-                        onClick={() => removeUserOrg(m.id)}
-                        style={{ background: "none", border: "none", color: "#9ca3af", cursor: "pointer", padding: 0, fontSize: 14, lineHeight: 1 }}
-                        title="Quitar"
-                      >&times;</button>
-                    </span>
-                  ))}
-                  {userMemberships(u.id).length === 0 && <span style={{ fontSize: 12, color: "#9ca3af" }}>sin orgs</span>}
-                  {addOrgUserId === u.id ? (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                      <select className="input-field c2-select" value={addOrgId} onChange={e => setAddOrgId(e.target.value)} style={{ padding: "3px 6px", fontSize: 12, width: 130 }}>
-                        <option value="">Org...</option>
-                        {orgs.filter(o => !userMemberships(u.id).some(m => m.organization_id === o.id)).map(o => (
-                          <option key={o.id} value={o.id}>{o.name}</option>
-                        ))}
-                      </select>
-                      <select className="input-field c2-select" value={addOrgRole} onChange={e => setAddOrgRole(e.target.value)} style={{ padding: "3px 6px", fontSize: 12, width: 100 }}>
-                        {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                      </select>
-                      <button className="admin-copy-btn" style={{ padding: "3px 8px", fontSize: 12 }} onClick={() => addUserOrg(u.id)} disabled={!addOrgId}>OK</button>
-                      <button className="admin-copy-btn" style={{ padding: "3px 8px", fontSize: 12 }} onClick={() => setAddOrgUserId(null)}>X</button>
-                    </span>
-                  ) : (
-                    <button
-                      className="admin-copy-btn"
-                      style={{ padding: "2px 8px", fontSize: 12 }}
-                      onClick={() => { setAddOrgUserId(u.id); setAddOrgId(""); setAddOrgRole(u.role); }}
-                    >+ Agregar</button>
-                  )}
-                </div>
-              </div>
-            ))}
-            {filteredUsers.length === 0 && <div className="g1-empty">Sin usuarios.</div>}
-          </div>
-        </div>
 
-        {/* ===== Section 4: Análisis ===== */}
-        <div className="g1-section">
-          <h2 className="g1-section-title">Análisis ({filteredAnalyses.length})</h2>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <div className="input-group" style={{ maxWidth: 260 }}>
-              <label className="input-label">Organización</label>
-              <select className="input-field c2-select" value={analysisOrgFilter} onChange={e => setAnalysisOrgFilter(e.target.value)}>
-                <option value="">Todas</option>
-                {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-              </select>
+          {filteredUsers.length === 0 ? (
+            <div className="adm-empty">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#d4d4d4" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
+              <p>Sin usuarios</p>
             </div>
-            <div className="input-group" style={{ maxWidth: 200 }}>
-              <label className="input-label">Fecha (YYYY-MM-DD)</label>
-              <input className="input-field" type="date" value={analysisDateFilter} onChange={e => setAnalysisDateFilter(e.target.value)} />
+          ) : (
+            <div className="adm-table">
+              <div className="adm-table-head">
+                <span style={{ flex: 1.5 }}>Nombre</span>
+                <span style={{ flex: 2 }}>Email</span>
+                <span style={{ flex: 0.8 }}>Rol</span>
+                <span style={{ flex: 1 }}>Org</span>
+                <span style={{ flex: 0.5 }}>Estado</span>
+                <span style={{ flex: 0.5 }}>Orgs</span>
+                <span style={{ flex: 0.3 }} />
+              </div>
+              {filteredUsers.map(u => {
+                const memberships = userMemberships(u.id);
+                return (
+                  <div key={u.id}>
+                    <div className="adm-table-row" onClick={() => setExpandedUserId(expandedUserId === u.id ? null : u.id)}>
+                      <span style={{ flex: 1.5, fontWeight: 500 }}>{u.name}</span>
+                      <span style={{ flex: 2, color: "#737373" }}>{u.email}</span>
+                      <span style={{ flex: 0.8 }}>
+                        <span className="adm-role-badge" style={{ background: `${ROLE_COLOR[u.role] || "#6b7280"}18`, color: ROLE_COLOR[u.role] || "#6b7280" }}>{u.role}</span>
+                        {savingUserId === u.id && <span style={{ fontSize: 10, marginLeft: 4 }}>...</span>}
+                        {savedUserId === u.id && <span style={{ fontSize: 10, marginLeft: 4, color: "#16a34a" }}>✓</span>}
+                      </span>
+                      <span style={{ flex: 1, color: "#737373", fontSize: 13 }}>{orgName(u.organization_id)}</span>
+                      <span style={{ flex: 0.5 }}>
+                        <span className={`adm-status-dot ${u.active ? "adm-dot-green" : "adm-dot-gray"}`} />
+                      </span>
+                      <span style={{ flex: 0.5, fontSize: 13, color: "#737373" }}>{memberships.length}</span>
+                      <span className="adm-row-actions" style={{ flex: 0.3 }}>
+                        <button className="adm-icon-btn" onClick={e => { e.stopPropagation(); resendInvite(u); }} title="Reenviar invitación">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
+                        </button>
+                        <button className="adm-icon-btn adm-icon-danger" onClick={e => { e.stopPropagation(); softDeleteUser(u); }} title="Eliminar">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                      </span>
+                    </div>
+                    {expandedUserId === u.id && (
+                      <div className="adm-row-expand">
+                        <div style={{ display: "flex", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
+                          <div className="input-group" style={{ margin: 0, minWidth: 120 }}>
+                            <label className="input-label" style={{ fontSize: 11 }}>Rol</label>
+                            <select className="input-field" value={u.role} onChange={e => changeUserRole(u.id, e.target.value)} style={{ padding: "5px 8px", fontSize: 13 }}>
+                              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                            </select>
+                          </div>
+                          <div className="input-group" style={{ margin: 0 }}>
+                            <label className="input-label" style={{ fontSize: 11 }}>Training</label>
+                            <button className="adm-btn-ghost" style={{ padding: "5px 10px", fontSize: 13 }} onClick={() => toggleTrainingMode(u)}>{u.training_mode ? "ON" : "OFF"}</button>
+                          </div>
+                          <div className="input-group" style={{ margin: 0 }}>
+                            <label className="input-label" style={{ fontSize: 11 }}>Activo</label>
+                            <button className="adm-btn-ghost" style={{ padding: "5px 10px", fontSize: 13 }} onClick={() => toggleUserActive(u)}>{u.active ? "Sí" : "No"}</button>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 12, color: "#737373", fontWeight: 500 }}>Orgs:</span>
+                          {memberships.map(m => (
+                            <span key={m.id} className="adm-org-pill">
+                              {orgName(m.organization_id)} <span style={{ opacity: 0.6 }}>({m.role})</span>
+                              <button onClick={() => removeUserOrg(m.id)} className="adm-pill-x">&times;</button>
+                            </span>
+                          ))}
+                          {addOrgUserId === u.id ? (
+                            <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+                              <select className="input-field" value={addOrgId} onChange={e => setAddOrgId(e.target.value)} style={{ padding: "3px 6px", fontSize: 12, width: 120 }}>
+                                <option value="">Org...</option>
+                                {orgs.filter(o => !memberships.some(m => m.organization_id === o.id)).map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                              </select>
+                              <select className="input-field" value={addOrgRole} onChange={e => setAddOrgRole(e.target.value)} style={{ padding: "3px 6px", fontSize: 12, width: 90 }}>
+                                {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                              </select>
+                              <button className="adm-btn-ghost" style={{ padding: "3px 8px", fontSize: 12 }} onClick={() => addUserOrg(u.id)} disabled={!addOrgId}>OK</button>
+                              <button className="adm-btn-ghost" style={{ padding: "3px 8px", fontSize: 12 }} onClick={() => setAddOrgUserId(null)}>X</button>
+                            </span>
+                          ) : (
+                            <button className="adm-btn-ghost" style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => { setAddOrgUserId(u.id); setAddOrgId(""); setAddOrgRole(u.role); }}>+</button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== TAB: Análisis ===== */}
+      {activeTab === "analyses" && (
+        <div className="adm-section">
+          <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+            <select className="input-field" value={analysisOrgFilter} onChange={e => setAnalysisOrgFilter(e.target.value)} style={{ maxWidth: 200, padding: "6px 10px" }}>
+              <option value="">Todas las orgs</option>
+              {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+            <input className="input-field" type="date" value={analysisDateFilter} onChange={e => setAnalysisDateFilter(e.target.value)} style={{ maxWidth: 170, padding: "6px 10px" }} />
           </div>
-          <div className="admin-table">
-            <div className="admin-table-header" style={{ gridTemplateColumns: "1.2fr 1.2fr 0.6fr 1fr 1fr 0.8fr 0.9fr" }}>
-              <span>Org</span>
-              <span>Usuario</span>
-              <span>Score</span>
-              <span>Clasif.</span>
-              <span>Fecha</span>
-              <span>Status</span>
-              <span>Acción</span>
+
+          {filteredAnalyses.length === 0 ? (
+            <div className="adm-empty">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#d4d4d4" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <p>Sin análisis</p>
             </div>
-            {filteredAnalyses.map(a => (
-              <div key={a.id}>
-                <div className="admin-table-row" style={{ gridTemplateColumns: "1.2fr 1.2fr 0.6fr 1fr 1fr 0.8fr 0.9fr" }}>
-                  <span>{orgName(a.organization_id)}</span>
-                  <span>{userName(a.user_id)}</span>
-                  <span>{a.score_general ?? "—"}</span>
-                  <span>{a.clasificacion || "—"}</span>
-                  <span>{a.created_at ? a.created_at.slice(0, 10) : "—"}</span>
-                  <span>{a.status || "—"}</span>
-                  <span>
-                    <button className="admin-copy-btn" onClick={() => requestDeleteAnalysis(a.id)}>Eliminar</button>
-                  </span>
-                </div>
-                {pendingDeleteAnalysisId === a.id && (
-                  <div className="admin-table-row" style={{ gridTemplateColumns: "1fr", padding: 14, background: "#fff4f4" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                      <p style={{ margin: 0, color: "#991b1b" }}>
-                        ¿Eliminar este análisis? Esta acción no se puede deshacer.
-                      </p>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button className="admin-copy-btn" onClick={() => setPendingDeleteAnalysisId(null)}>
-                          Cancelar
-                        </button>
-                        <button
-                          className="btn-submit"
-                          style={{ marginTop: 0, flex: "none", padding: "8px 16px", background: "#dc2626" }}
-                          onClick={confirmDeleteAnalysis}
-                        >
-                          Confirmar
-                        </button>
+          ) : (
+            <div className="adm-table">
+              <div className="adm-table-head">
+                <span style={{ flex: 0.5 }}>Score</span>
+                <span style={{ flex: 1.5 }}>Usuario</span>
+                <span style={{ flex: 1 }}>Org</span>
+                <span style={{ flex: 1 }}>Fecha</span>
+                <span style={{ flex: 0.8 }}>Status</span>
+                <span style={{ flex: 0.3 }} />
+              </div>
+              {filteredAnalyses.map(a => (
+                <div key={a.id}>
+                  <div className="adm-table-row">
+                    <span style={{ flex: 0.5 }}>
+                      <span className={`adm-score ${scoreBadgeClass(a.score_general)}`}>{a.score_general ?? "—"}</span>
+                    </span>
+                    <span style={{ flex: 1.5, fontWeight: 500 }}>{userName(a.user_id)}</span>
+                    <span style={{ flex: 1, color: "#737373", fontSize: 13 }}>{orgName(a.organization_id)}</span>
+                    <span style={{ flex: 1, color: "#737373", fontSize: 13 }}>{a.created_at ? a.created_at.slice(0, 10) : "—"}</span>
+                    <span style={{ flex: 0.8, fontSize: 13 }}>{a.status || "—"}</span>
+                    <span className="adm-row-actions" style={{ flex: 0.3 }}>
+                      <button className="adm-icon-btn adm-icon-danger" onClick={() => requestDeleteAnalysis(a.id)} title="Eliminar">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    </span>
+                  </div>
+                  {pendingDeleteAnalysisId === a.id && (
+                    <div className="adm-confirm-bar">
+                      <span>¿Eliminar este análisis? No se puede deshacer.</span>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button className="adm-btn-ghost" onClick={() => setPendingDeleteAnalysisId(null)}>Cancelar</button>
+                        <button className="adm-btn-danger" onClick={confirmDeleteAnalysis}>Eliminar</button>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ))}
-            {filteredAnalyses.length === 0 && <div className="g1-empty">Sin análisis.</div>}
-          </div>
-        </div>
-
-        {/* ===== Section 5: Speech versions ===== */}
-        <div className="g1-section">
-          <h2 className="g1-section-title">Speech versions ({speechVersions.length})</h2>
-          <div className="admin-table">
-            <div className="admin-table-header" style={{ gridTemplateColumns: "1.3fr 0.6fr 0.8fr 1fr 1.4fr 1.2fr" }}>
-              <span>Org</span>
-              <span>Versión</span>
-              <span>Publicada</span>
-              <span>Creada</span>
-              <span>Primera fase</span>
-              <span>Acciones</span>
-            </div>
-            {speechVersions.map(s => (
-              <div key={s.id} className="admin-table-row" style={{ gridTemplateColumns: "1.3fr 0.6fr 0.8fr 1fr 1.4fr 1.2fr" }}>
-                <span>{orgName(s.organization_id)}</span>
-                <span>v{s.version_number}</span>
-                <span>
-                  <span className={`admin-badge ${s.published ? "admin-badge-green" : "admin-badge-red"}`}>
-                    {s.published ? "Sí" : "No"}
-                  </span>
-                </span>
-                <span>{s.created_at ? s.created_at.slice(0, 10) : "—"}</span>
-                <span>{firstPhaseOf(s.content)}</span>
-                <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {s.published && (
-                    <button className="admin-copy-btn" onClick={() => unpublishSpeech(s.id)}>Despublicar</button>
                   )}
-                  <button className="admin-copy-btn" onClick={() => deleteSpeech(s.id)}>Eliminar</button>
-                </span>
-              </div>
-            ))}
-            {speechVersions.length === 0 && <div className="g1-empty">Sin speech versions.</div>}
-          </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      </div>
+      )}
+
+      {/* ===== TAB: Speech ===== */}
+      {activeTab === "speech" && (
+        <div className="adm-section">
+          {speechVersions.length === 0 ? (
+            <div className="adm-empty">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#d4d4d4" strokeWidth="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <p>Sin speech versions</p>
+            </div>
+          ) : (
+            <div className="adm-table">
+              <div className="adm-table-head">
+                <span style={{ flex: 1.3 }}>Org</span>
+                <span style={{ flex: 0.5 }}>Versión</span>
+                <span style={{ flex: 0.6 }}>Estado</span>
+                <span style={{ flex: 1 }}>Creada</span>
+                <span style={{ flex: 1.5 }}>Primera fase</span>
+                <span style={{ flex: 0.5 }} />
+              </div>
+              {speechVersions.map(s => (
+                <div key={s.id} className="adm-table-row">
+                  <span style={{ flex: 1.3 }}>{orgName(s.organization_id)}</span>
+                  <span style={{ flex: 0.5 }}>v{s.version_number}</span>
+                  <span style={{ flex: 0.6 }}>
+                    <span className={`adm-pill ${s.published ? "admin-badge-green" : "admin-badge-red"}`}>{s.published ? "Pub" : "No"}</span>
+                  </span>
+                  <span style={{ flex: 1, color: "#737373", fontSize: 13 }}>{s.created_at ? s.created_at.slice(0, 10) : "—"}</span>
+                  <span style={{ flex: 1.5, fontSize: 13 }}>{firstPhaseOf(s.content)}</span>
+                  <span className="adm-row-actions" style={{ flex: 0.5 }}>
+                    {s.published && <button className="adm-btn-ghost" style={{ fontSize: 12 }} onClick={() => unpublishSpeech(s.id)}>Despublicar</button>}
+                    <button className="adm-icon-btn adm-icon-danger" onClick={() => deleteSpeech(s.id)} title="Eliminar">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== Slide-over: Crear usuario ===== */}
+      {showCreateUser && (
+        <>
+          <div className="adm-overlay" onClick={() => setShowCreateUser(false)} />
+          <div className="adm-slideover">
+            <div className="adm-slideover-header">
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Nuevo usuario</h2>
+              <button className="adm-icon-btn" onClick={() => setShowCreateUser(false)}>&times;</button>
+            </div>
+            <div className="adm-slideover-body">
+              {lastCreatedUserLink && (
+                <div className="adm-success-msg" style={{ marginBottom: 12 }}>
+                  ✓ Usuario creado. <button className="adm-btn-ghost" style={{ fontSize: 12 }} onClick={() => { navigator.clipboard.writeText(lastCreatedUserLink).catch(() => {}); showToast({ type: "ok", msg: "Link copiado" }); }}>Copiar link de invitación</button>
+                </div>
+              )}
+              <div className="input-group"><label className="input-label">Nombre</label><input className="input-field" value={newUserName} onChange={e => { setNewUserName(e.target.value); if (newUserErrors.name) setNewUserErrors({ ...newUserErrors, name: undefined }); }} placeholder="Elizabeth R." />{newUserErrors.name && <p className="adm-field-err">{newUserErrors.name}</p>}</div>
+              <div className="input-group"><label className="input-label">Email</label><input className="input-field" type="email" value={newUserEmail} onChange={e => { setNewUserEmail(e.target.value); if (newUserErrors.email) setNewUserErrors({ ...newUserErrors, email: undefined }); }} placeholder="usuario@empresa.com" />{newUserErrors.email && <p className="adm-field-err">{newUserErrors.email}</p>}</div>
+              <div className="input-group"><label className="input-label">Rol</label><select className="input-field" value={newUserRole} onChange={e => setNewUserRole(e.target.value)}><option value="captadora">Captadora</option><option value="gerente">Gerente</option><option value="direccion">Dirección</option><option value="agencia">Agencia</option><option value="super_admin">Super Admin</option></select></div>
+              <div className="input-group"><label className="input-label">Organización</label><select className="input-field" value={newUserOrgId} onChange={e => { setNewUserOrgId(e.target.value); if (newUserErrors.org) setNewUserErrors({ ...newUserErrors, org: undefined }); }}><option value="">Selecciona org</option>{orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}</select>{newUserErrors.org && <p className="adm-field-err">{newUserErrors.org}</p>}</div>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", margin: "12px 0" }}><input type="checkbox" checked={newUserTraining} onChange={e => setNewUserTraining(e.target.checked)} /><span style={{ fontSize: 13 }}>Modo capacitación</span></label>
+              <button className="adm-btn-primary" style={{ width: "100%" }} onClick={handleCreateUser} disabled={creatingUser || !newUserName || !newUserEmail || !newUserOrgId}>{creatingUser ? "Creando..." : "Crear y enviar invitación"}</button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
