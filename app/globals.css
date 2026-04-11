@@ -206,6 +206,35 @@ body > * { position: relative; z-index: 1; }
 
 .navbar-cta:hover { background: var(--accent-hover); }
 
+/* Offline indicator badge */
+.offline-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.offline-badge-gray { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); }
+.offline-badge-yellow { background: rgba(234,179,8,0.15); color: #fbbf24; }
+.offline-sync-btn {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fbbf24;
+  background: rgba(234,179,8,0.2);
+  border: none;
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.offline-sync-btn:hover { background: rgba(234,179,8,0.35); }
+
 /* Desktop sidebar — 520px breakpoint so sidebar stays with DevTools open */
 @media (min-width: 520px) {
   .navbar.navbar-sidebar {

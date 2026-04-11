@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { getRoleLabel } from "../../lib/roleLabel";
+import OfflineIndicator from "./OfflineIndicator";
 
 interface NavItem {
   href: string;
@@ -212,6 +213,9 @@ export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVe
             + Nueva llamada
           </Link>
         )}
+
+        {/* Offline indicator — captadora only */}
+        {showCta && <OfflineIndicator />}
 
         {/* Org selector — hidden on mobile, shown in hamburger menu instead */}
         {orgOptions && orgOptions.length > 1 && (
