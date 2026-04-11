@@ -16,6 +16,7 @@ export default function DashboardEjecutivoPage() {
   const [avgScore, setAvgScore] = useState<number | null>(null);
   const [descalDistro, setDescalDistro] = useState<{ label: string; count: number; pct: number }[]>([]);
   const [descalTotal, setDescalTotal] = useState(0);
+  const [captadoraRanking, setCaptadoraRanking] = useState<{ name: string; avg: number; count: number }[]>([]);
   const [monthlyComparison, setMonthlyComparison] = useState<{ month: string; count: number; convRate: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -33,8 +34,8 @@ export default function DashboardEjecutivoPage() {
       const lastMonthStart = new Date(thisMonthDate.getFullYear(), thisMonthDate.getMonth() - 1, 1).toISOString();
       const threeMonthsAgo = new Date(thisMonthDate.getFullYear(), thisMonthDate.getMonth() - 3, 1).toISOString();
 
-      const [thisMonthRes, lastMonthRes, objRes, stagesRes, descalCatsRes] = await Promise.all([
-        supabase.from("analyses").select("id, avanzo_a_siguiente_etapa, funnel_stage_id, score_general, categoria_descalificacion")
+      const [thisMonthRes, lastMonthRes, objRes, stagesRes, descalCatsRes, usersRes] = await Promise.all([
+        supabase.from("analyses").select("id, user_id, avanzo_a_siguiente_etapa, funnel_stage_id, score_general, categoria_descalificacion")
           .eq("organization_id", me.organization_id).eq("status", "completado").gte("created_at", thisMonthStart),
         supabase.from("analyses").select("id, avanzo_a_siguiente_etapa")
           .eq("organization_id", me.organization_id).eq("status", "completado").gte("created_at", lastMonthStart).lt("created_at", thisMonthStart),
@@ -44,6 +45,8 @@ export default function DashboardEjecutivoPage() {
           .eq("organization_id", me.organization_id).order("order_index"),
         supabase.from("descalification_categories").select("code, label")
           .eq("organization_id", me.organization_id),
+        supabase.from("users").select("id, name, role")
+          .eq("organization_id", me.organization_id).eq("active", true),
       ]);
 
       const thisMonth = thisMonthRes.data || [];
@@ -81,6 +84,25 @@ export default function DashboardEjecutivoPage() {
       }
 
       setObjectives((objRes.data || []) as Objective[]);
+
+      // Captadora ranking by avg score this month
+      const userNames: Record<string, string> = {};
+      for (const u of usersRes.data || []) userNames[u.id] = u.name;
+      const byUser: Record<string, { sum: number; count: number }> = {};
+      for (const a of thisMonth) {
+        const uid = (a as { user_id?: string }).user_id;
+        const sc = (a as { score_general?: number | null }).score_general;
+        if (uid && sc !== null && sc !== undefined) {
+          if (!byUser[uid]) byUser[uid] = { sum: 0, count: 0 };
+          byUser[uid].sum += sc;
+          byUser[uid].count++;
+        }
+      }
+      const ranking = Object.entries(byUser)
+        .map(([uid, v]) => ({ name: userNames[uid] || "—", avg: Math.round(v.sum / v.count), count: v.count }))
+        .sort((a, b) => b.avg - a.avg)
+        .slice(0, 10);
+      setCaptadoraRanking(ranking);
 
       // Descalification distribution — primary reason (index 0)
       const descalCatMap: Record<string, string> = {};
@@ -222,6 +244,29 @@ export default function DashboardEjecutivoPage() {
             </div>
           )}
         </div>
+
+        {/* Captadora ranking */}
+        {captadoraRanking.length > 0 && (
+          <div className="g1-section">
+            <h2 className="g1-section-title">Ranking captadoras este mes</h2>
+            <div className="d1-ranking">
+              <div className="d1-ranking-head">
+                <span style={{ flex: 0.3 }}>#</span>
+                <span style={{ flex: 2 }}>Nombre</span>
+                <span style={{ flex: 0.6 }}>Score</span>
+                <span style={{ flex: 0.6 }}>Llamadas</span>
+              </div>
+              {captadoraRanking.map((c, i) => (
+                <div key={i} className="d1-ranking-row">
+                  <span style={{ flex: 0.3 }} className="d1-ranking-pos">{i + 1}</span>
+                  <span style={{ flex: 2 }}>{c.name}</span>
+                  <span style={{ flex: 0.6 }} className={`d1-ranking-score ${c.avg >= 75 ? "d1-score-high" : c.avg >= 50 ? "d1-score-mid" : "d1-score-low"}`}>{c.avg}</span>
+                  <span style={{ flex: 0.6, color: "#6b7280" }}>{c.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 3-month comparison */}
         {monthlyComparison.length > 1 && (

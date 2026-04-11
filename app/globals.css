@@ -3176,6 +3176,23 @@ div:has(> .c4-item):hover .historial-delete-btn {
   color: #374151;
 }
 
+/* D1 Captadora ranking table */
+.d1-ranking { border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; }
+.d1-ranking-head {
+  display: flex; gap: 8px; padding: 8px 14px;
+  background: #f9fafb; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em; color: #9ca3af;
+}
+.d1-ranking-row {
+  display: flex; gap: 8px; padding: 10px 14px; align-items: center;
+  border-top: 1px solid #f3f4f6; font-family: 'DM Sans', sans-serif; font-size: 13px;
+}
+.d1-ranking-pos { font-weight: 700; color: #6b7280; }
+.d1-ranking-score { font-weight: 700; }
+.d1-score-high { color: #166534; }
+.d1-score-mid { color: #92400e; }
+.d1-score-low { color: #991b1b; }
+
 .g1-fuente-badge {
   display: inline-block;
   font-size: 10px;
