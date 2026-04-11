@@ -3145,6 +3145,16 @@ div:has(> .c4-item):hover .historial-delete-btn {
   margin-bottom: 12px;
 }
 
+.g1-fuente-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #475569;
+}
+
 .g1-empty {
   font-size: 12px;
   font-family: 'DM Sans', sans-serif;

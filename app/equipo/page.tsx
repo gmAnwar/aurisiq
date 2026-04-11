@@ -23,6 +23,7 @@ interface RecentCall {
   score_general: number | null;
   clasificacion: string | null;
   categoria_descalificacion: string[] | null;
+  fuente_lead_id: string | null;
   created_at: string;
 }
 
@@ -41,6 +42,7 @@ export default function EquipoDashboard() {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [activeAlerts, setActiveAlerts] = useState<{ id: string; description: string }[]>([]);
   const [descalMap, setDescalMap] = useState<Record<string, string>>({});
+  const [leadSourceMap, setLeadSourceMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [orgName, setOrgName] = useState("");
 
@@ -59,7 +61,7 @@ export default function EquipoDashboard() {
       const ts = getTodayStart(tz);
       const yesterdayStart = new Date(new Date(ts).getTime() - 86400000).toISOString();
 
-      const [teamRes, weekRes, prevRes, todayRes, yesterdayRes, objRes, alertsRes, descalRes, recentRes] = await Promise.all([
+      const [teamRes, weekRes, prevRes, todayRes, yesterdayRes, objRes, alertsRes, descalRes, recentRes, leadSourcesRes] = await Promise.all([
         supabase.from("users").select("id, name, role").eq("organization_id", orgId).eq("active", true),
         supabase.from("analyses").select("id, user_id, score_general, categoria_descalificacion")
           .eq("organization_id", orgId).eq("status", "completado").gte("created_at", ws),
@@ -74,14 +76,18 @@ export default function EquipoDashboard() {
         supabase.from("alerts").select("id, description")
           .eq("organization_id", orgId).eq("status", "activa").order("created_at", { ascending: false }).limit(5),
         supabase.from("descalification_categories").select("code, label").eq("organization_id", orgId),
-        supabase.from("analyses").select("id, user_id, prospect_name, score_general, clasificacion, categoria_descalificacion, created_at")
+        supabase.from("analyses").select("id, user_id, prospect_name, score_general, clasificacion, categoria_descalificacion, fuente_lead_id, created_at")
           .eq("organization_id", orgId).eq("status", "completado").order("created_at", { ascending: false }).limit(10),
+        supabase.from("lead_sources").select("id, name").eq("organization_id", orgId),
       ]);
 
       setActiveAlerts(alertsRes.data || []);
       const dm: Record<string, string> = {};
       for (const c of descalRes.data || []) dm[c.code] = c.label;
       setDescalMap(dm);
+      const lsm: Record<string, string> = {};
+      for (const ls of leadSourcesRes.data || []) lsm[ls.id] = ls.name;
+      setLeadSourceMap(lsm);
 
       const caps = (teamRes.data || []).filter(u => u.role === "captadora");
       const capNames: Record<string, string> = {};
@@ -250,11 +256,13 @@ export default function EquipoDashboard() {
                     <div className="c4-item-left">
                       <span className="c4-item-date">{a.userName} · {a.prospect_name || "Prospecto"}</span>
                       <span className="c4-item-source">
-                        {day} {time} · {codes.length > 0 ? (
+                        {day} {time}
+                        {" · "}{codes.length > 0 ? (
                           <span className="c1-pill-inline c1-pill-red">{descalMap[codes[0]] || codes[0]}</span>
                         ) : (
                           <span className="c1-pill-inline c1-pill-green">Calificado</span>
                         )}
+                        {" · "}<span className="g1-fuente-badge">{a.fuente_lead_id ? (leadSourceMap[a.fuente_lead_id] || "Fuente") : "Sin fuente"}</span>
                       </span>
                     </div>
                     <div className="c4-item-right">
