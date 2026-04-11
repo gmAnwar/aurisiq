@@ -8,7 +8,7 @@ export async function GET(req: Request) {
 
     const admin = getServiceSupabase();
 
-    const [orgsRes, usersRes, analysesRes, speechRes] = await Promise.all([
+    const [orgsRes, usersRes, analysesRes, speechRes, membershipsRes] = await Promise.all([
       admin
         .from("organizations")
         .select("id, name, slug, plan, analyses_count, access_status, invite_token, role_label_vendedor")
@@ -27,12 +27,17 @@ export async function GET(req: Request) {
         .select("id, organization_id, version_number, published, created_at, content")
         .order("created_at", { ascending: false })
         .limit(200),
+      admin
+        .from("user_organizations")
+        .select("id, user_id, organization_id, role")
+        .order("created_at", { ascending: true }),
     ]);
 
     if (orgsRes.error) console.error("[admin/data] orgs query error:", orgsRes.error);
     if (usersRes.error) console.error("[admin/data] users query error:", usersRes.error);
     if (analysesRes.error) console.error("[admin/data] analyses query error:", analysesRes.error);
     if (speechRes.error) console.error("[admin/data] speech query error:", speechRes.error);
+    if (membershipsRes.error) console.error("[admin/data] memberships query error:", membershipsRes.error);
 
     return NextResponse.json({
       ok: true,
@@ -40,11 +45,13 @@ export async function GET(req: Request) {
       users: usersRes.data || [],
       analyses: analysesRes.data || [],
       speech_versions: speechRes.data || [],
+      memberships: membershipsRes.data || [],
       errors: {
         orgs: orgsRes.error?.message || null,
         users: usersRes.error?.message || null,
         analyses: analysesRes.error?.message || null,
         speech_versions: speechRes.error?.message || null,
+        memberships: membershipsRes.error?.message || null,
       },
     });
   } catch (e) {

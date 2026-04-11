@@ -97,10 +97,10 @@ export default function AdminPage() {
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const [savedUserId, setSavedUserId] = useState<string | null>(null);
 
-  // User orgs panel
-  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
-  const [userOrgs, setUserOrgs] = useState<{ id: string; organization_id: string; role: string }[]>([]);
-  const [userOrgsLoading, setUserOrgsLoading] = useState(false);
+  // User orgs — loaded with initial data, keyed by user_id
+  type Membership = { id: string; user_id: string; organization_id: string; role: string };
+  const [allMemberships, setAllMemberships] = useState<Membership[]>([]);
+  const [addOrgUserId, setAddOrgUserId] = useState<string | null>(null);
   const [addOrgId, setAddOrgId] = useState("");
   const [addOrgRole, setAddOrgRole] = useState("captadora");
 
@@ -136,6 +136,7 @@ export default function AdminPage() {
     setUsers((body.users || []) as UserRow[]);
     setAnalyses((body.analyses || []) as AnalysisRow[]);
     setSpeechVersions((body.speech_versions || []) as SpeechVersionRow[]);
+    setAllMemberships((body.memberships || []) as Membership[]);
   }, []);
 
   const loadOrgs = loadAllData;
@@ -386,22 +387,8 @@ export default function AdminPage() {
     await updateUser(u.id, { training_mode: !u.training_mode });
   }
 
-  async function toggleUserOrgs(u: UserRow) {
-    if (expandedUserId === u.id) { setExpandedUserId(null); return; }
-    setExpandedUserId(u.id);
-    setUserOrgsLoading(true);
-    setAddOrgId("");
-    setAddOrgRole(u.role);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      const res = await fetch(`/api/admin/user-orgs?user_id=${encodeURIComponent(u.id)}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      const body = await res.json();
-      if (res.ok) setUserOrgs(body.memberships || []);
-    } catch { /* ignore */ }
-    setUserOrgsLoading(false);
+  function userMemberships(userId: string) {
+    return allMemberships.filter(m => m.user_id === userId);
   }
 
   async function addUserOrg(userId: string) {
@@ -417,19 +404,17 @@ export default function AdminPage() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) { showToast({ type: "err", msg: body.error || "Error" }); return; }
       showToast({ type: "ok", msg: "Org agregada" });
+      if (body.membership) {
+        setAllMemberships(prev => [...prev, body.membership]);
+      }
       setAddOrgId("");
-      // Reload memberships
-      const r2 = await fetch(`/api/admin/user-orgs?user_id=${encodeURIComponent(userId)}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      const b2 = await r2.json();
-      if (r2.ok) setUserOrgs(b2.memberships || []);
+      setAddOrgUserId(null);
     } catch (e) {
       showToast({ type: "err", msg: e instanceof Error ? e.message : "Error" });
     }
   }
 
-  async function removeUserOrg(membershipId: string, userId: string) {
+  async function removeUserOrg(membershipId: string) {
     if (!window.confirm("¿Quitar esta organización del usuario?")) return;
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -440,7 +425,7 @@ export default function AdminPage() {
       });
       if (!res.ok) { const b = await res.json().catch(() => ({})); showToast({ type: "err", msg: b.error || "Error" }); return; }
       showToast({ type: "ok", msg: "Org removida" });
-      setUserOrgs(prev => prev.filter(m => m.id !== membershipId));
+      setAllMemberships(prev => prev.filter(m => m.id !== membershipId));
     } catch (e) {
       showToast({ type: "err", msg: e instanceof Error ? e.message : "Error" });
     }
@@ -846,50 +831,47 @@ export default function AdminPage() {
                     </button>
                   </span>
                   <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <button className="admin-copy-btn" onClick={() => toggleUserOrgs(u)}>
-                      {expandedUserId === u.id ? "Orgs ▲" : "Orgs"}
-                    </button>
                     <button className="admin-copy-btn" onClick={() => resendInvite(u)}>Reenviar</button>
                     <button className="admin-copy-btn" onClick={() => softDeleteUser(u)}>Eliminar</button>
                   </span>
                 </div>
-                {expandedUserId === u.id && (
-                  <div style={{ padding: "12px 16px", background: "#f9f9f9", borderBottom: "1px solid #e5e5e5" }}>
-                    <h4 style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 600 }}>Organizaciones de {u.name}</h4>
-                    {userOrgsLoading ? (
-                      <p className="c2-hint">Cargando...</p>
-                    ) : (
-                      <>
-                        {userOrgs.length === 0 && <p className="c2-hint">Sin orgs asignadas.</p>}
-                        {userOrgs.map(m => (
-                          <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 0", borderBottom: "1px solid #eee" }}>
-                            <strong style={{ flex: 1, fontSize: 13 }}>{orgName(m.organization_id)}</strong>
-                            <span style={{ fontSize: 12, color: "#737373" }}>{m.role}</span>
-                            <button
-                              onClick={() => removeUserOrg(m.id, u.id)}
-                              style={{ background: "none", border: "none", color: "#a3a3a3", cursor: "pointer", padding: "2px 6px", fontSize: 16, lineHeight: 1 }}
-                              title="Quitar org"
-                            >
-                              &times;
-                            </button>
-                          </div>
+                {/* Orgs — always visible */}
+                <div style={{ padding: "6px 16px 10px", background: "#fafafa", borderBottom: "1px solid #eee", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 12, color: "#737373", fontWeight: 500 }}>Orgs:</span>
+                  {userMemberships(u.id).map(m => (
+                    <span key={m.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#e5e7eb", borderRadius: 12, padding: "2px 10px", fontSize: 12 }}>
+                      {orgName(m.organization_id)}
+                      <span style={{ color: "#9ca3af", fontSize: 11 }}>({m.role})</span>
+                      <button
+                        onClick={() => removeUserOrg(m.id)}
+                        style={{ background: "none", border: "none", color: "#9ca3af", cursor: "pointer", padding: 0, fontSize: 14, lineHeight: 1 }}
+                        title="Quitar"
+                      >&times;</button>
+                    </span>
+                  ))}
+                  {userMemberships(u.id).length === 0 && <span style={{ fontSize: 12, color: "#9ca3af" }}>sin orgs</span>}
+                  {addOrgUserId === u.id ? (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <select className="input-field c2-select" value={addOrgId} onChange={e => setAddOrgId(e.target.value)} style={{ padding: "3px 6px", fontSize: 12, width: 130 }}>
+                        <option value="">Org...</option>
+                        {orgs.filter(o => !userMemberships(u.id).some(m => m.organization_id === o.id)).map(o => (
+                          <option key={o.id} value={o.id}>{o.name}</option>
                         ))}
-                        <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "end" }}>
-                          <select className="input-field c2-select" value={addOrgId} onChange={e => setAddOrgId(e.target.value)} style={{ flex: 1, padding: "6px 8px" }}>
-                            <option value="">Agregar org...</option>
-                            {orgs.filter(o => !userOrgs.some(m => m.organization_id === o.id)).map(o => (
-                              <option key={o.id} value={o.id}>{o.name}</option>
-                            ))}
-                          </select>
-                          <select className="input-field c2-select" value={addOrgRole} onChange={e => setAddOrgRole(e.target.value)} style={{ width: 130, padding: "6px 8px" }}>
-                            {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                          </select>
-                          <button className="admin-copy-btn" onClick={() => addUserOrg(u.id)} disabled={!addOrgId}>Agregar</button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
+                      </select>
+                      <select className="input-field c2-select" value={addOrgRole} onChange={e => setAddOrgRole(e.target.value)} style={{ padding: "3px 6px", fontSize: 12, width: 100 }}>
+                        {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                      <button className="admin-copy-btn" style={{ padding: "3px 8px", fontSize: 12 }} onClick={() => addUserOrg(u.id)} disabled={!addOrgId}>OK</button>
+                      <button className="admin-copy-btn" style={{ padding: "3px 8px", fontSize: 12 }} onClick={() => setAddOrgUserId(null)}>X</button>
+                    </span>
+                  ) : (
+                    <button
+                      className="admin-copy-btn"
+                      style={{ padding: "2px 8px", fontSize: 12 }}
+                      onClick={() => { setAddOrgUserId(u.id); setAddOrgId(""); setAddOrgRole(u.role); }}
+                    >+ Agregar</button>
+                  )}
+                </div>
               </div>
             ))}
             {filteredUsers.length === 0 && <div className="g1-empty">Sin usuarios.</div>}
