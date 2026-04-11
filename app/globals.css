@@ -1617,6 +1617,43 @@ body.has-nav {
   border-left: 3px solid var(--cap);
 }
 
+/* Moment + pattern highlight cards */
+.c3-card {
+  display: flex;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 10px;
+  border-left: 4px solid;
+  margin-bottom: 12px;
+}
+.c3-card-icon { flex-shrink: 0; padding-top: 2px; }
+.c3-card-title {
+  display: block;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.c3-card-body {
+  margin: 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+.c3-card-momento {
+  background: #eff6ff;
+  border-left-color: #3b82f6;
+}
+.c3-card-momento .c3-card-title { color: #1d4ed8; }
+.c3-card-patron {
+  background: #fef2f2;
+  border-left-color: #ef4444;
+}
+.c3-card-patron .c3-card-title { color: #b91c1c; }
+
 .c3-descal-list {
   display: flex;
   flex-wrap: wrap;

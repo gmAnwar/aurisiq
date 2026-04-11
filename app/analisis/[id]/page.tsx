@@ -202,6 +202,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
   }
 
   const isQualified = !analysis.categoria_descalificacion || analysis.categoria_descalificacion.length === 0;
+  const momento = stripJson(analysis.momento_critico) || null;
   const mejora = stripJson(analysis.patron_error) || null;
   const accion = stripJson(analysis.siguiente_accion) || null;
   const objecion = stripJson(analysis.objecion_principal) || null;
@@ -370,6 +371,31 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
         </div>
       )}
 
+      {/* Key moment + pattern cards */}
+      {momento && (
+        <div className="c3-card c3-card-momento">
+          <div className="c3-card-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>
+          </div>
+          <div>
+            <span className="c3-card-title">Momento clave de la llamada</span>
+            <p className="c3-card-body">{momento}</p>
+          </div>
+        </div>
+      )}
+
+      {mejora && (
+        <div className="c3-card c3-card-patron">
+          <div className="c3-card-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div>
+            <span className="c3-card-title">Patrón a corregir</span>
+            <p className="c3-card-body">{mejora}</p>
+          </div>
+        </div>
+      )}
+
       {phases.length > 0 && (
         <div className="c3-section">
           <p className="c3-section-label">Desglose por fase</p>
@@ -393,13 +419,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
         </div>
       )}
 
-      {/* Coaching */}
-      {mejora && (
-        <div className="c3-section">
-          <p className="c3-section-label">Para tu siguiente llamada</p>
-          <p className="c3-improvement">{mejora}</p>
-        </div>
-      )}
+      {/* Coaching — objecion */}
 
       {objecion && (
         <div className="c3-section">
