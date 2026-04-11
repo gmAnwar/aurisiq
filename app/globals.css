@@ -256,36 +256,7 @@ body > * { position: relative; z-index: 1; }
   }
 }
 
-@media (max-width: 519px) {
-  .navbar {
-    top: 0;
-    bottom: auto;
-    justify-content: space-around;
-    padding: 6px 4px;
-    padding-bottom: max(6px, env(safe-area-inset-bottom));
-    gap: 0;
-  }
-
-  .navbar .navbar-brand { display: none; }
-
-  .navbar .navbar-items {
-    flex: 1;
-    justify-content: space-around;
-    overflow: visible;
-  }
-
-  .navbar .navbar-item {
-    font-size: 10px;
-    padding: 4px 6px;
-    text-align: center;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .navbar .navbar-desktop-only { display: none; }
-}
-
-/* Hamburger button — hidden on desktop, visible on mobile */
+/* Hamburger button — hidden by default, shown on mobile only */
 .navbar-hamburger {
   display: none;
   background: none;
@@ -331,13 +302,15 @@ body > * { position: relative; z-index: 1; }
   padding: 8px 16px 4px;
 }
 
-@media (max-width: 767px) {
+/* ── Mobile <640px: hamburger mode ── */
+@media (max-width: 639px) {
   .navbar-hamburger { display: flex; align-items: center; justify-content: center; }
   .navbar-items { display: none; }
   .navbar-mobile-panel { display: flex; }
   .navbar-cta { display: none; }
   .navbar-org-desktop { display: none !important; }
   .navbar-org-mobile { display: block; }
+  .navbar .navbar-desktop-only { display: none; }
 }
 
 /* User panel */
@@ -361,8 +334,7 @@ body > * { position: relative; z-index: 1; }
 }
 
 /* Mobile: hide CTA in nav, hide user name */
-@media (max-width: 519px) {
-  .navbar-cta { display: none; }
+@media (max-width: 639px) {
   .navbar-right {
     position: fixed;
     top: 6px;
@@ -412,7 +384,7 @@ body > * { position: relative; z-index: 1; }
   max-width: 100px;
 }
 
-@media (max-width: 519px) {
+@media (max-width: 639px) {
   .navbar-user-name { display: none; }
   .navbar-user-btn { padding: 8px; }
 }
