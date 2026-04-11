@@ -13,6 +13,7 @@ export default function DashboardEjecutivoPage() {
   const [deltaVsLastMonth, setDeltaVsLastMonth] = useState<number | null>(null);
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [totalAnalyses, setTotalAnalyses] = useState(0);
+  const [avgScore, setAvgScore] = useState<number | null>(null);
   const [monthlyComparison, setMonthlyComparison] = useState<{ month: string; count: number; convRate: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -31,7 +32,7 @@ export default function DashboardEjecutivoPage() {
       const threeMonthsAgo = new Date(thisMonthDate.getFullYear(), thisMonthDate.getMonth() - 3, 1).toISOString();
 
       const [thisMonthRes, lastMonthRes, objRes, stagesRes] = await Promise.all([
-        supabase.from("analyses").select("id, avanzo_a_siguiente_etapa, funnel_stage_id")
+        supabase.from("analyses").select("id, avanzo_a_siguiente_etapa, funnel_stage_id, score_general")
           .eq("organization_id", me.organization_id).eq("status", "completado").gte("created_at", thisMonthStart),
         supabase.from("analyses").select("id, avanzo_a_siguiente_etapa")
           .eq("organization_id", me.organization_id).eq("status", "completado").gte("created_at", lastMonthStart).lt("created_at", thisMonthStart),
@@ -45,6 +46,10 @@ export default function DashboardEjecutivoPage() {
       const lastMonth = lastMonthRes.data || [];
       const allStages = stagesRes.data || [];
       setTotalAnalyses(thisMonth.length);
+
+      // Average score
+      const scores = thisMonth.map(a => (a as { score_general?: number | null }).score_general).filter((s): s is number => s !== null && s !== undefined);
+      setAvgScore(scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null);
 
       // Funnel — count analyses per funnel stage
       const countByStage: Record<string, number> = {};
@@ -134,6 +139,10 @@ export default function DashboardEjecutivoPage() {
               {funnelStages.find(f => f.stage === "Convertido")?.rate || 0}%
             </span>
             <span className="g1-kpi-label">Tasa de conversión</span>
+          </div>
+          <div className="g1-kpi">
+            <span className="g1-kpi-value">{avgScore !== null ? avgScore : "—"}</span>
+            <span className="g1-kpi-label">Score promedio del equipo</span>
           </div>
           <div className="g1-kpi">
             {deltaVsLastMonth !== null ? (
