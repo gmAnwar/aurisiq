@@ -122,12 +122,7 @@ body > * { position: relative; z-index: 1; }
   background: var(--nav-bg);
   border-bottom: 1px solid rgba(255,255,255,0.06);
   z-index: 300;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
 }
-.navbar::-webkit-scrollbar { display: none; }
 
 .navbar-brand {
   font-family: 'DM Sans', sans-serif;
@@ -146,6 +141,19 @@ body > * { position: relative; z-index: 1; }
   margin-right: 6px;
   vertical-align: middle;
 }
+
+.navbar-items {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.navbar-items::-webkit-scrollbar { display: none; }
 
 .navbar-item {
   font-size: 13px;
@@ -224,6 +232,12 @@ body > * { position: relative; z-index: 1; }
     margin-right: 0;
   }
 
+  .navbar.navbar-sidebar .navbar-items {
+    flex-direction: column;
+    overflow: visible;
+    gap: 2px;
+  }
+
   .navbar.navbar-sidebar .navbar-item {
     font-size: 13px;
     padding: 8px 12px;
@@ -253,6 +267,12 @@ body > * { position: relative; z-index: 1; }
   }
 
   .navbar .navbar-brand { display: none; }
+
+  .navbar .navbar-items {
+    flex: 1;
+    justify-content: space-around;
+    overflow: visible;
+  }
 
   .navbar .navbar-item {
     font-size: 10px;

@@ -157,6 +157,7 @@ export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVe
         </svg>
         <span style={{ color: "#00C2E0" }}>auris</span><span style={{ color: "#FFFFFF" }}>IQ</span>
       </span>
+      <div className="navbar-items">
       {allItems.map((item) => {
         const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href + "/"));
         const isMobileVisible = mobileItems.some(m => m.href === item.href);
@@ -170,6 +171,7 @@ export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVe
           </Link>
         );
       })}
+      </div>
 
       {/* Right section: CTA + user */}
       <div className="navbar-right">
