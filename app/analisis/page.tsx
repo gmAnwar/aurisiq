@@ -43,6 +43,8 @@ export default function MiDiaPage() {
   const [orgTz, setOrgTz] = useState("America/Monterrey");
   const [ranking, setRanking] = useState<{ pos: number; total: number } | null>(null);
   const [focusPhase, setFocusPhase] = useState<string | null>(null);
+  const [focusPhaseScore, setFocusPhaseScore] = useState<{ score: number; max: number } | null>(null);
+  const [prevCall, setPrevCall] = useState<{ id: string; score: number | null; date: string } | null>(null);
   const [usingSampleData, setUsingSampleData] = useState(false);
 
   useEffect(() => {
@@ -53,7 +55,7 @@ export default function MiDiaPage() {
 
       const [analysesRes, sourcesRes, userRes, descalRes, objRes] = await Promise.all([
         supabase.from("analyses")
-          .select("id, score_general, clasificacion, created_at, fuente_lead_id, patron_error, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, manager_note")
+          .select("id, score_general, clasificacion, created_at, fuente_lead_id, patron_error, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, manager_note, related_analysis_id")
           .eq("user_id", session.userId).eq("organization_id", session.organizationId).eq("status", "completado")
           .order("created_at", { ascending: false }).limit(50),
         supabase.from("lead_sources").select("id, name").eq("organization_id", session.organizationId),
@@ -137,6 +139,63 @@ export default function MiDiaPage() {
         }
       } else {
         setFocusPhase(userRes.data?.current_focus_phase || null);
+      }
+
+      // Focus phase score — fetch analysis_phases for last 5 analyses
+      // (same pattern super_admin uses, now for captadora too)
+      try {
+        const { data: phRows } = await supabase
+          .from("analysis_phases")
+          .select("analysis_id, phase_id, phase_name, score, score_max")
+          .eq("user_id", session.userId)
+          .eq("organization_id", session.organizationId)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        if (phRows && phRows.length > 0) {
+          const uniqueIds = Array.from(new Set(phRows.map(r => r.analysis_id))).slice(0, 5);
+          const recent = phRows.filter(r => uniqueIds.includes(r.analysis_id));
+          const agg: Record<string, { total: number; max: number; name: string }> = {};
+          for (const p of recent) {
+            if (!agg[p.phase_id]) agg[p.phase_id] = { total: 0, max: 0, name: p.phase_name };
+            agg[p.phase_id].total += p.score;
+            agg[p.phase_id].max += p.score_max;
+          }
+          let worstName: string | null = null;
+          let worstScore = 0;
+          let worstMax = 0;
+          let worstRatio = 1;
+          for (const a of Object.values(agg)) {
+            const ratio = a.max > 0 ? a.total / a.max : 1;
+            if (ratio < worstRatio) {
+              worstRatio = ratio;
+              worstName = a.name;
+              worstScore = a.total;
+              worstMax = a.max;
+            }
+          }
+          if (worstName) {
+            if (!focusPhase) setFocusPhase(worstName);
+            setFocusPhaseScore({ score: worstScore, max: worstMax });
+          }
+        }
+      } catch { /* ignore */ }
+
+      // Previous call to same prospect (deal prep)
+      if (realAnalyses.length > 0 && realAnalyses[0]?.related_analysis_id) {
+        try {
+          const { data: prev } = await supabase
+            .from("analyses")
+            .select("id, score_general, created_at")
+            .eq("id", realAnalyses[0].related_analysis_id)
+            .maybeSingle();
+          if (prev) {
+            setPrevCall({
+              id: prev.id,
+              score: prev.score_general,
+              date: new Date(prev.created_at).toLocaleDateString("es-MX", { day: "numeric", month: "short" }),
+            });
+          }
+        } catch { /* ignore */ }
       }
 
       const sm: Record<string, string> = {};
@@ -378,9 +437,27 @@ export default function MiDiaPage() {
           </div>
           <div>
             <span className="c1-focus-label-v2">Tu área de mejora esta semana</span>
-            <span className="c1-focus-phase-v2">{focusPhase}</span>
+            <span className="c1-focus-phase-v2">
+              {focusPhase}
+              {focusPhaseScore && (
+                <span className="c1-focus-score"> — {focusPhaseScore.score}/{focusPhaseScore.max} ({Math.round((focusPhaseScore.score / focusPhaseScore.max) * 100)}%)</span>
+              )}
+            </span>
           </div>
         </div>
+      )}
+
+      {/* Deal prep — previous call to same prospect */}
+      {prevCall && (
+        <a href={`/analisis/${prevCall.id}`} className="c1-prevcall-card">
+          <div className="c1-prevcall-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div>
+            <span className="c1-prevcall-label">Llamada previa a este prospecto</span>
+            <span className="c1-prevcall-detail">Score {prevCall.score ?? "—"} · {prevCall.date}</span>
+          </div>
+        </a>
       )}
 
       {/* Tip del día — dark coach card */}

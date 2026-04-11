@@ -19,6 +19,7 @@ export interface SampleAnalysis {
   prospect_zone: string | null;
   property_type: string | null;
   manager_note: string | null;
+  related_analysis_id: string | null;
 }
 
 function hoursAgo(h: number): string {
@@ -39,7 +40,7 @@ const INMOBILIARIO: SampleAnalysis[] = [
     prospect_name: "María González",
     prospect_zone: "Las Quintas",
     property_type: "Casa",
-    manager_note: null,
+    manager_note: null, related_analysis_id: null,
   },
   {
     id: "sample-inmobili-2",
@@ -53,7 +54,7 @@ const INMOBILIARIO: SampleAnalysis[] = [
     prospect_name: "Roberto Martínez",
     prospect_zone: "Lomas del Valle",
     property_type: "Departamento",
-    manager_note: null,
+    manager_note: null, related_analysis_id: null,
   },
   {
     id: "sample-inmobili-3",
@@ -67,7 +68,7 @@ const INMOBILIARIO: SampleAnalysis[] = [
     prospect_name: "Lucía Hernández",
     prospect_zone: "Saltillo",
     property_type: "Casa",
-    manager_note: null,
+    manager_note: null, related_analysis_id: null,
   },
 ];
 
@@ -85,7 +86,7 @@ const FINANCIERO: SampleAnalysis[] = [
     prospect_name: "Carmen Ortiz",
     prospect_zone: "Tienda de abarrotes",
     property_type: "Crédito $30k",
-    manager_note: null,
+    manager_note: null, related_analysis_id: null,
   },
   {
     id: "sample-enpagos-2",
@@ -99,7 +100,7 @@ const FINANCIERO: SampleAnalysis[] = [
     prospect_name: "Jorge Ramírez",
     prospect_zone: "Tortillería",
     property_type: "Crédito $50k",
-    manager_note: null,
+    manager_note: null, related_analysis_id: null,
   },
   {
     id: "sample-enpagos-3",
@@ -113,7 +114,7 @@ const FINANCIERO: SampleAnalysis[] = [
     prospect_name: "Pedro Ruiz",
     prospect_zone: "Ambulante",
     property_type: "Crédito $20k",
-    manager_note: null,
+    manager_note: null, related_analysis_id: null,
   },
 ];
 
@@ -131,7 +132,7 @@ const GENERICO: SampleAnalysis[] = [
     prospect_name: "Cliente Demo 1",
     prospect_zone: null,
     property_type: null,
-    manager_note: null,
+    manager_note: null, related_analysis_id: null,
   },
   {
     id: "sample-gen-2",
@@ -145,7 +146,7 @@ const GENERICO: SampleAnalysis[] = [
     prospect_name: "Cliente Demo 2",
     prospect_zone: null,
     property_type: null,
-    manager_note: null,
+    manager_note: null, related_analysis_id: null,
   },
   {
     id: "sample-gen-3",
@@ -159,7 +160,7 @@ const GENERICO: SampleAnalysis[] = [
     prospect_name: "Cliente Demo 3",
     prospect_zone: null,
     property_type: null,
-    manager_note: null,
+    manager_note: null, related_analysis_id: null,
   },
 ];
 

@@ -2414,6 +2414,43 @@ div:has(> .c4-item):hover .historial-delete-btn {
   color: #78350f;
 }
 
+/* Focus phase score inline */
+.c1-focus-score {
+  font-size: 14px;
+  font-weight: 500;
+  color: #92400e;
+}
+
+/* Previous call card (deal prep) */
+.c1-prevcall-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #f5f3ff;
+  border-left: 4px solid #8b5cf6;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.c1-prevcall-card:hover { background: #ede9fe; }
+.c1-prevcall-icon { flex-shrink: 0; }
+.c1-prevcall-label {
+  display: block;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6d28d9;
+}
+.c1-prevcall-detail {
+  display: block;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: #4c1d95;
+}
+
 /* Tip card — coach component */
 .tip-card {
   background: #FFFFFF;
