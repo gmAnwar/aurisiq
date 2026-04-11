@@ -14,6 +14,8 @@ export default function DashboardEjecutivoPage() {
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [totalAnalyses, setTotalAnalyses] = useState(0);
   const [avgScore, setAvgScore] = useState<number | null>(null);
+  const [descalDistro, setDescalDistro] = useState<{ label: string; count: number; pct: number }[]>([]);
+  const [descalTotal, setDescalTotal] = useState(0);
   const [monthlyComparison, setMonthlyComparison] = useState<{ month: string; count: number; convRate: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -31,8 +33,8 @@ export default function DashboardEjecutivoPage() {
       const lastMonthStart = new Date(thisMonthDate.getFullYear(), thisMonthDate.getMonth() - 1, 1).toISOString();
       const threeMonthsAgo = new Date(thisMonthDate.getFullYear(), thisMonthDate.getMonth() - 3, 1).toISOString();
 
-      const [thisMonthRes, lastMonthRes, objRes, stagesRes] = await Promise.all([
-        supabase.from("analyses").select("id, avanzo_a_siguiente_etapa, funnel_stage_id, score_general")
+      const [thisMonthRes, lastMonthRes, objRes, stagesRes, descalCatsRes] = await Promise.all([
+        supabase.from("analyses").select("id, avanzo_a_siguiente_etapa, funnel_stage_id, score_general, categoria_descalificacion")
           .eq("organization_id", me.organization_id).eq("status", "completado").gte("created_at", thisMonthStart),
         supabase.from("analyses").select("id, avanzo_a_siguiente_etapa")
           .eq("organization_id", me.organization_id).eq("status", "completado").gte("created_at", lastMonthStart).lt("created_at", thisMonthStart),
@@ -40,6 +42,8 @@ export default function DashboardEjecutivoPage() {
           .eq("organization_id", me.organization_id),
         supabase.from("funnel_stages").select("id, name")
           .eq("organization_id", me.organization_id).order("order_index"),
+        supabase.from("descalification_categories").select("code, label")
+          .eq("organization_id", me.organization_id),
       ]);
 
       const thisMonth = thisMonthRes.data || [];
@@ -77,6 +81,27 @@ export default function DashboardEjecutivoPage() {
       }
 
       setObjectives((objRes.data || []) as Objective[]);
+
+      // Descalification distribution — primary reason (index 0)
+      const descalCatMap: Record<string, string> = {};
+      for (const c of descalCatsRes.data || []) descalCatMap[c.code] = c.label;
+      const reasonCounts: Record<string, number> = {};
+      let descalCount = 0;
+      for (const a of thisMonth) {
+        const cats = (a as { categoria_descalificacion?: string[] | null }).categoria_descalificacion;
+        if (cats && cats.length > 0) {
+          descalCount++;
+          const primary = cats[0];
+          reasonCounts[primary] = (reasonCounts[primary] || 0) + 1;
+        }
+      }
+      setDescalTotal(descalCount);
+      const sorted = Object.entries(reasonCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+      setDescalDistro(sorted.map(([code, count]) => ({
+        label: descalCatMap[code] || code,
+        count,
+        pct: descalCount > 0 ? Math.round((count / descalCount) * 100) : 0,
+      })));
 
       // 3-month comparison
       const { data: threeMonthData } = await supabase.from("analyses")
@@ -178,6 +203,25 @@ export default function DashboardEjecutivoPage() {
             <div className="c5-empty-sub">Cuando las captadoras envíen análisis, verás aquí la distribución por etapa del embudo.</div>
           </div>
         )}
+
+        {/* Descalification distribution */}
+        <div className="g1-section">
+          <h2 className="g1-section-title">Razones de descalificación este mes</h2>
+          {descalTotal < 5 ? (
+            <p className="g1-patterns-empty">Datos insuficientes ({descalTotal} leads descalificados)</p>
+          ) : descalDistro.length === 0 ? (
+            <p className="g1-patterns-empty">Sin descalificaciones este mes</p>
+          ) : (
+            <div className="g1-patterns-list">
+              {descalDistro.map((d, i) => (
+                <div key={i} className="g1-pattern-row">
+                  <span className="g1-pattern-count">{d.count} ({d.pct}%)</span>
+                  <span className="g1-pattern-text">{d.label}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* 3-month comparison */}
         {monthlyComparison.length > 1 && (
