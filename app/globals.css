@@ -1053,11 +1053,11 @@ body.has-nav {
   font-family: 'DM Sans', sans-serif;
   font-size: 10px;
   font-weight: 600;
-  color: var(--red);
-  background: rgba(200,50,50,0.08);
   border-radius: 4px;
   padding: 2px 8px;
 }
+.g3-edit-badge-low { color: #92400e; background: #fef3c7; }
+.g3-edit-badge-high { color: #991b1b; background: #fee2e2; cursor: help; }
 
 .g3-show-original {
   font-family: 'DM Sans', sans-serif;
@@ -3117,6 +3117,11 @@ div:has(> .c4-item):hover .historial-delete-btn {
   color: var(--red);
   background: rgba(192,57,43,0.08);
 }
+
+/* Edit percentage tiers — metadata section */
+.g3-edit-none { color: #6b7280; background: #f3f4f6; }
+.g3-edit-low { color: #92400e; background: #fef3c7; }
+.g3-edit-high { color: #991b1b; background: #fee2e2; cursor: help; }
 
 /* G1 Rank number */
 .g1-rank {

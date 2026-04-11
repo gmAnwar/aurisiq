@@ -219,7 +219,7 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
         </div>
 
         {/* Recording metadata */}
-        {(pauseCount > 0 || editPercentage > 0 || hasAudio) && (
+        {(pauseCount > 0 || editPercentage >= 0 || hasAudio) && (
           <div className="g1-section">
             <h2 className="g1-section-title">Metadata de grabación</h2>
             <div className="g3-metadata">
@@ -227,10 +227,12 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
               {pauseCount > 0 && (
                 <span className="g3-meta-tag">{pauseCount} pausa{pauseCount > 1 ? "s" : ""} ({Math.floor(totalPaused / 60)}:{String(totalPaused % 60).padStart(2, "0")} pausado)</span>
               )}
-              {editPercentage > 0 && (
-                <span className={`g3-meta-tag ${editPercentage > 40 ? "g3-meta-warn" : ""}`}>
-                  Transcripción editada: {editPercentage}%
-                </span>
+              {editPercentage === 0 ? (
+                <span className="g3-meta-tag g3-edit-none">Sin ediciones</span>
+              ) : editPercentage <= 10 ? (
+                <span className="g3-meta-tag g3-edit-low">Editado {Math.round(editPercentage * 10) / 10}%</span>
+              ) : (
+                <span className="g3-meta-tag g3-edit-high" title="Revisar — alta divergencia vs transcripción original">Editado {Math.round(editPercentage * 10) / 10}%</span>
               )}
             </div>
           </div>
@@ -270,7 +272,11 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
           <div className="g1-section">
             <div className="g3-transcription-header">
               <h2 className="g1-section-title">Transcripción</h2>
-              {editPercentage > 0 && <span className="g3-edit-badge">Editada {editPercentage}%</span>}
+              {editPercentage > 0 && (
+                <span className={`g3-edit-badge ${editPercentage > 10 ? "g3-edit-badge-high" : "g3-edit-badge-low"}`} title={editPercentage > 10 ? "Revisar — alta divergencia vs transcripción original" : undefined}>
+                  Editada {Math.round(editPercentage * 10) / 10}%
+                </span>
+              )}
             </div>
             <div className="g3-transcription">{transcription}</div>
             {editPercentage > 0 && transcriptionOriginal && (
