@@ -2274,6 +2274,34 @@ div:has(> .c4-item):hover .historial-delete-btn {
   color: var(--cap);
 }
 
+/* Focus card v2 — prominent area de mejora */
+.c1-focus-card-v2 {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #fffbeb;
+  border-left: 4px solid #f59e0b;
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.c1-focus-icon { flex-shrink: 0; }
+.c1-focus-label-v2 {
+  display: block;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #92400e;
+  margin-bottom: 2px;
+}
+.c1-focus-phase-v2 {
+  display: block;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: #78350f;
+}
+
 /* Tip card — coach component */
 .tip-card {
   background: #FFFFFF;

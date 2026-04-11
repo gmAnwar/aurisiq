@@ -349,11 +349,16 @@ export default function MiDiaPage() {
         </div>
       )}
 
-      {/* Focus phase — area de mejora */}
+      {/* Focus phase — área de mejora prominente */}
       {focusPhase && (
-        <div className="c1-focus-card">
-          <span className="c1-focus-label">Tu enfoque esta semana</span>
-          <span className="c1-focus-phase">{focusPhase}</span>
+        <div className="c1-focus-card-v2">
+          <div className="c1-focus-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+          </div>
+          <div>
+            <span className="c1-focus-label-v2">Tu área de mejora esta semana</span>
+            <span className="c1-focus-phase-v2">{focusPhase}</span>
+          </div>
         </div>
       )}
 
