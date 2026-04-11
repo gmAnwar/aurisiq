@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "../../lib/supabase";
@@ -105,6 +105,22 @@ const TRAINING_ROLE_OPTIONS: { value: string; label: string }[] = [
 export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVendedor, trainingMode, onTrainingRoleChange, orgOptions, activeOrgId, onActiveOrgChange }: NavBarProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Escape key + scroll lock for mobile menu
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+      const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMobileOpen(false); };
+      window.addEventListener("keydown", onKey);
+      return () => { document.body.style.overflow = ""; window.removeEventListener("keydown", onKey); };
+    } else {
+      document.body.style.overflow = "";
+    }
+  }, [mobileOpen]);
+
+  // Close mobile menu on route change
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
   const [showPwdForm, setShowPwdForm] = useState(false);
   const [pwd, setPwd] = useState("");
   const [pwdConfirm, setPwdConfirm] = useState("");
@@ -172,6 +188,21 @@ export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVe
         );
       })}
       </div>
+
+      {/* Hamburger button — mobile only */}
+      <button
+        className="navbar-hamburger"
+        onClick={() => setMobileOpen(v => !v)}
+        aria-label={mobileOpen ? "Cerrar menú" : "Abrir menú"}
+        aria-expanded={mobileOpen}
+        aria-controls="mobile-menu"
+      >
+        {mobileOpen ? (
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        ) : (
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        )}
+      </button>
 
       {/* Right section: CTA + user */}
       <div className="navbar-right">
@@ -297,6 +328,24 @@ export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVe
           )}
         </div>
       </div>
+      {/* Mobile menu panel */}
+      {mobileOpen && (
+        <div id="mobile-menu" className="navbar-mobile-panel">
+          {allItems.map((item) => {
+            const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href + "/"));
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`navbar-mobile-link ${isActive ? "navbar-mobile-active" : ""}`}
+                onClick={() => setMobileOpen(false)}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </nav>
   );
 }

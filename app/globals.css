@@ -285,6 +285,53 @@ body > * { position: relative; z-index: 1; }
   .navbar .navbar-desktop-only { display: none; }
 }
 
+/* Hamburger button — hidden on desktop, visible on mobile */
+.navbar-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.8);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.navbar-hamburger:hover { background: rgba(255,255,255,0.08); }
+
+/* Mobile panel — slides below navbar */
+.navbar-mobile-panel {
+  display: none;
+  position: absolute;
+  top: 50px;
+  left: 0;
+  right: 0;
+  background: var(--nav-bg);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 8px 0;
+  flex-direction: column;
+  z-index: 299;
+}
+.navbar-mobile-link {
+  display: block;
+  padding: 12px 24px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.75);
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+.navbar-mobile-link:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.navbar-mobile-active { color: #fff; font-weight: 600; background: rgba(255,255,255,0.04); }
+
+@media (max-width: 767px) {
+  .navbar-hamburger { display: flex; align-items: center; justify-content: center; }
+  .navbar-items { display: none; }
+  .navbar-mobile-panel { display: flex; }
+  .navbar-cta { display: none; }
+}
+
 /* User panel */
 .navbar-user-panel {
   position: relative;
