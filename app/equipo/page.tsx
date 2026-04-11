@@ -44,6 +44,8 @@ export default function EquipoDashboard() {
   const [descalMap, setDescalMap] = useState<Record<string, string>>({});
   const [leadSourceMap, setLeadSourceMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [topPatterns, setTopPatterns] = useState<{ text: string; count: number }[]>([]);
+  const [weekAnalysisCount, setWeekAnalysisCount] = useState(0);
   const [orgName, setOrgName] = useState("");
 
   useEffect(() => {
@@ -63,7 +65,7 @@ export default function EquipoDashboard() {
 
       const [teamRes, weekRes, prevRes, todayRes, yesterdayRes, objRes, alertsRes, descalRes, recentRes, leadSourcesRes] = await Promise.all([
         supabase.from("users").select("id, name, role").eq("organization_id", orgId).eq("active", true),
-        supabase.from("analyses").select("id, user_id, score_general, categoria_descalificacion")
+        supabase.from("analyses").select("id, user_id, score_general, categoria_descalificacion, patron_error")
           .eq("organization_id", orgId).eq("status", "completado").gte("created_at", ws),
         supabase.from("analyses").select("user_id, score_general")
           .eq("organization_id", orgId).eq("status", "completado").gte("created_at", pws).lt("created_at", ws),
@@ -103,6 +105,19 @@ export default function EquipoDashboard() {
       const todayScores = today.filter(a => a.score_general !== null).map(a => a.score_general!);
       setTodayAvg(todayScores.length > 0 ? Math.round(todayScores.reduce((a, b) => a + b, 0) / todayScores.length) : null);
       setTodayQualified(today.filter(a => !a.categoria_descalificacion || a.categoria_descalificacion.length === 0).length);
+
+      // Top patterns from this week's analyses
+      setWeekAnalysisCount(week.length);
+      const patternCounts: Record<string, number> = {};
+      for (const a of week) {
+        const raw = (a as { patron_error?: string | null }).patron_error;
+        if (raw) {
+          const cleaned = raw.replace(/^[-•*]\s*/, "").slice(0, 150).trim();
+          if (cleaned) patternCounts[cleaned] = (patternCounts[cleaned] || 0) + 1;
+        }
+      }
+      const sorted = Object.entries(patternCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+      setTopPatterns(sorted.map(([text, count]) => ({ text, count })));
 
       // Per-user stats
       const weekByUser: Record<string, number[]> = {};
@@ -243,6 +258,25 @@ export default function EquipoDashboard() {
         </div>
 
         {/* Recent calls */}
+        {/* Top patterns this week */}
+        <div className="g1-section">
+          <h2 className="g1-section-title">Patrones más frecuentes esta semana</h2>
+          {weekAnalysisCount < 5 ? (
+            <p className="g1-patterns-empty">Datos insuficientes aún ({weekAnalysisCount} análisis esta semana)</p>
+          ) : topPatterns.length === 0 ? (
+            <p className="g1-patterns-empty">Sin patrones detectados esta semana</p>
+          ) : (
+            <div className="g1-patterns-list">
+              {topPatterns.map((p, i) => (
+                <div key={i} className="g1-pattern-row">
+                  <span className="g1-pattern-count">{p.count}x</span>
+                  <span className="g1-pattern-text">{p.text}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {recentCalls.length > 0 && (
           <div className="g1-section">
             <h2 className="g1-section-title">Últimas llamadas del equipo</h2>

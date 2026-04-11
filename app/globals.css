@@ -3145,6 +3145,37 @@ div:has(> .c4-item):hover .historial-delete-btn {
   margin-bottom: 12px;
 }
 
+/* G1 Patterns section */
+.g1-patterns-empty {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: #9ca3af;
+  padding: 12px 0;
+}
+.g1-patterns-list { display: flex; flex-direction: column; gap: 8px; }
+.g1-pattern-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #fef2f2;
+  border-radius: 8px;
+  border-left: 3px solid #fca5a5;
+}
+.g1-pattern-count {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #dc2626;
+  flex-shrink: 0;
+}
+.g1-pattern-text {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #374151;
+}
+
 .g1-fuente-badge {
   display: inline-block;
   font-size: 10px;
