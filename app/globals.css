@@ -2012,16 +2012,43 @@ div:has(> .c4-item):hover .historial-delete-btn {
 .historial-load-more:hover { background: #f3f4f6; }
 
 /* C1 — Streak, tip, delta */
-.c1-streak {
-  display: inline-block;
-  margin-top: 6px;
-  font-size: 10px;
+.c1-streak { display: none; } /* legacy — replaced by c1-streak-card */
+
+.c1-streak-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #fff7ed;
+  border-left: 4px solid #f97316;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+}
+.c1-streak-icon { flex-shrink: 0; }
+.c1-streak-number {
   font-family: 'DM Sans', sans-serif;
-  font-weight: 700;
-  color: var(--cap);
-  background: var(--cap-dim);
-  padding: 3px 10px;
-  border-radius: 4px;
+  font-size: 30px;
+  font-weight: 800;
+  color: #c2410c;
+  line-height: 1;
+  margin-right: 6px;
+}
+.c1-streak-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: #9a3412;
+}
+.c1-streak-record {
+  display: block;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: #a8a29e;
+  margin-top: 2px;
+}
+.c1-streak-new {
+  color: #16a34a;
 }
 
 /* =============================================

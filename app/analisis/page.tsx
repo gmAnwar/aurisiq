@@ -33,6 +33,7 @@ export default function MiDiaPage() {
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("");
   const [streak, setStreak] = useState(0);
+  const [longestStreak, setLongestStreak] = useState(0);
   const [tipTitle, setTipTitle] = useState<string | null>(null);
   const [tipFull, setTipFull] = useState<string | null>(null);
   const [tipFrase, setTipFrase] = useState<string | null>(null);
@@ -56,7 +57,7 @@ export default function MiDiaPage() {
           .eq("user_id", session.userId).eq("organization_id", session.organizationId).eq("status", "completado")
           .order("created_at", { ascending: false }).limit(50),
         supabase.from("lead_sources").select("id, name").eq("organization_id", session.organizationId),
-        supabase.from("users").select("current_streak, current_focus_phase").eq("id", session.userId).single(),
+        supabase.from("users").select("current_streak, longest_streak, current_focus_phase").eq("id", session.userId).single(),
         supabase.from("descalification_categories").select("code, label").eq("organization_id", session.organizationId),
         supabase.from("objectives").select("target_value, type, period_type")
           .eq("organization_id", session.organizationId).eq("is_active", true)
@@ -96,8 +97,10 @@ export default function MiDiaPage() {
           cursor.setDate(cursor.getDate() - 1);
         }
         setStreak(streakCount);
+        setLongestStreak(userRes.data?.longest_streak || 0);
       } else {
         setStreak(userRes.data?.current_streak || 0);
+        setLongestStreak(userRes.data?.longest_streak || 0);
       }
 
       // super_admin may switch active org via the navbar; in that case
@@ -276,8 +279,26 @@ export default function MiDiaPage() {
       <div className="c4-header">
         <h1 className="c4-greeting">Hola, {userName}</h1>
         <p className="c4-date">{todayStr}</p>
-        {streak > 0 && <span className="c1-streak">{streak} día{streak > 1 ? "s" : ""} de racha</span>}
+        {/* streak card rendered below header */}
       </div>
+
+      {/* Streak card */}
+      {streak > 0 && (
+        <div className="c1-streak-card">
+          <div className="c1-streak-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+          </div>
+          <div>
+            <span className="c1-streak-number">{streak}</span>
+            <span className="c1-streak-label">día{streak > 1 ? "s" : ""} seguido{streak > 1 ? "s" : ""}</span>
+            {streak >= longestStreak && streak > 1 ? (
+              <span className="c1-streak-record c1-streak-new">Nuevo récord personal</span>
+            ) : longestStreak > streak ? (
+              <span className="c1-streak-record">Tu récord: {longestStreak} días</span>
+            ) : null}
+          </div>
+        </div>
+      )}
 
       {/* Offline recordings banner */}
       {rec.pendingOfflineCount > 0 && (
