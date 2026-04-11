@@ -325,11 +325,19 @@ body > * { position: relative; z-index: 1; }
 .navbar-mobile-link:hover { background: rgba(255,255,255,0.06); color: #fff; }
 .navbar-mobile-active { color: #fff; font-weight: 600; background: rgba(255,255,255,0.04); }
 
+/* Mobile org selector inside hamburger panel */
+.navbar-org-mobile {
+  display: none;
+  padding: 8px 16px 4px;
+}
+
 @media (max-width: 767px) {
   .navbar-hamburger { display: flex; align-items: center; justify-content: center; }
   .navbar-items { display: none; }
   .navbar-mobile-panel { display: flex; }
   .navbar-cta { display: none; }
+  .navbar-org-desktop { display: none !important; }
+  .navbar-org-mobile { display: block; }
 }
 
 /* User panel */

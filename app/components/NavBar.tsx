@@ -213,10 +213,10 @@ export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVe
           </Link>
         )}
 
-        {/* super_admin org selector */}
+        {/* Org selector — hidden on mobile, shown in hamburger menu instead */}
         {orgOptions && orgOptions.length > 1 && (
           <select
-            className="navbar-org-select"
+            className="navbar-org-select navbar-org-desktop"
             value={activeOrgId || ""}
             onChange={e => onActiveOrgChange?.(e.target.value)}
             title="Organización activa"
@@ -331,6 +331,34 @@ export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVe
       {/* Mobile menu panel */}
       {mobileOpen && (
         <div id="mobile-menu" className="navbar-mobile-panel">
+          {/* Org selector — mobile only (hidden on desktop via CSS) */}
+          {orgOptions && orgOptions.length > 1 && (
+            <div className="navbar-org-mobile">
+              <select
+                className="navbar-org-select"
+                value={activeOrgId || ""}
+                onChange={e => { onActiveOrgChange?.(e.target.value); setMobileOpen(false); }}
+                style={{
+                  width: "100%",
+                  background: "rgba(255, 255, 255, 0.06)",
+                  color: "#fff",
+                  border: "1px solid rgba(255, 255, 255, 0.2)",
+                  borderRadius: 6,
+                  padding: "10px 12px",
+                  fontFamily: "inherit",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                {orgOptions.map(o => (
+                  <option key={o.id} value={o.id} style={{ color: "#000" }}>
+                    Org: {o.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           {allItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href + "/"));
             return (
