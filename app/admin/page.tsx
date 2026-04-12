@@ -681,6 +681,20 @@ export default function AdminPage() {
     const tpl = templates.find(t => t.id === newScTemplateId);
     if (!tpl) { setCreatingScorecard(false); return; }
 
+    // Derive legacy phases JSONB from structure.phases
+    const structurePhases = (tpl.structure as Record<string, unknown>)?.phases;
+    const phases = Array.isArray(structurePhases)
+      ? structurePhases.map((p: Record<string, unknown>) => ({
+          name: p.name || "",
+          max_score: p.max_score || 0,
+          criteria: p.criteria || [],
+        }))
+      : [];
+
+    // Build minimal prompt_template from structure
+    const objective = (tpl.structure as Record<string, unknown>)?.objective || "";
+    const promptTemplate = `Evalúa la conversación según el scorecard "${newScName.trim()}". ${objective}`;
+
     const { error } = await supabase.from("scorecards").insert({
       organization_id: embudoOrgFilter,
       template_id: newScTemplateId,
@@ -688,6 +702,8 @@ export default function AdminPage() {
       version: newScVersion.trim(),
       vertical: tpl.vertical_slug,
       structure: tpl.structure,
+      phases,
+      prompt_template: promptTemplate,
       active: true,
     });
 
