@@ -8,7 +8,7 @@ export async function GET(req: Request) {
 
     const admin = getServiceSupabase();
 
-    const [orgsRes, usersRes, analysesRes, speechRes, membershipsRes, stagesRes, scorecardsRes] = await Promise.all([
+    const [orgsRes, usersRes, analysesRes, speechRes, membershipsRes, stagesRes, scorecardsRes, templatesRes] = await Promise.all([
       admin
         .from("organizations")
         .select("id, name, slug, plan, analyses_count, access_status, invite_token, role_label_vendedor")
@@ -40,6 +40,10 @@ export async function GET(req: Request) {
         .from("scorecards")
         .select("id, organization_id, name, version, vertical, active")
         .order("organization_id"),
+      admin
+        .from("scorecard_templates")
+        .select("id, name, vertical_slug, description, structure")
+        .order("name"),
     ]);
 
     if (orgsRes.error) console.error("[admin/data] orgs query error:", orgsRes.error);
@@ -57,6 +61,7 @@ export async function GET(req: Request) {
       memberships: membershipsRes.data || [],
       funnel_stages: stagesRes.data || [],
       scorecards: scorecardsRes.data || [],
+      scorecard_templates: templatesRes.data || [],
       errors: {
         orgs: orgsRes.error?.message || null,
         users: usersRes.error?.message || null,

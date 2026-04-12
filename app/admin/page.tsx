@@ -66,6 +66,14 @@ interface ScorecardRow {
   active: boolean;
 }
 
+interface ScorecardTemplate {
+  id: string;
+  name: string;
+  vertical_slug: string;
+  description: string | null;
+  structure: Record<string, unknown>;
+}
+
 const PLANS = ["starter", "growth", "pro", "scale", "enterprise", "founder"];
 const ROLES = ["captadora", "gerente", "direccion", "agencia", "super_admin"];
 const ACCESS_STATUSES = ["active", "grace", "read_only"];
@@ -106,6 +114,7 @@ export default function AdminPage() {
   const [speechVersions, setSpeechVersions] = useState<SpeechVersionRow[]>([]);
   const [stages, setStages] = useState<StageRow[]>([]);
   const [scorecards, setScorecards] = useState<ScorecardRow[]>([]);
+  const [templates, setTemplates] = useState<ScorecardTemplate[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -158,6 +167,13 @@ export default function AdminPage() {
   const [editingScorecardStructure, setEditingScorecardStructure] = useState<Record<string, unknown> | null>(null);
   const [loadingScorecardEditor, setLoadingScorecardEditor] = useState(false);
 
+  // Create scorecard from template
+  const [showCreateScorecard, setShowCreateScorecard] = useState(false);
+  const [newScName, setNewScName] = useState("");
+  const [newScVersion, setNewScVersion] = useState("");
+  const [newScTemplateId, setNewScTemplateId] = useState("");
+  const [creatingScorecard, setCreatingScorecard] = useState(false);
+
   // Destructive confirm (analyses delete)
   const [pendingDeleteAnalysisId, setPendingDeleteAnalysisId] = useState<string | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -193,6 +209,7 @@ export default function AdminPage() {
     setAllMemberships((body.memberships || []) as Membership[]);
     setStages((body.funnel_stages || []) as StageRow[]);
     setScorecards((body.scorecards || []) as ScorecardRow[]);
+    setTemplates((body.scorecard_templates || []) as ScorecardTemplate[]);
   }, []);
 
   const loadOrgs = loadAllData;
@@ -655,6 +672,32 @@ export default function AdminPage() {
     setLoadingScorecardEditor(false);
   }
 
+  async function createScorecardFromTemplate() {
+    if (!embudoOrgFilter || !newScTemplateId || !newScName.trim() || !newScVersion.trim()) return;
+    setCreatingScorecard(true);
+    const tpl = templates.find(t => t.id === newScTemplateId);
+    if (!tpl) { setCreatingScorecard(false); return; }
+
+    const { error } = await supabase.from("scorecards").insert({
+      organization_id: embudoOrgFilter,
+      template_id: newScTemplateId,
+      name: newScName.trim(),
+      version: newScVersion.trim(),
+      vertical: tpl.vertical_slug,
+      structure: tpl.structure,
+      active: true,
+    });
+
+    if (error) { showToast({ type: "err", msg: error.message }); }
+    else { showToast({ type: "ok", msg: "Scorecard creado" }); }
+    setCreatingScorecard(false);
+    setShowCreateScorecard(false);
+    setNewScName("");
+    setNewScVersion("");
+    setNewScTemplateId("");
+    await loadAllData();
+  }
+
   function stageAnalysisCount(stageId: string) {
     return analyses.filter(a => a.organization_id === (editingStage?.organization_id || embudoOrgFilter)).length;
   }
@@ -1013,7 +1056,10 @@ export default function AdminPage() {
               {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
             {embudoOrgFilter && (
-              <button className="adm-btn-primary" onClick={() => openStageModal()}>+ Agregar etapa</button>
+              <>
+                <button className="adm-btn-primary" onClick={() => openStageModal()}>+ Agregar etapa</button>
+                <button className="adm-btn-ghost" style={{ fontSize: 13 }} onClick={() => setShowCreateScorecard(true)}>+ Crear scorecard</button>
+              </>
             )}
           </div>
 
@@ -1146,6 +1192,44 @@ export default function AdminPage() {
               </div>
               <button className="adm-btn-primary" style={{ width: "100%", marginTop: 12 }} onClick={saveStage} disabled={savingStage || !stageName.trim()}>
                 {savingStage ? "Guardando..." : editingStage ? "Guardar cambios" : "Crear etapa"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ===== Modal: Crear scorecard desde template ===== */}
+      {showCreateScorecard && (
+        <>
+          <div className="adm-overlay" onClick={() => setShowCreateScorecard(false)} />
+          <div className="adm-slideover" style={{ maxWidth: 420 }}>
+            <div className="adm-slideover-header">
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Nuevo scorecard</h2>
+              <button className="adm-icon-btn" onClick={() => setShowCreateScorecard(false)}>&times;</button>
+            </div>
+            <div className="adm-slideover-body">
+              <p style={{ fontSize: 13, color: "#737373", margin: "0 0 12px" }}>
+                Clona la estructura de un template base. Después podrás editarlo desde el editor de scorecard.
+              </p>
+              <div className="input-group">
+                <label className="input-label">Template base</label>
+                <select className="input-field" value={newScTemplateId} onChange={e => setNewScTemplateId(e.target.value)}>
+                  <option value="">Selecciona template</option>
+                  {templates.map(t => (
+                    <option key={t.id} value={t.id}>{t.name} ({t.vertical_slug})</option>
+                  ))}
+                </select>
+              </div>
+              <div className="input-group">
+                <label className="input-label">Nombre del scorecard</label>
+                <input className="input-field" value={newScName} onChange={e => setNewScName(e.target.value)} placeholder="Ej: V5C Seguimiento" />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Versión</label>
+                <input className="input-field" value={newScVersion} onChange={e => setNewScVersion(e.target.value)} placeholder="Ej: V5C" />
+              </div>
+              <button className="adm-btn-primary" style={{ width: "100%", marginTop: 12 }} onClick={createScorecardFromTemplate} disabled={creatingScorecard || !newScTemplateId || !newScName.trim() || !newScVersion.trim()}>
+                {creatingScorecard ? "Creando..." : "Crear scorecard"}
               </button>
             </div>
           </div>
