@@ -20,6 +20,7 @@ type Status = "idle" | "analyzing" | "error";
 interface FunnelStage {
   id: string;
   name: string;
+  scorecard_id: string | null;
 }
 
 function isMobile(): boolean {
@@ -230,7 +231,7 @@ export default function NuevaLlamadaPage() {
       const [sourcesRes, stagesRes] = await Promise.all([
         supabase.from("lead_sources").select("id, name, active")
           .eq("organization_id", effectiveOrgId).order("name"),
-        supabase.from("funnel_stages").select("id, name")
+        supabase.from("funnel_stages").select("id, name, scorecard_id")
           .eq("organization_id", effectiveOrgId).order("order_index"),
       ]);
 
@@ -372,27 +373,29 @@ export default function NuevaLlamadaPage() {
     if (guidePhases.length > 0) return;
     setGuideLoading(true);
 
-    // Get speech for this stage. No scorecard filter — orgs may use
-    // different scorecards across stages, and speech_versions is already
-    // scoped by organization_id.
-    let { data } = await supabase.from("speech_versions")
+    // Get speech for this stage, filtered by scorecard to avoid cross-scorecard contamination
+    const stage = funnelStages.find(s => s.id === selectedStage);
+    let speechQuery = supabase.from("speech_versions")
       .select("content")
       .eq("organization_id", orgId)
       .or("published.eq.true,is_provisional.eq.true")
       .eq("funnel_stage_id", selectedStage)
       .order("published", { ascending: false })
       .limit(1);
+    if (stage?.scorecard_id) speechQuery = speechQuery.eq("scorecard_id", stage.scorecard_id);
+    let { data } = await speechQuery;
 
     // Fallback: org-wide speech (funnel_stage_id is NULL)
     if (!data || data.length === 0) {
-      const fallback = await supabase.from("speech_versions")
+      let fallbackQuery = supabase.from("speech_versions")
         .select("content")
         .eq("organization_id", orgId)
         .or("published.eq.true,is_provisional.eq.true")
         .is("funnel_stage_id", null)
         .order("published", { ascending: false })
         .limit(1);
-      data = fallback.data;
+      if (stage?.scorecard_id) fallbackQuery = fallbackQuery.eq("scorecard_id", stage.scorecard_id);
+      data = (await fallbackQuery).data;
     }
 
     if (data && data.length > 0) {
@@ -439,22 +442,25 @@ export default function NuevaLlamadaPage() {
     setGuidePhases([]);
     if (!orgId) return;
     let cancelled = false;
+    const stage = funnelStages.find(s => s.id === selectedStage);
     (async () => {
       try {
         let data: { content: unknown }[] | null = null;
 
         if (selectedStage) {
-          const r1 = await supabase.from("speech_versions").select("content")
+          let q1 = supabase.from("speech_versions").select("content")
             .eq("organization_id", orgId).eq("published", true)
             .eq("funnel_stage_id", selectedStage).limit(1);
-          data = r1?.data ?? null;
+          if (stage?.scorecard_id) q1 = q1.eq("scorecard_id", stage.scorecard_id);
+          data = (await q1)?.data ?? null;
         }
 
         if (!data?.length) {
-          const r2 = await supabase.from("speech_versions").select("content")
+          let q2 = supabase.from("speech_versions").select("content")
             .eq("organization_id", orgId).eq("published", true)
             .is("funnel_stage_id", null).limit(1);
-          data = r2?.data ?? null;
+          if (stage?.scorecard_id) q2 = q2.eq("scorecard_id", stage.scorecard_id);
+          data = (await q2)?.data ?? null;
         }
 
         if (!cancelled && data?.length && data[0]?.content) {
@@ -463,7 +469,7 @@ export default function NuevaLlamadaPage() {
       } catch { /* ignore — guidePhases stays empty */ }
     })();
     return () => { cancelled = true; };
-  }, [selectedStage, orgId]);
+  }, [selectedStage, orgId, funnelStages]);
 
   // Fetch missed fields from last 5 analyses for this stage
   useEffect(() => {

@@ -46,6 +46,25 @@ interface SpeechVersionRow {
   content: unknown;
 }
 
+interface StageRow {
+  id: string;
+  organization_id: string;
+  scorecard_id: string | null;
+  name: string;
+  stage_type: string;
+  order_index: number;
+  active: boolean;
+}
+
+interface ScorecardRow {
+  id: string;
+  organization_id: string | null;
+  name: string;
+  version: string;
+  vertical: string;
+  active: boolean;
+}
+
 const PLANS = ["starter", "growth", "pro", "scale", "enterprise", "founder"];
 const ROLES = ["captadora", "gerente", "direccion", "agencia", "super_admin"];
 const ACCESS_STATUSES = ["active", "grace", "read_only"];
@@ -62,7 +81,7 @@ const ACCESS_STATUS_CLASS: Record<string, string> = {
 };
 
 type Toast = { type: "ok" | "err"; msg: string } | null;
-type Tab = "orgs" | "users" | "analyses" | "speech";
+type Tab = "orgs" | "users" | "analyses" | "speech" | "embudo";
 
 const ROLE_COLOR: Record<string, string> = {
   captadora: "#3b82f6",
@@ -84,6 +103,8 @@ export default function AdminPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [analyses, setAnalyses] = useState<AnalysisRow[]>([]);
   const [speechVersions, setSpeechVersions] = useState<SpeechVersionRow[]>([]);
+  const [stages, setStages] = useState<StageRow[]>([]);
+  const [scorecards, setScorecards] = useState<ScorecardRow[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -123,6 +144,16 @@ export default function AdminPage() {
   const [addOrgId, setAddOrgId] = useState("");
   const [addOrgRole, setAddOrgRole] = useState("captadora");
 
+  // Embudo state
+  const [embudoOrgFilter, setEmbudoOrgFilter] = useState<string>("");
+  const [showStageModal, setShowStageModal] = useState(false);
+  const [editingStage, setEditingStage] = useState<StageRow | null>(null);
+  const [stageName, setStageName] = useState("");
+  const [stageType, setStageType] = useState("llamada");
+  const [stageScorecardId, setStageScorecardId] = useState("");
+  const [savingStage, setSavingStage] = useState(false);
+  const [archivingStageId, setArchivingStageId] = useState<string | null>(null);
+
   // Destructive confirm (analyses delete)
   const [pendingDeleteAnalysisId, setPendingDeleteAnalysisId] = useState<string | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -156,6 +187,8 @@ export default function AdminPage() {
     setAnalyses((body.analyses || []) as AnalysisRow[]);
     setSpeechVersions((body.speech_versions || []) as SpeechVersionRow[]);
     setAllMemberships((body.memberships || []) as Membership[]);
+    setStages((body.funnel_stages || []) as StageRow[]);
+    setScorecards((body.scorecards || []) as ScorecardRow[]);
   }, []);
 
   const loadOrgs = loadAllData;
@@ -533,6 +566,87 @@ export default function AdminPage() {
     await loadSpeech();
   }
 
+  // ─── Embudo CRUD ─────────────────────────────
+  const filteredStages = embudoOrgFilter
+    ? stages.filter(s => s.organization_id === embudoOrgFilter)
+    : stages;
+  const orgScorecards = (orgId: string) => scorecards.filter(s => s.organization_id === orgId && s.active);
+
+  function openStageModal(stage?: StageRow) {
+    if (stage) {
+      setEditingStage(stage);
+      setStageName(stage.name);
+      setStageType(stage.stage_type);
+      setStageScorecardId(stage.scorecard_id || "");
+    } else {
+      setEditingStage(null);
+      setStageName("");
+      setStageType("llamada");
+      setStageScorecardId("");
+    }
+    setShowStageModal(true);
+  }
+
+  async function saveStage() {
+    const targetOrg = editingStage?.organization_id || embudoOrgFilter;
+    if (!targetOrg || !stageName.trim()) return;
+    setSavingStage(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) { setSavingStage(false); return; }
+
+    if (editingStage) {
+      const { error } = await supabase.from("funnel_stages").update({
+        name: stageName.trim(),
+        stage_type: stageType,
+        scorecard_id: stageScorecardId || null,
+      }).eq("id", editingStage.id);
+      if (error) { showToast({ type: "err", msg: error.message }); }
+      else { showToast({ type: "ok", msg: "Etapa actualizada" }); }
+    } else {
+      const maxIdx = filteredStages.filter(s => s.active).reduce((m, s) => Math.max(m, s.order_index), 0);
+      const { error } = await supabase.from("funnel_stages").insert({
+        organization_id: targetOrg,
+        name: stageName.trim(),
+        stage_type: stageType,
+        scorecard_id: stageScorecardId || null,
+        order_index: maxIdx + 1,
+      });
+      if (error) { showToast({ type: "err", msg: error.message }); }
+      else { showToast({ type: "ok", msg: "Etapa creada" }); }
+    }
+    setSavingStage(false);
+    setShowStageModal(false);
+    await loadAllData();
+  }
+
+  async function archiveStage(stageId: string) {
+    const { error } = await supabase.from("funnel_stages").update({ active: false }).eq("id", stageId);
+    if (error) { showToast({ type: "err", msg: error.message }); }
+    else { showToast({ type: "ok", msg: "Etapa archivada" }); }
+    setArchivingStageId(null);
+    await loadAllData();
+  }
+
+  async function reorderStage(stageId: string, direction: "up" | "down") {
+    const orgStages = filteredStages.filter(s => s.active).sort((a, b) => a.order_index - b.order_index);
+    const idx = orgStages.findIndex(s => s.id === stageId);
+    if (idx < 0) return;
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= orgStages.length) return;
+    const a = orgStages[idx];
+    const b = orgStages[swapIdx];
+    await Promise.all([
+      supabase.from("funnel_stages").update({ order_index: b.order_index }).eq("id", a.id),
+      supabase.from("funnel_stages").update({ order_index: a.order_index }).eq("id", b.id),
+    ]);
+    await loadAllData();
+  }
+
+  function stageAnalysisCount(stageId: string) {
+    return analyses.filter(a => a.organization_id === (editingStage?.organization_id || embudoOrgFilter)).length;
+  }
+
   function firstPhaseOf(content: unknown): string {
     try {
       if (Array.isArray(content)) {
@@ -581,6 +695,7 @@ export default function AdminPage() {
     { key: "users", label: "Usuarios", count: users.length },
     { key: "analyses", label: "Análisis", count: analyses.length },
     { key: "speech", label: "Speech", count: speechVersions.length },
+    { key: "embudo", label: "Embudo", count: stages.filter(s => s.active).length },
   ];
 
   return (
@@ -875,6 +990,136 @@ export default function AdminPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ===== TAB: Embudo ===== */}
+      {activeTab === "embudo" && (
+        <div className="adm-section">
+          <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16 }}>
+            <select className="input-field" value={embudoOrgFilter} onChange={e => setEmbudoOrgFilter(e.target.value)} style={{ maxWidth: 260, padding: "6px 10px" }}>
+              <option value="">Todas las orgs</option>
+              {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+            {embudoOrgFilter && (
+              <button className="adm-btn-primary" onClick={() => openStageModal()}>+ Agregar etapa</button>
+            )}
+          </div>
+
+          {!embudoOrgFilter ? (
+            <div className="adm-empty"><p>Selecciona una organización para ver su embudo.</p></div>
+          ) : filteredStages.length === 0 ? (
+            <div className="adm-empty"><p>Sin etapas configuradas para esta org.</p></div>
+          ) : (
+            <div className="adm-table">
+              <div className="adm-table-head">
+                <span style={{ flex: 0.3 }}>#</span>
+                <span style={{ flex: 1.2 }}>Nombre</span>
+                <span style={{ flex: 0.7 }}>Tipo</span>
+                <span style={{ flex: 1.2 }}>Scorecard</span>
+                <span style={{ flex: 0.5 }}>Estado</span>
+                <span style={{ flex: 1 }} />
+              </div>
+              {filteredStages.sort((a, b) => a.order_index - b.order_index).map((s, i) => {
+                const sc = scorecards.find(c => c.id === s.scorecard_id);
+                return (
+                  <div key={s.id} className="adm-table-row" style={{ opacity: s.active ? 1 : 0.5 }}>
+                    <span style={{ flex: 0.3, fontWeight: 600 }}>{s.order_index}</span>
+                    <span style={{ flex: 1.2 }}>{s.name}</span>
+                    <span style={{ flex: 0.7 }}>
+                      <span className={`adm-pill ${s.stage_type === "llamada" ? "admin-badge-blue" : s.stage_type === "visita" ? "admin-badge-green" : "admin-badge-yellow"}`}>
+                        {s.stage_type}
+                      </span>
+                    </span>
+                    <span style={{ flex: 1.2, fontSize: 13, color: sc ? "var(--ink)" : "#a8a29e" }}>
+                      {sc ? `${sc.name} (${sc.version})` : "— sin scorecard"}
+                    </span>
+                    <span style={{ flex: 0.5 }}>
+                      <span className={`adm-pill ${s.active ? "admin-badge-green" : "admin-badge-red"}`}>
+                        {s.active ? "Activa" : "Archivada"}
+                      </span>
+                    </span>
+                    <span className="adm-row-actions" style={{ flex: 1, display: "flex", gap: 4 }}>
+                      {s.active && (
+                        <>
+                          <button className="adm-btn-ghost" style={{ fontSize: 12 }} onClick={() => reorderStage(s.id, "up")} disabled={i === 0} title="Subir">▲</button>
+                          <button className="adm-btn-ghost" style={{ fontSize: 12 }} onClick={() => reorderStage(s.id, "down")} disabled={i === filteredStages.filter(x => x.active).length - 1} title="Bajar">▼</button>
+                          <button className="adm-btn-ghost" style={{ fontSize: 12 }} onClick={() => openStageModal(s)}>Editar</button>
+                          <button className="adm-btn-ghost adm-btn-danger-text" style={{ fontSize: 12 }} onClick={() => setArchivingStageId(s.id)}>Archivar</button>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Archive confirmation dialog */}
+      {archivingStageId && (() => {
+        const s = stages.find(x => x.id === archivingStageId);
+        const count = analyses.filter(a => a.organization_id === s?.organization_id).length;
+        return (
+          <>
+            <div className="adm-overlay" onClick={() => setArchivingStageId(null)} />
+            <div className="adm-slideover" style={{ maxWidth: 420 }}>
+              <div className="adm-slideover-header">
+                <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Archivar etapa</h2>
+                <button className="adm-icon-btn" onClick={() => setArchivingStageId(null)}>&times;</button>
+              </div>
+              <div className="adm-slideover-body">
+                <p style={{ fontSize: 14, margin: "0 0 12px" }}>
+                  Esta organización tiene <strong>{count}</strong> análisis históricos. Archivar la etapa
+                  &quot;{s?.name}&quot; la ocultará de usuarios nuevos pero los análisis pasados se preservan.
+                </p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="adm-btn-primary" style={{ background: "#ef4444" }} onClick={() => archiveStage(archivingStageId)}>Confirmar archivar</button>
+                  <button className="adm-btn-ghost" onClick={() => setArchivingStageId(null)}>Cancelar</button>
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+      {/* Stage create/edit modal */}
+      {showStageModal && (
+        <>
+          <div className="adm-overlay" onClick={() => setShowStageModal(false)} />
+          <div className="adm-slideover" style={{ maxWidth: 420 }}>
+            <div className="adm-slideover-header">
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{editingStage ? "Editar etapa" : "Nueva etapa"}</h2>
+              <button className="adm-icon-btn" onClick={() => setShowStageModal(false)}>&times;</button>
+            </div>
+            <div className="adm-slideover-body">
+              <div className="input-group">
+                <label className="input-label">Nombre</label>
+                <input className="input-field" value={stageName} onChange={e => setStageName(e.target.value)} placeholder="Ej: Llamada inicial" />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Tipo</label>
+                <select className="input-field" value={stageType} onChange={e => setStageType(e.target.value)}>
+                  <option value="llamada">Llamada</option>
+                  <option value="visita">Visita</option>
+                  <option value="cierre">Cierre</option>
+                </select>
+              </div>
+              <div className="input-group">
+                <label className="input-label">Scorecard asociado</label>
+                <select className="input-field" value={stageScorecardId} onChange={e => setStageScorecardId(e.target.value)}>
+                  <option value="">— Sin scorecard</option>
+                  {orgScorecards(editingStage?.organization_id || embudoOrgFilter).map(sc => (
+                    <option key={sc.id} value={sc.id}>{sc.name} ({sc.version})</option>
+                  ))}
+                </select>
+              </div>
+              <button className="adm-btn-primary" style={{ width: "100%", marginTop: 12 }} onClick={saveStage} disabled={savingStage || !stageName.trim()}>
+                {savingStage ? "Guardando..." : editingStage ? "Guardar cambios" : "Crear etapa"}
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* ===== Slide-over: Crear usuario ===== */}
