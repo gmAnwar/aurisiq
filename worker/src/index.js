@@ -301,11 +301,15 @@ function parseClaudeOutput(rawText) {
 
   // Descalification — parse JSON array from Claude output
   const descalMatch = rawText.match(/DESCALIFICACION:\s*(\[.*?\])/i);
+  console.log(`[debug-descal-parse] match=${!!descalMatch} raw=${descalMatch ? descalMatch[1] : 'null'}`);
   if (descalMatch) {
     try {
       const arr = JSON.parse(descalMatch[1]);
+      console.log(`[debug-descal-parse] parsed=${JSON.stringify(arr)}`);
       if (Array.isArray(arr)) result.descalificacion = arr.map(s => String(s).trim()).filter(Boolean).slice(0, 3);
-    } catch { /* ignore parse errors, keep empty */ }
+    } catch (e) {
+      console.error(`[debug-descal-parse] JSON.parse failed: ${e.message} raw=${descalMatch[1]}`);
+    }
   }
 
   // Strip JSON artifacts from all text fields
@@ -593,9 +597,13 @@ PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en l
     if (descalCats.length > 0) {
       const catList = descalCats.map(c => `- ${c.code}: ${c.label}`).join('\n');
       promptWithDescal += `\n\n---\nDESCALIFICACION DE LEADS\nAnaliza la transcripción y determina si el lead fue descalificado. Usa SOLO los siguientes códigos del catálogo de la organización:\n${catList}\n\nAl final de tu respuesta, incluye una línea con el formato:\nDESCALIFICACION: ["codigo1", "codigo2"]\nSi el lead calificó (no hay razón de descalificación), escribe:\nDESCALIFICACION: []\nMáximo 3 códigos. Usa SOLO códigos del catálogo anterior.`;
+      console.log(`[debug-descal] org=${organization_id} descalCats=${descalCats.length} codes=[${descalCats.map(c => c.code).join(',')}]`);
+    } else {
+      console.log(`[debug-descal] org=${organization_id} descalCats=0 — SKIPPING descal block in prompt`);
     }
 
     const rawOutput = await callClaude(env, promptWithDescal, transcription);
+    console.log(`[debug-claude-raw] len=${rawOutput.length} tail=${rawOutput.slice(-2000)}`);
     const parsed = parseClaudeOutput(rawOutput);
     const phasesWithIds = matchPhaseIds(parsed.phases, scorecard.phases || []);
 
@@ -623,6 +631,7 @@ PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en l
     // Validate descalification slugs against the org catalog
     const validCodes = new Set(descalCats.map(c => c.code));
     const validDescal = parsed.descalificacion.filter(code => validCodes.has(code));
+    console.log(`[debug-descal-filter] claude_returned=[${parsed.descalificacion.join(',')}] valid_catalog=[${[...validCodes].join(',')}] after_filter=[${validDescal.join(',')}]`);
 
     // Find related prospect (same name in same org, case-insensitive)
     let relatedId = null;
@@ -645,8 +654,24 @@ PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en l
       if (match) detectedStageId = match.id;
     }
 
+    // Bug 4 validation: if score_general is null, Claude returned malformed output
+    if (parsed.score_general === null) {
+      console.error(`[debug-malformed] analysis=${analysisId} score=null clasificacion=${parsed.clasificacion} — marking as error`);
+      await supabaseUpdate(env, 'analysis_jobs', 'analysis_id', analysisId, {
+        status: 'error',
+        error_message: 'Claude returned malformed output: score_general is null',
+        completed_at: new Date().toISOString(),
+      });
+      await supabaseUpdate(env, 'analyses', 'id', analysisId, {
+        status: 'error',
+      });
+      return;
+    }
+
+    console.log(`[debug-final] analysis=${analysisId} score=${parsed.score_general} clas=${parsed.clasificacion} descal=[${validDescal.join(',')}]`);
+
     const updatePayload = {
-      score_general: parsed.score_general !== null ? Math.min(parsed.score_general, 100) : null,
+      score_general: Math.min(parsed.score_general, 100),
       clasificacion: parsed.clasificacion,
       momento_critico: parsed.momento_critico,
       patron_error: parsed.patron_error,
