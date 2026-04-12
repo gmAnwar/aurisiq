@@ -242,18 +242,7 @@ export default function NuevaLlamadaPage() {
       const sources = (sourcesRaw || []).filter(s => s.active !== false);
       setFunnelStages(stagesRes.data || []);
 
-      // Resolve org vertical + checklist_fields from active per-org scorecard
-      try {
-        const { data: sc } = await supabase.from("scorecards")
-          .select("vertical, structure")
-          .eq("organization_id", effectiveOrgId).eq("active", true)
-          .limit(1).maybeSingle();
-        if (sc?.vertical) setOrgVertical(sc.vertical);
-        const fields = (sc?.structure as { checklist_fields?: ChecklistField[] } | null)?.checklist_fields;
-        if (Array.isArray(fields) && fields.length > 0) {
-          setChecklistFields(fields);
-        }
-      } catch { /* ignore — checklistFields stays empty, fail-loud in render */ }
+      // Vertical + checklist now loaded reactively via useEffect on selectedStage
 
       if (error) {
         setErrorMsg("No pudimos cargar las fuentes de lead. Intenta de nuevo.");
@@ -437,6 +426,29 @@ export default function NuevaLlamadaPage() {
       phrases: Array.isArray(phrases) ? phrases as string[] : [],
     }));
   }
+
+  // Reload checklist when stage changes — use scorecard of selected stage
+  useEffect(() => {
+    if (!orgId) return;
+    const stage = funnelStages.find(s => s.id === selectedStage);
+    const scorecardId = stage?.scorecard_id;
+
+    // No stage selected or stage without scorecard → fall back to first active org scorecard
+    (async () => {
+      try {
+        let query = supabase.from("scorecards").select("vertical, structure").eq("active", true);
+        if (scorecardId) {
+          query = query.eq("id", scorecardId);
+        } else {
+          query = query.eq("organization_id", orgId);
+        }
+        const { data: sc } = await query.limit(1).maybeSingle();
+        if (sc?.vertical) setOrgVertical(sc.vertical);
+        const fields = (sc?.structure as { checklist_fields?: ChecklistField[] } | null)?.checklist_fields;
+        setChecklistFields(Array.isArray(fields) && fields.length > 0 ? fields : []);
+      } catch { /* ignore */ }
+    })();
+  }, [selectedStage, orgId, funnelStages]);
 
   // Reload speech when stage or org changes — 2-step priority:
   // 1. Published speech for the specific stage
