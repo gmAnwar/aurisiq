@@ -117,6 +117,28 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
           )}
         </div>
 
+        {/* Score reference table */}
+        {analysis.score_general && (
+          <details className="c3-score-ref">
+            <summary className="c3-score-ref-summary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              ¿Qué significa este score?
+            </summary>
+            <div className="c3-score-ref-body">
+              <table className="c3-score-ref-table">
+                <thead><tr><th>Rango</th><th>Qué significa</th></tr></thead>
+                <tbody>
+                  <tr><td><span className="c3-ref-range c3-ref-excelente">Excelente (81–100)</span></td><td>La llamada cubrió casi todos los puntos del scorecard con claridad. Datos clave obtenidos, objeciones manejadas con argumentos sólidos, siguiente paso concreto.</td></tr>
+                  <tr><td><span className="c3-ref-range c3-ref-buena">Buena (61–80)</span></td><td>Puntos críticos cubiertos, pero faltaron detalles en algunas fases. 2–3 oportunidades claras de mejora.</td></tr>
+                  <tr><td><span className="c3-ref-range c3-ref-regular">Regular (41–60)</span></td><td>Lo básico cubierto pero se dejó pasar información importante. Calificación incompleta, objeciones sin respuesta sólida, cierre débil.</td></tr>
+                  <tr><td><span className="c3-ref-range c3-ref-deficiente">Deficiente (0–40)</span></td><td>La llamada no avanzó el proceso. Faltaron preguntas clave, prospecto no calificado, sin siguiente paso claro.</td></tr>
+                </tbody>
+              </table>
+              <p className="c3-score-ref-note">El score mide el desempeño de la captadora, no si el lead calificó.</p>
+            </div>
+          </details>
+        )}
+
         {/* Lead estado badge */}
         <div style={{ marginBottom: 14 }}>
           {isQualified ? (

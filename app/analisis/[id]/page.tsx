@@ -388,6 +388,28 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
         </div>
       )}
 
+      {/* Score reference table */}
+      {analysis.score_general !== null && (
+        <details className="c3-score-ref">
+          <summary className="c3-score-ref-summary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            ¿Qué significa mi score?
+          </summary>
+          <div className="c3-score-ref-body">
+            <table className="c3-score-ref-table">
+              <thead><tr><th>Rango</th><th>Qué significa</th></tr></thead>
+              <tbody>
+                <tr><td><span className="c3-ref-range c3-ref-excelente">Excelente (81–100)</span></td><td>La llamada cubrió casi todos los puntos del scorecard con claridad. Obtuviste datos clave, manejaste objeciones con argumentos sólidos y dejaste un siguiente paso concreto. Mantén este nivel.</td></tr>
+                <tr><td><span className="c3-ref-range c3-ref-buena">Buena (61–80)</span></td><td>La llamada cumplió con los puntos críticos, pero faltaron detalles en algunas fases. Hay 2–3 oportunidades claras de mejora que, si las cierras, te llevan a excelente.</td></tr>
+                <tr><td><span className="c3-ref-range c3-ref-regular">Regular (41–60)</span></td><td>Cubriste lo básico pero dejaste pasar información importante (calificación incompleta, objeciones sin respuesta sólida, cierre débil). Requiere retrabajo o seguimiento para recuperar la oportunidad.</td></tr>
+                <tr><td><span className="c3-ref-range c3-ref-deficiente">Deficiente (0–40)</span></td><td>La llamada no avanzó el proceso de captación. Faltaron preguntas clave, el prospecto no quedó calificado y no hay un siguiente paso claro. Revisar con el gerente qué replantear.</td></tr>
+              </tbody>
+            </table>
+            <p className="c3-score-ref-note">Tu score mide el desempeño de tu llamada, no si el lead calificó. Un lead puede ser descartado y aun así tener un score alto si manejaste la llamada correctamente.</p>
+          </div>
+        </details>
+      )}
+
       {/* Key moment + pattern cards */}
       {momento && (
         <div className="c3-card c3-card-momento">

@@ -1660,6 +1660,70 @@ body.has-nav {
   flex-wrap: wrap;
   margin-bottom: 8px;
 }
+/* Score reference accordion */
+.c3-score-ref {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.c3-score-ref-summary {
+  padding: 10px 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.c3-score-ref-summary::-webkit-details-marker { display: none; }
+.c3-score-ref-body { padding: 0 14px 14px; }
+.c3-score-ref-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+}
+.c3-score-ref-table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9ca3af;
+  border-bottom: 1px solid #e5e7eb;
+}
+.c3-score-ref-table td {
+  padding: 10px 10px;
+  vertical-align: top;
+  border-bottom: 1px solid #f3f4f6;
+  line-height: 1.5;
+  color: #374151;
+}
+.c3-score-ref-table tr:nth-child(even) td { background: #f9fafb; }
+.c3-score-ref-table tr:last-child td { border-bottom: none; }
+.c3-ref-range {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.c3-ref-excelente { color: #166534; }
+.c3-ref-buena { color: #1d4ed8; }
+.c3-ref-regular { color: #92400e; }
+.c3-ref-deficiente { color: #991b1b; }
+.c3-score-ref-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #9ca3af;
+  line-height: 1.5;
+}
+
 .c3-descal-pill {
   font-family: 'DM Sans', sans-serif;
   font-size: 11px;
