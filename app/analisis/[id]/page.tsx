@@ -41,6 +41,7 @@ interface Analysis {
   checklist_results: ChecklistItem[] | null;
   manager_note: string | null;
   notes: string | null;
+  lead_estado: string | null;
   related_analysis_id: string | null;
   created_at: string;
 }
@@ -114,7 +115,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
 
       const { data: a, error: aErr } = await supabase
         .from("analyses")
-        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, notes, related_analysis_id, created_at, scorecard_id")
+        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, notes, lead_estado, related_analysis_id, created_at, scorecard_id")
         .eq("id", id)
         .single();
 
@@ -282,9 +283,25 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
           </span>
         </h1>
         <p className="c3-prospect-meta">{dateStr} · {timeStr}</p>
-        <div className={`c3-result-badge ${isQualified ? "c3-badge-qualified" : "c3-badge-followup"}`}>
-          {isQualified ? "Lead calificado" : "Requiere seguimiento"}
-        </div>
+        {/* Lead estado badge — separate from score */}
+        {analysis.lead_estado === "descartado" ? (
+          <div className="c3-lead-badge c3-lead-descartado">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            Lead descartado
+          </div>
+        ) : (
+          <div className="c3-lead-badge c3-lead-calificado">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            Lead calificado
+          </div>
+        )}
+        {analysis.lead_estado === "descartado" && (analysis.categoria_descalificacion || []).length > 0 && (
+          <div className="c3-descal-reasons">
+            {(analysis.categoria_descalificacion || []).map((code, i) => (
+              <span key={i} className="c3-descal-pill">{descalLabels[code] || code}</span>
+            ))}
+          </div>
+        )}
         {vertical !== "financiero" && vertical !== "automotriz" && analysis.sale_reason && analysis.sale_reason !== "No mencionado" && (
           <p className="c3-prospect-reason">Motivo de venta: {analysis.sale_reason}</p>
         )}
@@ -360,7 +377,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
       {/* 3. SCORE + COACHING BY PHASE */}
       {analysis.score_general !== null && (
         <div className="c3-section">
-          <div className="c3-score-inline">
+          <div className="c3-score-inline" title="El score evalúa el desempeño de la captadora, no la calidad del lead">
             <span className="c3-score-value">{analysis.score_general}</span>
             {analysis.clasificacion && (
               <span className={`c3-clasificacion c3-clas-${analysis.clasificacion}`}>

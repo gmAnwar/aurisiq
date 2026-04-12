@@ -113,22 +113,29 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
             </div>
           </div>
           {(analysis.score_general as number | null) !== null && (
-            <span className="g3-score-big" style={{ color: scoreColor }}>{analysis.score_general as number}</span>
+            <span className="g3-score-big" style={{ color: scoreColor }} title="El score evalúa el desempeño de la captadora, no la calidad del lead">{analysis.score_general as number}</span>
           )}
         </div>
 
-        {/* Descal pills */}
+        {/* Lead estado badge */}
         <div style={{ marginBottom: 14 }}>
           {isQualified ? (
-            <span className="c3-pill c3-pill-green">Lead calificado</span>
-          ) : (
-            <div className="c3-pill-list">
-              {descalCodes.map((code, i) => (
-                <span key={i} className={`c3-pill ${i === 0 ? "c3-pill-primary" : "c3-pill-secondary"}`}>
-                  {descalMap[code] || code}
-                </span>
-              ))}
+            <div className="c3-lead-badge c3-lead-calificado">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Lead calificado
             </div>
+          ) : (
+            <>
+              <div className="c3-lead-badge c3-lead-descartado">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                Lead descartado
+              </div>
+              <div className="c3-descal-reasons">
+                {descalCodes.map((code, i) => (
+                  <span key={i} className="c3-descal-pill">{descalMap[code] || code}</span>
+                ))}
+              </div>
+            </>
           )}
         </div>
 

@@ -19,7 +19,7 @@ export async function GET(
     const { data: analysis, error: aErr } = await admin
       .from("analyses")
       .select(
-        "id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, notes, related_analysis_id, created_at, scorecard_id, organization_id, funnel_stage_id, status"
+        "id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, notes, lead_estado, related_analysis_id, created_at, scorecard_id, organization_id, funnel_stage_id, status"
       )
       .eq("id", id)
       .maybeSingle();

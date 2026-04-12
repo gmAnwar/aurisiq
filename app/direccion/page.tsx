@@ -16,6 +16,7 @@ export default function DashboardEjecutivoPage() {
   const [avgScore, setAvgScore] = useState<number | null>(null);
   const [descalDistro, setDescalDistro] = useState<{ label: string; count: number; pct: number }[]>([]);
   const [descalTotal, setDescalTotal] = useState(0);
+  const [pctCalificados, setPctCalificados] = useState<number | null>(null);
   const [captadoraRanking, setCaptadoraRanking] = useState<{ name: string; avg: number; count: number }[]>([]);
   const [monthlyComparison, setMonthlyComparison] = useState<{ month: string; count: number; convRate: number }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,6 +126,10 @@ export default function DashboardEjecutivoPage() {
         pct: descalCount > 0 ? Math.round((count / descalCount) * 100) : 0,
       })));
 
+      // % leads calificados
+      const calificados = thisMonth.length - descalCount;
+      setPctCalificados(thisMonth.length > 0 ? Math.round((calificados / thisMonth.length) * 100) : null);
+
       // 3-month comparison
       const { data: threeMonthData } = await supabase.from("analyses")
         .select("id, avanzo_a_siguiente_etapa, created_at")
@@ -200,6 +205,10 @@ export default function DashboardEjecutivoPage() {
               <span className="g1-kpi-value">—</span>
             )}
             <span className="g1-kpi-label">Delta vs mes anterior</span>
+          </div>
+          <div className="g1-kpi">
+            <span className="g1-kpi-value">{pctCalificados !== null ? `${pctCalificados}%` : "—"}</span>
+            <span className="g1-kpi-label">Leads calificados</span>
           </div>
         </div>
 
