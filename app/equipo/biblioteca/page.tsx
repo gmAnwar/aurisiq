@@ -6,7 +6,9 @@ import { requireAuth } from "../../../lib/auth";
 
 interface SpeechField { field_name: string; phrases: string[]; }
 interface SpeechPhase { phase_name: string; transition?: string; fields?: SpeechField[]; phrases?: string[]; }
-interface FunnelStage { id: string; name: string; }
+interface FunnelStage { id: string; name: string; scorecard_id: string | null; }
+interface ScorecardPhase { name: string; max_score: number; prompt_base?: string; fields?: string[]; }
+interface ScorecardRow { id: string; name: string; version: string; phases: unknown; structure: { phases?: ScorecardPhase[] } | null; }
 
 interface SpeechRow {
   id: string;
@@ -16,6 +18,7 @@ interface SpeechRow {
   published: boolean;
   is_provisional: boolean;
   funnel_stage_id: string | null;
+  scorecard_id: string | null;
 }
 
 function parseSpeechContent(content: unknown): SpeechPhase[] {
@@ -51,7 +54,7 @@ export default function BibliotecaPage() {
   const [speechByStage, setSpeechByStage] = useState<Record<string, { id: string; phases: SpeechPhase[]; versionNum: number; updatedAt: string | null; isProvisional: boolean }>>({});
   const [editingField, setEditingField] = useState<string | null>(null); // "phaseIdx-fieldIdx-phraseIdx"
   const [editValue, setEditValue] = useState("");
-  const [scorecardId, setScorecardId] = useState<string | null>(null);
+  const [scorecards, setScorecards] = useState<ScorecardRow[]>([]);
   const [orgId, setOrgId] = useState<string | null>(null);
   const [gerenteName, setGerenteName] = useState("");
   const [files, setFiles] = useState<{ name: string; created_at: string }[]>([]);
@@ -62,6 +65,9 @@ export default function BibliotecaPage() {
   const [generating, setGenerating] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createStageId, setCreateStageId] = useState("");
+  const [creatingSpeech, setCreatingSpeech] = useState(false);
 
   const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
 
@@ -74,32 +80,30 @@ export default function BibliotecaPage() {
       setGerenteName(session.name);
 
       const [scRes, stagesRes] = await Promise.all([
-        supabase.from("scorecards").select("id, phases, name")
-          .or(`organization_id.eq.${session.organizationId},organization_id.is.null`)
-          .eq("active", true).order("organization_id", { ascending: false, nullsFirst: false }).limit(1).single(),
-        supabase.from("funnel_stages").select("id, name")
-          .eq("organization_id", session.organizationId).order("order_index"),
+        supabase.from("scorecards").select("id, phases, name, version, structure")
+          .eq("organization_id", session.organizationId)
+          .eq("active", true),
+        supabase.from("funnel_stages").select("id, name, scorecard_id")
+          .eq("organization_id", session.organizationId).eq("active", true).order("order_index"),
       ]);
 
-      const sc = scRes.data;
-      if (!sc) { setLoading(false); return; }
-      setScorecardId(sc.id);
+      const orgScorecards = (scRes.data || []) as ScorecardRow[];
+      setScorecards(orgScorecards);
+      if (orgScorecards.length === 0) { setLoading(false); return; }
 
-      const funnelStages = stagesRes.data || [];
+      const funnelStages = (stagesRes.data || []) as FunnelStage[];
       setStages(funnelStages);
 
-      // Load published + provisional — MUST filter by organization_id
-      const { data: allSpeech, error: speechErr } = await supabase.from("speech_versions")
-        .select("id, content, version_number, created_at, funnel_stage_id, published, is_provisional")
+      // Load ALL speech for this org (across all scorecards)
+      const { data: allSpeech } = await supabase.from("speech_versions")
+        .select("id, content, version_number, created_at, funnel_stage_id, published, is_provisional, scorecard_id")
         .eq("organization_id", session.organizationId)
-        .eq("scorecard_id", sc.id)
         .or("published.eq.true,is_provisional.eq.true");
 
-      console.log("G5 SPEECH:", { org: session.organizationId, sc: sc.id, found: allSpeech?.length || 0, err: speechErr?.message || "none" });
-
-      const byStage: Record<string, { id: string; phases: SpeechPhase[]; versionNum: number; updatedAt: string | null; isProvisional: boolean }> = {};
+      const byStage: Record<string, { id: string; phases: SpeechPhase[]; versionNum: number; updatedAt: string | null; isProvisional: boolean; scorecardId: string | null }> = {};
       for (const sv of (allSpeech || []) as SpeechRow[]) {
         const key = sv.funnel_stage_id || "_global";
+        // Published takes priority over provisional
         if (byStage[key] && !byStage[key].isProvisional) continue;
         byStage[key] = {
           id: sv.id,
@@ -107,6 +111,7 @@ export default function BibliotecaPage() {
           versionNum: sv.version_number,
           updatedAt: sv.created_at,
           isProvisional: sv.is_provisional && !sv.published,
+          scorecardId: sv.scorecard_id,
         };
       }
       setSpeechByStage(byStage);
@@ -184,6 +189,21 @@ export default function BibliotecaPage() {
   const publishSpeech = async () => {
     if (!current || !selectedStageId || !userId) return;
     setPublishing(true);
+
+    // Check for existing published speech for this stage + scorecard (UNIQUE index)
+    const stage = stages.find(s => s.id === selectedStageId);
+    if (stage?.scorecard_id) {
+      const { data: existing } = await supabase.from("speech_versions")
+        .select("id").eq("organization_id", orgId!)
+        .eq("scorecard_id", stage.scorecard_id)
+        .eq("funnel_stage_id", selectedStageId)
+        .eq("published", true).neq("id", current.id).limit(1);
+      if (existing && existing.length > 0) {
+        if (!confirm("Ya hay un speech publicado para esta etapa. ¿Quieres reemplazarlo?")) { setPublishing(false); return; }
+        await supabase.from("speech_versions").update({ published: false }).eq("id", existing[0].id);
+      }
+    }
+
     const { error } = await supabase.from("speech_versions").update({
       published: true,
       is_provisional: false,
@@ -198,6 +218,44 @@ export default function BibliotecaPage() {
       }));
     }
     setPublishing(false);
+  };
+
+  const createSpeechFromTemplate = async () => {
+    if (!createStageId || !orgId || !userId) return;
+    const stage = stages.find(s => s.id === createStageId);
+    if (!stage?.scorecard_id) return;
+    setCreatingSpeech(true);
+
+    const sc = scorecards.find(c => c.id === stage.scorecard_id);
+    const scPhases = (sc?.structure?.phases || []) as ScorecardPhase[];
+
+    // Build template content from scorecard phases
+    const content = {
+      phases: scPhases.map(p => ({
+        phase_name: p.name,
+        transition: "",
+        fields: (p.fields || []).map(slug => ({
+          field_name: slug,
+          phrases: [""],
+        })),
+      })),
+    };
+
+    const { error } = await supabase.from("speech_versions").insert({
+      organization_id: orgId,
+      scorecard_id: stage.scorecard_id,
+      funnel_stage_id: createStageId,
+      version_number: 0,
+      content,
+      published: false,
+      is_provisional: true,
+      created_by: userId,
+    });
+
+    if (error) { alert("Error: " + error.message); }
+    else { window.location.reload(); }
+    setCreatingSpeech(false);
+    setShowCreateModal(false);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -226,20 +284,27 @@ export default function BibliotecaPage() {
           </p>
         </div>
 
-        {/* Stage tabs */}
-        {stages.length > 0 && (
-          <div className="g5-stage-tabs">
-            {stages.map(stage => (
-              <button key={stage.id}
-                className={`g5-stage-tab ${selectedStageId === stage.id ? "g5-stage-tab-active" : ""}`}
-                onClick={() => setSelectedStageId(stage.id)}
-              >
-                {stage.name}
-                {speechByStage[stage.id] && !speechByStage[stage.id].isProvisional && <span className="g5-tab-dot" />}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Stage tabs + create button */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+          {stages.length > 0 && (
+            <div className="g5-stage-tabs" style={{ flex: 1 }}>
+              {stages.map(stage => (
+                <button key={stage.id}
+                  className={`g5-stage-tab ${selectedStageId === stage.id ? "g5-stage-tab-active" : ""}`}
+                  onClick={() => setSelectedStageId(stage.id)}
+                  style={!stage.scorecard_id ? { opacity: 0.5 } : undefined}
+                >
+                  {stage.name}
+                  {speechByStage[stage.id] && !speechByStage[stage.id].isProvisional && <span className="g5-tab-dot" />}
+                  {!stage.scorecard_id && <span style={{ fontSize: 10, color: "#a8a29e", display: "block" }}>sin scorecard</span>}
+                </button>
+              ))}
+            </div>
+          )}
+          <button className="btn-submit" style={{ fontSize: 13, padding: "6px 14px", whiteSpace: "nowrap" }} onClick={() => setShowCreateModal(true)}>
+            + Crear speech
+          </button>
+        </div>
 
         {/* Provisional badge + publish button */}
         {current?.isProvisional && (
@@ -313,12 +378,23 @@ export default function BibliotecaPage() {
         )}
 
         {/* Empty state */}
-        {!current && (
-          <div className="c5-empty-card">
-            <div className="c5-empty-title">Sin speech para esta etapa</div>
-            <div className="c5-empty-sub">Genera uno con IA basado en el scorecard.</div>
-          </div>
-        )}
+        {!current && (() => {
+          const stage = stages.find(s => s.id === selectedStageId);
+          if (stage && !stage.scorecard_id) {
+            return (
+              <div className="c5-empty-card" style={{ background: "#f5f5f4", borderColor: "#d6d3d1" }}>
+                <div className="c5-empty-title" style={{ color: "#78716c" }}>Aún no configurado</div>
+                <div className="c5-empty-sub" style={{ color: "#a8a29e" }}>Asigna un scorecard a esta etapa desde /admin → Embudo para empezar a crear el speech.</div>
+              </div>
+            );
+          }
+          return (
+            <div className="c5-empty-card">
+              <div className="c5-empty-title">Sin speech para esta etapa</div>
+              <div className="c5-empty-sub">Crea uno nuevo o genera con IA.</div>
+            </div>
+          );
+        })()}
 
         {/* Actions */}
         <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
@@ -353,6 +429,38 @@ export default function BibliotecaPage() {
         </div>
 
         <a href="/equipo" className="c5-back-link">Volver al dashboard</a>
+
+        {/* Create speech modal */}
+        {showCreateModal && (
+          <>
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 100 }} onClick={() => setShowCreateModal(false)} />
+            <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: "white", borderRadius: 12, padding: 24, zIndex: 101, width: "min(400px, 90vw)", boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
+              <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 600 }}>Crear speech nuevo</h3>
+              <p style={{ fontSize: 13, color: "#737373", margin: "0 0 12px" }}>
+                Selecciona la etapa del embudo. Se creará una plantilla basada en las fases del scorecard asociado.
+              </p>
+              <select className="input-field" value={createStageId} onChange={e => setCreateStageId(e.target.value)} style={{ marginBottom: 12 }}>
+                <option value="">Selecciona etapa</option>
+                {stages.filter(s => s.scorecard_id).map(s => (
+                  <option key={s.id} value={s.id} disabled={!!speechByStage[s.id]}>
+                    {s.name} {speechByStage[s.id] ? "(ya tiene speech)" : ""}
+                  </option>
+                ))}
+                {stages.filter(s => !s.scorecard_id).map(s => (
+                  <option key={s.id} value="" disabled>
+                    {s.name} (sin scorecard configurado)
+                  </option>
+                ))}
+              </select>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn-submit" onClick={createSpeechFromTemplate} disabled={creatingSpeech || !createStageId} style={{ flex: 1 }}>
+                  {creatingSpeech ? "Creando..." : "Crear plantilla"}
+                </button>
+                <button className="adm-btn-ghost" onClick={() => setShowCreateModal(false)} style={{ padding: "8px 16px" }}>Cancelar</button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
