@@ -563,10 +563,12 @@ async function processAnalysis(env, analysisId, body, scorecard) {
       promptWithDescal += `\n\n---\nTONO Y FORMATO DEL PATRÓN DE ERROR\nEl bloque PATRÓN DE ERROR PRINCIPAL debe ser BREVE: máximo 2-3 oraciones concretas y accionables. No es un análisis completo — es un tip rápido. Usa tono de coaching positivo. Empieza con "Para tu siguiente llamada, enfócate en...", "Un área de oportunidad es...", "Esta semana puedes mejorar en...". NUNCA uses "cometió un error", "falla más común", "error costoso". El objetivo es motivar, no señalar fallos.\n\nIDIOMA: Responde completamente en español. No uses anglicismos ni palabras en inglés (no "follow-up", "lead", "goodwill", "call to action", "closing"). Usa los equivalentes en español: seguimiento, prospecto, confianza, llamado a la acción, cierre.`;
     }
 
-    // Prospect extraction + checklist — both vary by vertical
+    // Prospect extraction + checklist — read from structure JSONB, fallback to legacy constants
     const vertical = scorecard.vertical || 'inmobiliario';
+    const structure = scorecard.structure || {};
 
-    const PROSPECT_BLOCK = {
+    // ─── Legacy constants (fallback, remove after 2026-05-12) ───
+    const PROSPECT_BLOCK_LEGACY = {
       inmobiliario: `PROSPECTO_NOMBRE: [nombre del prospecto si se menciona, o "No identificado"]
 PROSPECTO_ZONA: [colonia, zona o municipio si se menciona, o "No identificada"]
 TIPO_PROPIEDAD: [casa, departamento, terreno, local, o "No identificado"]
@@ -578,14 +580,41 @@ TIPO_NEGOCIO: [tortillería, tienda de abarrotes, taller, ambulante, etc. o "No 
 TIPO_EQUIPO: [horno, vitrina, refrigerador, máquina tortilladora, etc. o "No mencionado"]
 PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en la transcripción, o "No detectado"]`,
     };
-
-    const CHECKLIST_BLOCK = {
+    const CHECKLIST_BLOCK_LEGACY = {
       inmobiliario: `Los 26 campos del checklist son: Nombre completo, Dirección de la propiedad, Dirección INE, Estado civil, Libre de gravamen, Pagos puntuales, Adeudos en tiempo consecutivo, Crédito individual o conyugal, NSS, NC, Papelería/escrituras, Descripción del domicilio, Casa habitada o desocupada, Servicios a nombre de quién, Adeudos de servicios, Financiamiento de adeudos, Motivo de venta, Expectativa del cliente, Precio estimado de venta, Precio estimado de captación, Disponibilidad para visita, Fecha y hora propuesta, Lectura de urgencia, Lectura de disposición, Lectura de resistencia, Promesa de venta.`,
       financiero: `Los 14 campos del checklist son: Nombre del titular, Nombre del negocio, Tipo de negocio, Ubicación del negocio, Antigüedad del negocio, Ingresos mensuales estimados, Equipo que necesita financiar, Monto de crédito solicitado, Plazo deseado, Enganche disponible, Historial crediticio, Documentación disponible, Disponibilidad para visita, Fecha y hora propuesta.`,
     };
 
-    const prospectFields = PROSPECT_BLOCK[vertical] || PROSPECT_BLOCK.inmobiliario;
-    const checklistFields = CHECKLIST_BLOCK[vertical] || CHECKLIST_BLOCK.inmobiliario;
+    // ─── Resolve from DB or legacy ───
+    const dbChecklistFields = Array.isArray(structure.checklist_fields) && structure.checklist_fields.length > 0
+      ? structure.checklist_fields : null;
+    const dbProspectFields = Array.isArray(structure.prospect_fields) && structure.prospect_fields.length > 0
+      ? structure.prospect_fields : null;
+
+    const checklistSource = dbChecklistFields ? 'db' : 'legacy';
+    const prospectSource = dbProspectFields ? 'db' : 'legacy';
+
+    console.log(`[worker] checklist source: ${checklistSource} — template_id=${scorecard.template_id || 'null'}, fields_count=${dbChecklistFields ? dbChecklistFields.length : 0}`);
+    console.log(`[worker] prospect source: ${prospectSource} — fields_count=${dbProspectFields ? dbProspectFields.length : 0}`);
+
+    // Build prospect extraction block
+    let prospectFields;
+    if (dbProspectFields) {
+      prospectFields = dbProspectFields
+        .map(f => `${f.key}: [${f.instruction}]`)
+        .join('\n');
+    } else {
+      prospectFields = PROSPECT_BLOCK_LEGACY[vertical] || PROSPECT_BLOCK_LEGACY.inmobiliario;
+    }
+
+    // Build checklist block
+    let checklistFields;
+    if (dbChecklistFields) {
+      const labels = dbChecklistFields.map(f => f.label).join(', ');
+      checklistFields = `Los ${dbChecklistFields.length} campos del checklist son: ${labels}.`;
+    } else {
+      checklistFields = CHECKLIST_BLOCK_LEGACY[vertical] || CHECKLIST_BLOCK_LEGACY.inmobiliario;
+    }
 
     promptWithDescal += `\n\n---\nEXTRACCION DE DATOS DEL PROSPECTO\nAl final de tu respuesta, incluye estas líneas:\n${prospectFields}\n\nCHECKLIST: [JSON array con cada campo evaluado]\nFormato: [{"field":"Nombre del titular","covered":true},{"field":"Tipo de negocio","covered":true},...]\n${checklistFields}\nMarca covered=true si el asesor PREGUNTÓ o mencionó ese punto, covered=false si no.`;
 
