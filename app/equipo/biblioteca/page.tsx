@@ -439,24 +439,32 @@ export default function BibliotecaPage() {
               <p style={{ fontSize: 13, color: "#737373", margin: "0 0 12px" }}>
                 Selecciona la etapa del embudo. Se creará una plantilla basada en las fases del scorecard asociado.
               </p>
-              <select className="input-field" value={createStageId} onChange={e => setCreateStageId(e.target.value)} style={{ marginBottom: 12 }}>
-                <option value="">Selecciona etapa</option>
-                {stages.filter(s => s.scorecard_id).map(s => (
-                  <option key={s.id} value={s.id} disabled={!!speechByStage[s.id]}>
-                    {s.name} {speechByStage[s.id] ? "(ya tiene speech)" : ""}
-                  </option>
-                ))}
-                {stages.filter(s => !s.scorecard_id).map(s => (
-                  <option key={s.id} value="" disabled>
-                    {s.name} (sin scorecard configurado)
-                  </option>
-                ))}
-              </select>
+              {stages.filter(s => s.scorecard_id && !speechByStage[s.id]).length === 0 ? (
+                <p style={{ fontSize: 13, color: "#78716c", background: "#f5f5f4", borderRadius: 8, padding: "10px 12px", margin: "0 0 12px" }}>
+                  Todas las etapas con scorecard ya tienen speech. Para editarlas, selecciona la etapa en los tabs.
+                </p>
+              ) : (
+                <select className="input-field" value={createStageId} onChange={e => setCreateStageId(e.target.value)} style={{ marginBottom: 12 }}>
+                  <option value="">Selecciona etapa</option>
+                  {stages.filter(s => s.scorecard_id && !speechByStage[s.id]).map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                  {stages.filter(s => !s.scorecard_id).map(s => (
+                    <option key={s.id} value="" disabled>
+                      {s.name} (sin scorecard configurado)
+                    </option>
+                  ))}
+                </select>
+              )}
               <div style={{ display: "flex", gap: 8 }}>
-                <button className="btn-submit" onClick={createSpeechFromTemplate} disabled={creatingSpeech || !createStageId} style={{ flex: 1 }}>
-                  {creatingSpeech ? "Creando..." : "Crear plantilla"}
+                {stages.filter(s => s.scorecard_id && !speechByStage[s.id]).length > 0 && (
+                  <button className="btn-submit" onClick={createSpeechFromTemplate} disabled={creatingSpeech || !createStageId} style={{ flex: 1 }}>
+                    {creatingSpeech ? "Creando..." : "Crear plantilla"}
+                  </button>
+                )}
+                <button className="adm-btn-ghost" onClick={() => setShowCreateModal(false)} style={{ padding: "8px 16px" }}>
+                  {stages.filter(s => s.scorecard_id && !speechByStage[s.id]).length > 0 ? "Cancelar" : "Cerrar"}
                 </button>
-                <button className="adm-btn-ghost" onClick={() => setShowCreateModal(false)} style={{ padding: "8px 16px" }}>Cancelar</button>
               </div>
             </div>
           </>
