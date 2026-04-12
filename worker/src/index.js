@@ -214,6 +214,7 @@ function parseClaudeOutput(rawText, extractionPatterns) {
     detected_stage_name: null,
     prospect_phone: null,
     checklist_results: null,
+    highlights: [],
     phases: [],
   };
 
@@ -329,6 +330,19 @@ function parseClaudeOutput(rawText, extractionPatterns) {
     } catch (e) {
       console.error(`[debug-descal-parse] JSON.parse failed: ${e.message} raw=${descalMatch[1]}`);
     }
+  }
+
+  // Highlights — snippet-based anchors from Claude
+  const highlightsMatch = rawText.match(/HIGHLIGHTS:\s*(\[[\s\S]*?\])/i);
+  if (highlightsMatch) {
+    try {
+      const arr = JSON.parse(highlightsMatch[1]);
+      if (Array.isArray(arr)) {
+        result.highlights = arr
+          .filter(h => h && h.type && h.snippet && typeof h.snippet === 'string')
+          .slice(0, 6);
+      }
+    } catch { /* malformed JSON — degrade silently */ }
   }
 
   // Strip JSON artifacts from all text fields
@@ -657,6 +671,9 @@ PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en l
       console.log(`[debug-descal] org=${organization_id} descalCats=0 — SKIPPING descal block in prompt`);
     }
 
+    // Highlights instruction — appended to both paths
+    promptWithDescal += `\n\n---\nHIGHLIGHTS DE LA TRANSCRIPCIÓN\nIdentifica fragmentos EXACTOS de la transcripción que correspondan a momentos críticos o patrones de error. Copia el texto LITERAL de la transcripción, sin parafrasear.\n\nAl final de tu respuesta, incluye un bloque con el formato:\nHIGHLIGHTS: [{"type":"momento_critico","snippet":"<texto exacto copiado literal de la transcripción>","description":"<por qué es crítico>"},{"type":"patron_error","snippet":"<texto exacto>","description":"<qué patrón detectó>"}]\n\nReglas:\n- El snippet DEBE ser copiado literal de la transcripción, sin parafrasear ni resumir.\n- Máximo 3 highlights de tipo momento_critico y 3 de tipo patron_error.\n- Si no encuentras un fragmento relevante para algún tipo, omítelo.\n- Cada snippet debe tener entre 10 y 150 caracteres.`;
+
     const rawOutput = await callClaude(env, promptWithDescal, transcription);
     console.log(`[debug-claude-raw] len=${rawOutput.length} tail=${rawOutput.slice(-2000)}`);
     const parsed = parseClaudeOutput(rawOutput, dbExtractionPatterns);
@@ -744,6 +761,7 @@ PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en l
       checklist_results: parsed.checklist_results,
       notes: body.call_notes || null,
       related_analysis_id: relatedId,
+      highlights: parsed.highlights.length > 0 ? parsed.highlights : [],
       status: 'completado',
     };
 

@@ -45,6 +45,7 @@ interface Analysis {
   lead_estado: string | null;
   related_analysis_id: string | null;
   legacy_note: string | null;
+  highlights: { type: string; snippet: string; description: string }[] | null;
   created_at: string;
 }
 
@@ -127,7 +128,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
 
       const { data: a, error: aErr } = await supabase
         .from("analyses")
-        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, notes, lead_estado, related_analysis_id, created_at, scorecard_id, legacy_note")
+        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, notes, lead_estado, related_analysis_id, created_at, scorecard_id, legacy_note, highlights")
         .eq("id", id)
         .single();
 
@@ -527,6 +528,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
             showEditBadge={true}
             showEditHistory={false}
             userId={userId}
+            highlights={analysis.highlights || []}
             onSaved={(newText, newPct) => { setTranscription(newText); setEditPercentage(newPct); }}
           />
         </details>

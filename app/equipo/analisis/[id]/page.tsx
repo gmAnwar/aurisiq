@@ -39,7 +39,7 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
       setUserId(session.userId);
 
       const { data: a } = await supabase.from("analyses")
-        .select("id, user_id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, created_at, organization_id, manager_note, prospect_name, prospect_zone, property_type, sale_reason, prospect_phone, checklist_results, legacy_note")
+        .select("id, user_id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, created_at, organization_id, manager_note, prospect_name, prospect_zone, property_type, sale_reason, prospect_phone, checklist_results, legacy_note, highlights")
         .eq("id", id).single();
 
       if (!a) { setError("Análisis no encontrado."); setLoading(false); return; }
@@ -336,6 +336,7 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
             showEditBadge={true}
             showEditHistory={true}
             userId={userId}
+            highlights={(analysis?.highlights as { type: string; snippet: string; description: string }[]) || []}
             onSaved={(newText, newPct) => { setTranscription(newText); setEditPercentage(newPct); }}
           />
         )}

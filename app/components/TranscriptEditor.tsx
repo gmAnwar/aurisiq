@@ -14,6 +14,12 @@ interface EditLogRow {
   user_name?: string;
 }
 
+interface Highlight {
+  type: string;
+  snippet: string;
+  description: string;
+}
+
 interface Props {
   analysisId: string;
   transcriptionText: string;
@@ -22,6 +28,7 @@ interface Props {
   showEditBadge: boolean;
   showEditHistory: boolean;
   userId: string;
+  highlights?: Highlight[];
   onSaved?: (newText: string, newPct: number) => void;
 }
 
@@ -33,6 +40,7 @@ export default function TranscriptEditor({
   showEditBadge,
   showEditHistory,
   userId,
+  highlights = [],
   onSaved,
 }: Props) {
   const [editing, setEditing] = useState(false);
@@ -124,6 +132,51 @@ export default function TranscriptEditor({
     onSaved?.(draft, pct);
   };
 
+  // Build highlighted text segments
+  const renderHighlightedText = (text: string) => {
+    if (!highlights || highlights.length === 0) return text;
+
+    // Find all matches with positions, avoiding overlaps
+    const matches: { start: number; end: number; type: string; description: string }[] = [];
+    for (const h of highlights) {
+      if (!h.snippet || h.snippet.length < 5) continue;
+      const idx = text.indexOf(h.snippet);
+      if (idx === -1) continue;
+      // Check overlap with existing matches
+      const overlaps = matches.some(m => idx < m.end && idx + h.snippet.length > m.start);
+      if (overlaps) continue;
+      matches.push({ start: idx, end: idx + h.snippet.length, type: h.type, description: h.description });
+    }
+
+    if (matches.length === 0) return text;
+
+    // Sort by position
+    matches.sort((a, b) => a.start - b.start);
+
+    // Build segments
+    const segments: React.ReactNode[] = [];
+    let cursor = 0;
+    for (let i = 0; i < matches.length; i++) {
+      const m = matches[i];
+      if (cursor < m.start) {
+        segments.push(text.slice(cursor, m.start));
+      }
+      const style = m.type === "momento_critico"
+        ? { background: "#fef3c7", borderLeft: "2px solid #f59e0b", paddingLeft: 4, paddingRight: 4 }
+        : { background: "#fef2f2", borderLeft: "2px solid #f87171", paddingLeft: 4, paddingRight: 4 };
+      segments.push(
+        <span key={i} style={style} title={m.description}>
+          {text.slice(m.start, m.end)}
+        </span>
+      );
+      cursor = m.end;
+    }
+    if (cursor < text.length) {
+      segments.push(text.slice(cursor));
+    }
+    return <>{segments}</>;
+  };
+
   return (
     <div className="g1-section">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -173,7 +226,7 @@ export default function TranscriptEditor({
         </>
       ) : (
         <div style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.6, color: "var(--ink)" }}>
-          {currentText}
+          {renderHighlightedText(currentText)}
         </div>
       )}
 
