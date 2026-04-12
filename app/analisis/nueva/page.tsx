@@ -955,17 +955,10 @@ export default function NuevaLlamadaPage() {
                   <div className="c2-speech-phase-body">
                     {phase.transition && <p className="c2-hint" style={{ margin: "0 0 6px" }}>{phase.transition}</p>}
                     {phase.phrases && phase.phrases.length > 0 && (
-                      <ul style={{ margin: "4px 0 0", paddingLeft: 18, fontSize: 13 }}>
-                        {phase.phrases.map((p, j) => <li key={j} style={{ marginBottom: 2 }}>{p}</li>)}
-                      </ul>
+                      <SpeechPhraseSingle phrases={phase.phrases} storageKey={`${selectedStage}_${i}`} />
                     )}
                     {phase.fields && phase.fields.length > 0 && phase.fields.map((f, k) => (
-                      <div key={k} style={{ marginTop: 6 }}>
-                        <span style={{ fontSize: 13, fontWeight: 500 }}>{f.field_name}:</span>
-                        <ul style={{ margin: "2px 0 0 10px", paddingLeft: 12, fontSize: 13 }}>
-                          {f.phrases.map((p, l) => <li key={l} style={{ marginBottom: 1 }}>{p}</li>)}
-                        </ul>
-                      </div>
+                      <SpeechFieldSingle key={k} field={f} storageKey={`${selectedStage}_${i}`} />
                     ))}
                   </div>
                 </details>
@@ -1083,6 +1076,111 @@ export default function NuevaLlamadaPage() {
             </div>
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+// C2 recording: show 1 phrase per field with optional selector, persisted in localStorage
+function SpeechFieldSingle({ field, storageKey }: { field: { field_name: string; phrases: string[] }; storageKey: string }) {
+  const lsKey = `c2_speech_pick_${storageKey}_${field.field_name}`;
+  const [selectedIdx, setSelectedIdx] = useState(() => {
+    if (typeof window === "undefined") return 0;
+    const saved = localStorage.getItem(lsKey);
+    const idx = saved ? parseInt(saved, 10) : 0;
+    return idx >= 0 && idx < (field.phrases?.length || 1) ? idx : 0;
+  });
+  const [showAlts, setShowAlts] = useState(false);
+
+  if (!field.phrases || field.phrases.length === 0) return null;
+
+  const altCount = field.phrases.length - 1;
+
+  return (
+    <div style={{ marginTop: 6 }}>
+      <span style={{ fontSize: 13, fontWeight: 500 }}>{field.field_name}:</span>
+      <p style={{ margin: "2px 0 0 10px", fontSize: 13 }}>{field.phrases[selectedIdx]}</p>
+      {altCount > 0 && !showAlts && (
+        <button
+          type="button"
+          onClick={() => setShowAlts(true)}
+          style={{ background: "none", border: "none", padding: "2px 10px", fontSize: 11, color: "var(--ink-light, #888)", cursor: "pointer", textDecoration: "underline" }}
+        >
+          Ver otra{altCount > 1 ? "s" : ""} {altCount} opci{altCount > 1 ? "ones" : "ón"}
+        </button>
+      )}
+      {showAlts && (
+        <div style={{ margin: "4px 0 0 10px", fontSize: 12 }}>
+          {field.phrases.map((ph, i) => (
+            <label key={i} style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 2, cursor: "pointer" }}>
+              <input
+                type="radio"
+                name={lsKey}
+                checked={i === selectedIdx}
+                onChange={() => {
+                  setSelectedIdx(i);
+                  localStorage.setItem(lsKey, String(i));
+                  setShowAlts(false);
+                }}
+                style={{ margin: 0, accentColor: "var(--accent, #4f46e5)" }}
+              />
+              <span style={{ color: i === selectedIdx ? "var(--ink, #1a1a1a)" : "var(--ink-light, #888)" }}>{ph}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// C2 recording: show 1 phrase for phase-level phrases (no field_name)
+function SpeechPhraseSingle({ phrases, storageKey }: { phrases: string[]; storageKey: string }) {
+  const lsKey = `c2_speech_phase_pick_${storageKey}`;
+  const [selectedIdx, setSelectedIdx] = useState(() => {
+    if (typeof window === "undefined") return 0;
+    const saved = localStorage.getItem(lsKey);
+    const idx = saved ? parseInt(saved, 10) : 0;
+    return idx >= 0 && idx < phrases.length ? idx : 0;
+  });
+  const [showAlts, setShowAlts] = useState(false);
+
+  if (phrases.length <= 1) {
+    return <p style={{ margin: "4px 0 0 0", fontSize: 13 }}>{phrases[0]}</p>;
+  }
+
+  const altCount = phrases.length - 1;
+
+  return (
+    <div>
+      <p style={{ margin: "4px 0 0 0", fontSize: 13 }}>{phrases[selectedIdx]}</p>
+      {!showAlts && (
+        <button
+          type="button"
+          onClick={() => setShowAlts(true)}
+          style={{ background: "none", border: "none", padding: "2px 0", fontSize: 11, color: "var(--ink-light, #888)", cursor: "pointer", textDecoration: "underline" }}
+        >
+          Ver otra{altCount > 1 ? "s" : ""} {altCount} opci{altCount > 1 ? "ones" : "ón"}
+        </button>
+      )}
+      {showAlts && (
+        <div style={{ margin: "4px 0 0", fontSize: 12 }}>
+          {phrases.map((ph, i) => (
+            <label key={i} style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 2, cursor: "pointer" }}>
+              <input
+                type="radio"
+                name={lsKey}
+                checked={i === selectedIdx}
+                onChange={() => {
+                  setSelectedIdx(i);
+                  localStorage.setItem(lsKey, String(i));
+                  setShowAlts(false);
+                }}
+                style={{ margin: 0, accentColor: "var(--accent, #4f46e5)" }}
+              />
+              <span style={{ color: i === selectedIdx ? "var(--ink, #1a1a1a)" : "var(--ink-light, #888)" }}>{ph}</span>
+            </label>
+          ))}
+        </div>
       )}
     </div>
   );
