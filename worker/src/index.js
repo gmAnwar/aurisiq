@@ -340,7 +340,7 @@ function parseClaudeOutput(rawText, extractionPatterns) {
       if (Array.isArray(arr)) {
         result.highlights = arr
           .filter(h => h && h.type && h.snippet && typeof h.snippet === 'string')
-          .slice(0, 8);
+          .slice(0, 12);
       }
     } catch { /* malformed JSON — degrade silently */ }
   }
