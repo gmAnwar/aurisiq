@@ -2177,18 +2177,12 @@ div:has(> .c4-item):hover .historial-delete-btn {
 }
 .c1-streak-icon { flex-shrink: 0; }
 .c1-streak-number {
+  display: block;
   font-family: 'DM Sans', sans-serif;
-  font-size: 30px;
-  font-weight: 800;
-  color: #c2410c;
-  line-height: 1;
-  margin-right: 6px;
-}
-.c1-streak-label {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
   color: #9a3412;
+  line-height: 1.2;
 }
 .c1-streak-record {
   display: block;
@@ -2200,6 +2194,9 @@ div:has(> .c4-item):hover .historial-delete-btn {
 }
 .c1-streak-new {
   color: #16a34a;
+}
+.c1-streak-amber {
+  color: #d97706;
 }
 
 /* =============================================

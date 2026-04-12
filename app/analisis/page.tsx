@@ -348,10 +348,11 @@ export default function MiDiaPage() {
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
           </div>
           <div>
-            <span className="c1-streak-number">{streak}</span>
-            <span className="c1-streak-label">día{streak > 1 ? "s" : ""} seguido{streak > 1 ? "s" : ""}</span>
-            {streak >= longestStreak && streak > 1 ? (
-              <span className="c1-streak-record c1-streak-new">Nuevo récord personal</span>
+            <span className="c1-streak-number">{streak} días seguidos</span>
+            {streak > longestStreak ? (
+              <span className="c1-streak-record c1-streak-new">🔥 ¡Nuevo récord personal!</span>
+            ) : streak === longestStreak && streak > 1 ? (
+              <span className="c1-streak-record c1-streak-amber">Igualaste tu récord de {streak} días</span>
             ) : longestStreak > streak ? (
               <span className="c1-streak-record">Tu récord: {longestStreak} días</span>
             ) : null}
