@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { supabase } from "../../../../lib/supabase";
 import { requireAuth } from "../../../../lib/auth";
+import TranscriptEditor from "../../../components/TranscriptEditor";
 
 interface Phase { phase_name: string; score: number; score_max: number; }
 interface DescalCat { code: string; label: string; }
@@ -23,7 +24,7 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
   const [editingNote, setEditingNote] = useState(false);
   const [editPercentage, setEditPercentage] = useState(0);
   const [transcriptionOriginal, setTranscriptionOriginal] = useState<string | null>(null);
-  const [showOriginal, setShowOriginal] = useState(false);
+  // showOriginal now handled inside TranscriptEditor
   const [pauseCount, setPauseCount] = useState(0);
   const [totalPaused, setTotalPaused] = useState(0);
   const [relatedCalls, setRelatedCalls] = useState<RelatedCall[]>([]);
@@ -325,30 +326,14 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
 
         {/* Transcription */}
         {transcription && (
-          <div className="g1-section">
-            <div className="g3-transcription-header">
-              <h2 className="g1-section-title">Transcripción</h2>
-              {editPercentage > 0 && (
-                <span className={`g3-edit-badge ${editPercentage > 10 ? "g3-edit-badge-high" : "g3-edit-badge-low"}`} title={editPercentage > 10 ? "Revisar — alta divergencia vs transcripción original" : undefined}>
-                  Editada {Math.round(editPercentage * 10) / 10}%
-                </span>
-              )}
-            </div>
-            <div className="g3-transcription">{transcription}</div>
-            {editPercentage > 0 && transcriptionOriginal && (
-              <>
-                <button className="g3-show-original" onClick={() => setShowOriginal(!showOriginal)}>
-                  {showOriginal ? "Ocultar original" : "Ver original"}
-                </button>
-                {showOriginal && (
-                  <div className="g3-original-panel">
-                    <span className="g3-original-label">Transcripción original (AssemblyAI)</span>
-                    <div className="g3-transcription g3-transcription-original">{transcriptionOriginal}</div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+          <TranscriptEditor
+            analysisId={id}
+            transcriptionText={transcription}
+            transcriptionOriginal={transcriptionOriginal}
+            editPercentage={editPercentage}
+            showEditBadge={true}
+            onSaved={(newText, newPct) => { setTranscription(newText); setEditPercentage(newPct); }}
+          />
         )}
 
         <a href="/equipo" className="c5-back-link">Volver al dashboard</a>

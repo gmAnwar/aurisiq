@@ -7,6 +7,7 @@ import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
 import { stripJson } from "../../../lib/text";
 import EditableField from "../../components/EditableName";
+import TranscriptEditor from "../../components/TranscriptEditor";
 
 interface Phase {
   phase_name: string;
@@ -65,6 +66,8 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
   const [relatedCalls, setRelatedCalls] = useState<RelatedCall[]>([]);
   const [vertical, setVertical] = useState<string | null>(null);
   const [transcription, setTranscription] = useState<string | null>(null);
+  const [transcriptionOriginal, setTranscriptionOriginal] = useState<string | null>(null);
+  const [editPercentage, setEditPercentage] = useState(0);
 
   useEffect(() => {
     async function load() {
@@ -108,6 +111,8 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
           setRelatedCalls(body.related || []);
           if (body.job) {
             setTranscription(body.job.transcription_edited || body.job.transcription_text || body.job.transcription_original || null);
+            setTranscriptionOriginal(body.job.transcription_original || null);
+            setEditPercentage(body.job.edit_percentage || 0);
           }
           setLoading(false);
           return;
@@ -163,11 +168,13 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
       // Fetch transcription from analysis_jobs
       const { data: job } = await supabase
         .from("analysis_jobs")
-        .select("transcription_text, transcription_edited, transcription_original")
+        .select("transcription_text, transcription_edited, transcription_original, edit_percentage")
         .eq("analysis_id", id)
         .maybeSingle();
       if (job) {
         setTranscription(job.transcription_edited || job.transcription_text || job.transcription_original || null);
+        setTranscriptionOriginal(job.transcription_original || null);
+        setEditPercentage(job.edit_percentage || 0);
       }
 
       // Fetch related calls with same prospect
@@ -510,9 +517,14 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
       {transcription && (
         <details className="c3-expandable">
           <summary className="c3-expand-summary">Ver transcripción de la llamada</summary>
-          <div className="c3-transcription" style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.6, color: "var(--ink)", padding: "12px 0" }}>
-            {transcription}
-          </div>
+          <TranscriptEditor
+            analysisId={analysis.id}
+            transcriptionText={transcription}
+            transcriptionOriginal={transcriptionOriginal}
+            editPercentage={editPercentage}
+            showEditBadge={false}
+            onSaved={(newText, newPct) => { setTranscription(newText); setEditPercentage(newPct); }}
+          />
         </details>
       )}
 
