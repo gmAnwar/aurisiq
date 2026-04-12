@@ -913,6 +913,34 @@ body.has-nav {
   padding: 0 14px 14px;
 }
 
+/* Speech per-phase accordion */
+.c2-speech-phase { border-top: 1px solid var(--border, #e5e5e5); }
+.c2-speech-phase-summary {
+  padding: 9px 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink, #1a1a1a);
+}
+.c2-speech-phase-summary::before {
+  content: '▸';
+  font-size: 11px;
+  transition: transform 0.15s ease;
+}
+.c2-speech-phase[open] > .c2-speech-phase-summary::before {
+  transform: rotate(90deg);
+}
+.c2-speech-phase-summary::-webkit-details-marker { display: none; }
+.c2-speech-phase-body {
+  padding: 0 14px 12px 28px;
+}
+
 /* C2 file drop zone */
 .c2-drop-zone {
   position: relative;

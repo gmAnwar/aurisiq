@@ -911,24 +911,26 @@ export default function NuevaLlamadaPage() {
 
         {/* Collapsible reference panels */}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {/* 1. Mi Speech */}
-          <details className="c2-collapse">
-            <summary className="c2-collapse-summary">Mi Speech</summary>
-            <div className="c2-collapse-body">
-              {guidePhases.length === 0 ? (
+          {/* 1. Mi Speech — each phase colapsable */}
+          <div className="c2-collapse" style={{ border: "1px solid var(--border, #e5e5e5)", borderRadius: 8, overflow: "hidden" }}>
+            <div className="c2-collapse-summary" style={{ padding: "10px 14px", fontWeight: 600, fontSize: 14 }}>Mi Speech</div>
+            {guidePhases.length === 0 ? (
+              <div className="c2-collapse-body">
                 <p className="c2-hint">{selectedStage ? "No hay speech publicado para esta etapa." : "Selecciona una etapa para ver tu speech."}</p>
-              ) : (
-                guidePhases.map((phase, i) => (
-                  <div key={i} style={{ marginBottom: 12 }}>
-                    <strong style={{ fontSize: 14 }}>{phase.phase_name}</strong>
-                    {phase.transition && <p className="c2-hint" style={{ margin: "2px 0 4px" }}>{phase.transition}</p>}
+              </div>
+            ) : (
+              guidePhases.map((phase, i) => (
+                <details key={i} open={i === 0} className="c2-speech-phase">
+                  <summary className="c2-speech-phase-summary">{phase.phase_name}</summary>
+                  <div className="c2-speech-phase-body">
+                    {phase.transition && <p className="c2-hint" style={{ margin: "0 0 6px" }}>{phase.transition}</p>}
                     {phase.phrases && phase.phrases.length > 0 && (
                       <ul style={{ margin: "4px 0 0", paddingLeft: 18, fontSize: 13 }}>
                         {phase.phrases.map((p, j) => <li key={j} style={{ marginBottom: 2 }}>{p}</li>)}
                       </ul>
                     )}
                     {phase.fields && phase.fields.length > 0 && phase.fields.map((f, k) => (
-                      <div key={k} style={{ marginLeft: 8, marginTop: 4 }}>
+                      <div key={k} style={{ marginTop: 6 }}>
                         <span style={{ fontSize: 13, fontWeight: 500 }}>{f.field_name}:</span>
                         <ul style={{ margin: "2px 0 0 10px", paddingLeft: 12, fontSize: 13 }}>
                           {f.phrases.map((p, l) => <li key={l} style={{ marginBottom: 1 }}>{p}</li>)}
@@ -936,10 +938,10 @@ export default function NuevaLlamadaPage() {
                       </div>
                     ))}
                   </div>
-                ))
-              )}
-            </div>
-          </details>
+                </details>
+              ))
+            )}
+          </div>
 
           {/* 2. Checklist */}
           <details className="c2-collapse">
