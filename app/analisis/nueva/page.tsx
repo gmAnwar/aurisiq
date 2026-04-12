@@ -39,6 +39,8 @@ export default function NuevaLlamadaPage() {
   const [checklistFields, setChecklistFields] = useState<ChecklistField[]>([]);
   const [selectedSource, setSelectedSource] = useState("");
   const [selectedStage, setSelectedStage] = useState("");
+  const [stageNoScorecard, setStageNoScorecard] = useState(false);
+  const [stageNoSpeech, setStageNoSpeech] = useState(false);
   const [transcription, setTranscription] = useState("");
   const [notes, setNotes] = useState("");
   const [callNotes, setCallNotes] = useState("");
@@ -203,7 +205,7 @@ export default function NuevaLlamadaPage() {
   // Stage is optional: Claude auto-detects it from the transcription
   // when the user leaves it blank. User can still choose a stage manually.
   const missingConfig = leadSources.length === 0 && !loading;
-  const canSubmit = selectedSource !== "" && wordCount >= MIN_WORDS && status === "idle" && !isTranscribing && !missingConfig;
+  const canSubmit = selectedSource !== "" && wordCount >= MIN_WORDS && status === "idle" && !isTranscribing && !missingConfig && !stageNoScorecard;
   const charCount = transcription.length;
   const CHAR_LIMIT = 15000;
 
@@ -441,9 +443,18 @@ export default function NuevaLlamadaPage() {
   // 2. Published global speech (funnel_stage_id IS NULL)
   useEffect(() => {
     setGuidePhases([]);
+    setStageNoScorecard(false);
+    setStageNoSpeech(false);
     if (!orgId) return;
     let cancelled = false;
     const stage = funnelStages.find(s => s.id === selectedStage);
+
+    // Check: stage selected but no scorecard
+    if (selectedStage && stage && !stage.scorecard_id) {
+      setStageNoScorecard(true);
+      return;
+    }
+
     (async () => {
       try {
         let data: { content: unknown }[] | null = null;
@@ -464,8 +475,11 @@ export default function NuevaLlamadaPage() {
           data = (await q2)?.data ?? null;
         }
 
-        if (!cancelled && data?.length && data[0]?.content) {
+        if (cancelled) return;
+        if (data?.length && data[0]?.content) {
           setGuidePhases(parseGuideContent(data[0].content as unknown));
+        } else if (selectedStage) {
+          setStageNoSpeech(true);
         }
       } catch { /* ignore — guidePhases stays empty */ }
     })();
@@ -796,6 +810,16 @@ export default function NuevaLlamadaPage() {
               </option>
             ))}
           </select>
+          {stageNoScorecard && (
+            <div className="message-box message-error" style={{ marginTop: 8 }}>
+              <p>Esta etapa no está completamente configurada. Pídele a tu administrador que le asigne criterios de evaluación antes de grabar.</p>
+            </div>
+          )}
+          {stageNoSpeech && !stageNoScorecard && (
+            <div style={{ marginTop: 8, padding: "8px 12px", background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 6, fontSize: 13, color: "#92400e" }}>
+              Esta etapa aún no tiene speech publicado. Puedes grabar pero no tendrás referencia durante la llamada.
+            </div>
+          )}
           {missedFields.length > 0 && !transcription && rec.recMode === "off" && (
             <p className="c2-missed-tip">En tus últimas llamadas se te olvidó preguntar: {missedFields.join(", ")}</p>
           )}
