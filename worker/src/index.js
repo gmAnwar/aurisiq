@@ -195,7 +195,7 @@ async function callClaude(env, systemPrompt, userMessage) {
 
 // ─── Parsing ───────────────────────────────────────────────
 
-function parseClaudeOutput(rawText) {
+function parseClaudeOutput(rawText, extractionPatterns) {
   const result = {
     score_general: null,
     clasificacion: null,
@@ -266,29 +266,48 @@ function parseClaudeOutput(rawText) {
   );
   if (leadMatch) result.lead_status = leadMatch[1].toLowerCase();
 
-  // Prospect extraction
-  const nameMatch = rawText.match(/PROSPECTO_NOMBRE:\s*(.+?)(?:\n|$)/i);
-  if (nameMatch) result.prospect_name = nameMatch[1].trim();
-  const zoneMatch = rawText.match(/PROSPECTO_ZONA:\s*(.+?)(?:\n|$)/i);
-  if (zoneMatch) result.prospect_zone = zoneMatch[1].trim();
-  const typeMatch = rawText.match(/TIPO_PROPIEDAD:\s*(.+?)(?:\n|$)/i);
-  if (typeMatch) result.property_type = typeMatch[1].trim();
-  // Financiero vertical: separate columns per field
-  const negocioMatch = rawText.match(/TIPO_NEGOCIO:\s*(.+?)(?:\n|$)/i);
-  if (negocioMatch) result.business_type = negocioMatch[1].trim();
-  const equipoMatch = rawText.match(/TIPO_EQUIPO:\s*(.+?)(?:\n|$)/i);
-  if (equipoMatch) result.equipment_type = equipoMatch[1].trim();
+  // Prospect extraction — DB-driven or legacy fallback
+  if (Array.isArray(extractionPatterns) && extractionPatterns.length > 0) {
+    // DB-driven: use extraction_patterns from scorecard_templates.structure
+    for (const pat of extractionPatterns) {
+      const re = new RegExp(`${pat.key}:\\s*(.+?)(?:\\n|$)`, 'i');
+      const m = rawText.match(re);
+      if (m) {
+        const val = m[1].trim();
+        if (pat.column === 'prospect_phone') {
+          // Phone: extract last 10 digits
+          const digits = val.replace(/\D/g, '');
+          if (digits.length >= 10) result.prospect_phone = digits.slice(-10);
+        } else {
+          result[pat.column] = val;
+        }
+      }
+    }
+  } else {
+    // Legacy hardcoded extraction (remove after 2026-05-12)
+    const nameMatch = rawText.match(/PROSPECTO_NOMBRE:\s*(.+?)(?:\n|$)/i);
+    if (nameMatch) result.prospect_name = nameMatch[1].trim();
+    const zoneMatch = rawText.match(/PROSPECTO_ZONA:\s*(.+?)(?:\n|$)/i);
+    if (zoneMatch) result.prospect_zone = zoneMatch[1].trim();
+    const typeMatch = rawText.match(/TIPO_PROPIEDAD:\s*(.+?)(?:\n|$)/i);
+    if (typeMatch) result.property_type = typeMatch[1].trim();
+    const negocioMatch = rawText.match(/TIPO_NEGOCIO:\s*(.+?)(?:\n|$)/i);
+    if (negocioMatch) result.business_type = negocioMatch[1].trim();
+    const equipoMatch = rawText.match(/TIPO_EQUIPO:\s*(.+?)(?:\n|$)/i);
+    if (equipoMatch) result.equipment_type = equipoMatch[1].trim();
+    const reasonMatch = rawText.match(/MOTIVO_VENTA:\s*(.+?)(?:\n|$)/i);
+    if (reasonMatch) result.sale_reason = reasonMatch[1].trim();
+    const phoneMatch = rawText.match(/PROSPECTO_TELEFONO:\s*(.+?)(?:\n|$)/i);
+    if (phoneMatch) {
+      const digits = phoneMatch[1].replace(/\D/g, '');
+      if (digits.length >= 10) result.prospect_phone = digits.slice(-10);
+    }
+  }
+  // Stage detection — always runs (not vertical-specific)
   const stageMatch = rawText.match(/ETAPA_DETECTADA:\s*(.+?)(?:\n|$)/i);
   if (stageMatch) {
     const val = stageMatch[1].trim();
     if (val && !/^null$|^no\s/i.test(val)) result.detected_stage_name = val;
-  }
-  const reasonMatch = rawText.match(/MOTIVO_VENTA:\s*(.+?)(?:\n|$)/i);
-  if (reasonMatch) result.sale_reason = reasonMatch[1].trim();
-  const phoneMatch = rawText.match(/PROSPECTO_TELEFONO:\s*(.+?)(?:\n|$)/i);
-  if (phoneMatch) {
-    const digits = phoneMatch[1].replace(/\D/g, '');
-    if (digits.length >= 10) result.prospect_phone = digits.slice(-10);
   }
 
   // Checklist
@@ -586,16 +605,23 @@ PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en l
     };
 
     // ─── Resolve from DB or legacy ───
+    // NOTE: V5B (visita presencial) has checklist_fields=[] by design — data is
+    // captured during V5A call, not during the visit. Empty array correctly falls
+    // through to legacy, which is the intended behavior.
     const dbChecklistFields = Array.isArray(structure.checklist_fields) && structure.checklist_fields.length > 0
       ? structure.checklist_fields : null;
     const dbProspectFields = Array.isArray(structure.prospect_fields) && structure.prospect_fields.length > 0
       ? structure.prospect_fields : null;
+    const dbExtractionPatterns = Array.isArray(structure.extraction_patterns) && structure.extraction_patterns.length > 0
+      ? structure.extraction_patterns : null;
 
     const checklistSource = dbChecklistFields ? 'db' : 'legacy';
     const prospectSource = dbProspectFields ? 'db' : 'legacy';
+    const extractionSource = dbExtractionPatterns ? 'db' : 'legacy';
 
-    console.log(`[worker] checklist source: ${checklistSource} — template_id=${scorecard.template_id || 'null'}, fields_count=${dbChecklistFields ? dbChecklistFields.length : 0}`);
-    console.log(`[worker] prospect source: ${prospectSource} — fields_count=${dbProspectFields ? dbProspectFields.length : 0}`);
+    console.log(`[worker] checklist source: ${checklistSource} — template_id=${scorecard.template_id || 'null'}, db_fields=${dbChecklistFields ? dbChecklistFields.length : 0}`);
+    console.log(`[worker] prospect source: ${prospectSource} — db_fields=${dbProspectFields ? dbProspectFields.length : 0}`);
+    console.log(`[worker] extraction source: ${extractionSource} — db_patterns=${dbExtractionPatterns ? dbExtractionPatterns.length : 0}`);
 
     // Build prospect extraction block
     let prospectFields;
@@ -633,7 +659,7 @@ PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en l
 
     const rawOutput = await callClaude(env, promptWithDescal, transcription);
     console.log(`[debug-claude-raw] len=${rawOutput.length} tail=${rawOutput.slice(-2000)}`);
-    const parsed = parseClaudeOutput(rawOutput);
+    const parsed = parseClaudeOutput(rawOutput, dbExtractionPatterns);
     const phasesWithIds = matchPhaseIds(parsed.phases, scorecard.phases || []);
 
     if (phasesWithIds.length > 0) {
