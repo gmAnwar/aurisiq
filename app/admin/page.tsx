@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
+import ScorecardEditor from "./ScorecardEditor";
 
 interface Organization {
   id: string;
@@ -153,6 +154,9 @@ export default function AdminPage() {
   const [stageScorecardId, setStageScorecardId] = useState("");
   const [savingStage, setSavingStage] = useState(false);
   const [archivingStageId, setArchivingStageId] = useState<string | null>(null);
+  const [editingScorecardId, setEditingScorecardId] = useState<string | null>(null);
+  const [editingScorecardStructure, setEditingScorecardStructure] = useState<Record<string, unknown> | null>(null);
+  const [loadingScorecardEditor, setLoadingScorecardEditor] = useState(false);
 
   // Destructive confirm (analyses delete)
   const [pendingDeleteAnalysisId, setPendingDeleteAnalysisId] = useState<string | null>(null);
@@ -643,6 +647,14 @@ export default function AdminPage() {
     await loadAllData();
   }
 
+  async function openScorecardEditor(scorecardId: string) {
+    setLoadingScorecardEditor(true);
+    setEditingScorecardId(scorecardId);
+    const { data } = await supabase.from("scorecards").select("structure").eq("id", scorecardId).single();
+    setEditingScorecardStructure((data?.structure as Record<string, unknown>) || {});
+    setLoadingScorecardEditor(false);
+  }
+
   function stageAnalysisCount(stageId: string) {
     return analyses.filter(a => a.organization_id === (editingStage?.organization_id || embudoOrgFilter)).length;
   }
@@ -1044,6 +1056,7 @@ export default function AdminPage() {
                           <button className="adm-btn-ghost" style={{ fontSize: 12 }} onClick={() => reorderStage(s.id, "up")} disabled={i === 0} title="Subir">▲</button>
                           <button className="adm-btn-ghost" style={{ fontSize: 12 }} onClick={() => reorderStage(s.id, "down")} disabled={i === filteredStages.filter(x => x.active).length - 1} title="Bajar">▼</button>
                           <button className="adm-btn-ghost" style={{ fontSize: 12 }} onClick={() => openStageModal(s)}>Editar</button>
+                          {s.scorecard_id && <button className="adm-btn-ghost" style={{ fontSize: 12 }} onClick={() => openScorecardEditor(s.scorecard_id!)}>Scorecard</button>}
                           <button className="adm-btn-ghost adm-btn-danger-text" style={{ fontSize: 12 }} onClick={() => setArchivingStageId(s.id)}>Archivar</button>
                         </>
                       )}
@@ -1053,6 +1066,23 @@ export default function AdminPage() {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Scorecard editor inline panel */}
+      {editingScorecardId && activeTab === "embudo" && (
+        <div className="adm-section" style={{ borderTop: "2px solid var(--accent, #4f46e5)", marginTop: 8 }}>
+          {loadingScorecardEditor ? (
+            <p style={{ padding: 16, color: "#737373" }}>Cargando scorecard…</p>
+          ) : editingScorecardStructure ? (
+            <ScorecardEditor
+              scorecardId={editingScorecardId}
+              scorecardName={scorecards.find(s => s.id === editingScorecardId)?.name || "Scorecard"}
+              initialStructure={editingScorecardStructure as Record<string, unknown>}
+              onClose={() => { setEditingScorecardId(null); setEditingScorecardStructure(null); }}
+              onSaved={() => loadAllData()}
+            />
+          ) : null}
         </div>
       )}
 
