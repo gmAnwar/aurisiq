@@ -117,7 +117,7 @@ async function getScorecard(env, scorecardId) {
   const rows = await supabaseSelect(
     env,
     'scorecards',
-    `id=eq.${scorecardId}&select=prompt_template,phases,name,version,vertical`
+    `id=eq.${scorecardId}&select=prompt_template,phases,name,version,vertical,structure,template_id`
   );
   if (!rows.length) throw new Error(`Scorecard ${scorecardId} not found`);
   return rows[0];
@@ -435,6 +435,70 @@ async function updateUserStats(env, userId, orgId) {
 
 // ─── Background processing (called via ctx.waitUntil) ──────
 
+// ─── Structured prompt builder (path A) ────────────────────
+function buildPromptFromStructure(structure, vocabulary) {
+  const s = structure;
+  const lines = [];
+
+  // Role + objective
+  lines.push(`Eres AurisIQ, un sistema especializado en análisis de conversaciones de ventas. ${s.objective || ''}`);
+
+  // Context
+  if (s.context) lines.push(`\n${s.context}`);
+
+  // Tone
+  if (s.tone) lines.push(`\nCuando analices siempre: ${s.tone}`);
+
+  // Vocabulary
+  if (vocabulary && vocabulary.length > 0) {
+    lines.push(`\n---\nVOCABULARIO ESPECÍFICO DE ESTA ORGANIZACIÓN\nUsa estos términos tal como están definidos:`);
+    for (const v of vocabulary) {
+      lines.push(`- ${v.term}: ${v.definition}`);
+    }
+  }
+
+  // Output format instruction
+  lines.push(`\nTu output tiene exactamente ${(s.output_blocks || []).length} bloques en este orden: ${(s.output_blocks || []).map(b => b.description).join(', ')}.`);
+  lines.push(`\nEl usuario te enviará la transcripción. Genera el análisis en este formato exacto:`);
+
+  // Score block
+  const scoreBlock = (s.output_blocks || []).find(b => b.key === 'score');
+  if (scoreBlock) {
+    lines.push(`\n---\n\n${scoreBlock.format_instruction}`);
+  }
+
+  // Phase diagnostics
+  lines.push(`\n---\n\nDIAGNÓSTICO POR FASE\n`);
+  for (const phase of (s.phases || [])) {
+    const criteriaDetail = (phase.criteria || [])
+      .filter(c => c.detail)
+      .map(c => c.detail)
+      .join('. ');
+    const baseText = phase.prompt_base || criteriaDetail || '';
+    lines.push(`${phase.name} ([puntaje]/${phase.max_score}): [${baseText}]`);
+  }
+
+  // Objections block
+  const objBlock = (s.output_blocks || []).find(b => b.key === 'objeciones');
+  if (objBlock) {
+    lines.push(`\n---\n\nOBJECIONES DETECTADAS\n\n[Por cada objeción presente:]\n${objBlock.format_instruction}`);
+  }
+
+  // Next step block
+  const nextBlock = (s.output_blocks || []).find(b => b.key === 'siguiente_paso');
+  if (nextBlock) {
+    lines.push(`\n---\n\nSIGUIENTE PASO CON ESTE PROSPECTO\n\n${nextBlock.format_instruction}`);
+  }
+
+  // Pattern block
+  const patternBlock = (s.output_blocks || []).find(b => b.key === 'patron_error');
+  if (patternBlock) {
+    lines.push(`\n---\n\nPATRÓN DE ERROR PRINCIPAL\n\n${patternBlock.format_instruction}`);
+  }
+
+  return lines.join('\n');
+}
+
 async function processAnalysis(env, analysisId, body, scorecard) {
   const { user_id, organization_id } = body;
   const transcription = body.transcription_edited || body.transcription_original || body.transcription;
@@ -452,9 +516,48 @@ async function processAnalysis(env, analysisId, body, scorecard) {
       );
     } catch { /* ignore */ }
 
-    let promptWithDescal = scorecard.prompt_template;
-    // Tone guidance for patron_error — coaching-positive, never aggressive
-    promptWithDescal += `\n\n---\nTONO Y FORMATO DEL PATRÓN DE ERROR\nEl bloque PATRÓN DE ERROR PRINCIPAL debe ser BREVE: máximo 2-3 oraciones concretas y accionables. No es un análisis completo — es un tip rápido. Usa tono de coaching positivo. Empieza con "Para tu siguiente llamada, enfócate en...", "Un área de oportunidad es...", "Esta semana puedes mejorar en...". NUNCA uses "cometió un error", "falla más común", "error costoso". El objetivo es motivar, no señalar fallos.\n\nIDIOMA: Responde completamente en español. No uses anglicismos ni palabras en inglés (no "follow-up", "lead", "goodwill", "call to action", "closing"). Usa los equivalentes en español: seguimiento, prospecto, confianza, llamado a la acción, cierre.`;
+    // Fetch org vocabulary for structured prompt
+    let orgVocabulary = [];
+    try {
+      const orgRows = await supabaseSelect(
+        env, 'organizations',
+        `id=eq.${organization_id}&select=vocabulary`
+      );
+      if (orgRows.length > 0 && Array.isArray(orgRows[0].vocabulary)) {
+        orgVocabulary = orgRows[0].vocabulary;
+      }
+    } catch { /* ignore */ }
+
+    // Path A (structured) vs Path B (legacy)
+    // Path A activates ONLY when:
+    //   1. structure exists with phases
+    //   2. template_id is set (came from a template)
+    //   3. prompt_template is NULL or very short (<500 chars) — i.e. no rich legacy prompt
+    // This ensures existing Inmobili/EnPagos clones (which inherited the long prompt_template)
+    // stay on path B until we explicitly migrate them.
+    const hasStructure = scorecard.structure
+      && typeof scorecard.structure === 'object'
+      && Array.isArray(scorecard.structure.phases)
+      && scorecard.structure.phases.length > 0;
+    const hasTemplate = !!scorecard.template_id;
+    const legacyLen = (scorecard.prompt_template || '').length;
+    const useStructured = hasStructure && hasTemplate && legacyLen < 500;
+
+    console.log(`[worker] scorecard ${scorecard.name || analysisId}: structure=${hasStructure}, template_id=${hasTemplate}, prompt_legacy_len=${legacyLen}, path=${useStructured ? 'A' : 'B'}`);
+
+    let promptWithDescal;
+
+    if (useStructured) {
+      // Path A — build from structure JSONB
+      promptWithDescal = buildPromptFromStructure(scorecard.structure, orgVocabulary);
+
+      // Tone block for patron_error (same as legacy)
+      promptWithDescal += `\n\n---\nTONO Y FORMATO DEL PATRÓN DE ERROR\nEl bloque PATRÓN DE ERROR PRINCIPAL debe ser BREVE: máximo 2-3 oraciones concretas y accionables. No es un análisis completo — es un tip rápido. Usa tono de coaching positivo. Empieza con "Para tu siguiente llamada, enfócate en...", "Un área de oportunidad es...", "Esta semana puedes mejorar en...". NUNCA uses "cometió un error", "falla más común", "error costoso". El objetivo es motivar, no señalar fallos.\n\nIDIOMA: Responde completamente en español. No uses anglicismos ni palabras en inglés (no "follow-up", "lead", "goodwill", "call to action", "closing"). Usa los equivalentes en español: seguimiento, prospecto, confianza, llamado a la acción, cierre.`;
+    } else {
+      // Path B — legacy hardcoded
+      promptWithDescal = scorecard.prompt_template;
+      promptWithDescal += `\n\n---\nTONO Y FORMATO DEL PATRÓN DE ERROR\nEl bloque PATRÓN DE ERROR PRINCIPAL debe ser BREVE: máximo 2-3 oraciones concretas y accionables. No es un análisis completo — es un tip rápido. Usa tono de coaching positivo. Empieza con "Para tu siguiente llamada, enfócate en...", "Un área de oportunidad es...", "Esta semana puedes mejorar en...". NUNCA uses "cometió un error", "falla más común", "error costoso". El objetivo es motivar, no señalar fallos.\n\nIDIOMA: Responde completamente en español. No uses anglicismos ni palabras en inglés (no "follow-up", "lead", "goodwill", "call to action", "closing"). Usa los equivalentes en español: seguimiento, prospecto, confianza, llamado a la acción, cierre.`;
+    }
 
     // Prospect extraction + checklist — both vary by vertical
     const vertical = scorecard.vertical || 'inmobiliario';
