@@ -301,9 +301,19 @@ export default function BibliotecaPage() {
               ))}
             </div>
           )}
-          <button className="btn-submit" style={{ fontSize: 13, padding: "6px 14px", whiteSpace: "nowrap" }} onClick={() => setShowCreateModal(true)}>
-            + Crear speech
-          </button>
+          {(() => {
+            const hasEligible = stages.some(s => s.scorecard_id && !speechByStage[s.id]);
+            return (
+              <button
+                className="btn-submit"
+                style={{ fontSize: 13, padding: "6px 14px", whiteSpace: "nowrap", ...(hasEligible ? {} : { opacity: 0.45, cursor: "not-allowed" }) }}
+                onClick={() => hasEligible && setShowCreateModal(true)}
+                title={hasEligible ? undefined : "Todas las etapas con scorecard ya tienen speech. Para editar, selecciona la etapa en los tabs."}
+              >
+                + Crear speech
+              </button>
+            );
+          })()}
         </div>
 
         {/* Provisional badge + publish button */}
