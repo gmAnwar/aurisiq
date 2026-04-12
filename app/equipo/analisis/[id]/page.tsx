@@ -36,7 +36,7 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
       if (!session) return;
 
       const { data: a } = await supabase.from("analyses")
-        .select("id, user_id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, created_at, organization_id, manager_note, prospect_name, prospect_zone, property_type, sale_reason, prospect_phone, checklist_results")
+        .select("id, user_id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, created_at, organization_id, manager_note, prospect_name, prospect_zone, property_type, sale_reason, prospect_phone, checklist_results, legacy_note")
         .eq("id", id).single();
 
       if (!a) { setError("Análisis no encontrado."); setLoading(false); return; }
@@ -116,6 +116,13 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
             <span className="g3-score-big" style={{ color: scoreColor }} title="El score evalúa el desempeño de la captadora, no la calidad del lead">{analysis.score_general as number}</span>
           )}
         </div>
+
+        {/* Legacy analysis banner */}
+        {analysis.legacy_note && (
+          <div style={{ padding: "8px 12px", background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 6, fontSize: 13, color: "#92400e", marginBottom: 12 }}>
+            Este análisis fue procesado con un bug conocido previo a la corrección del 12 abr. Los resultados pueden no reflejar el scorecard correcto.
+          </div>
+        )}
 
         {/* Score reference table */}
         {analysis.score_general && (
