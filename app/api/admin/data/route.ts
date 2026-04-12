@@ -19,7 +19,7 @@ export async function GET(req: Request) {
         .order("created_at", { ascending: false }),
       admin
         .from("analyses")
-        .select("id, organization_id, user_id, score_general, clasificacion, status, created_at")
+        .select("id, organization_id, user_id, score_general, clasificacion, status, created_at, scorecard_id")
         .order("created_at", { ascending: false })
         .limit(200),
       admin

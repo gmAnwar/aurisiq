@@ -36,6 +36,7 @@ interface AnalysisRow {
   clasificacion: string | null;
   status: string | null;
   created_at: string;
+  scorecard_id: string | null;
 }
 
 interface SpeechVersionRow {
@@ -173,6 +174,8 @@ export default function AdminPage() {
   const [newScVersion, setNewScVersion] = useState("");
   const [newScTemplateId, setNewScTemplateId] = useState("");
   const [creatingScorecard, setCreatingScorecard] = useState(false);
+  const [archivingScorecardId, setArchivingScorecardId] = useState<string | null>(null);
+  const [archivingScorecard, setArchivingScorecard] = useState(false);
 
   // Destructive confirm (analyses delete)
   const [pendingDeleteAnalysisId, setPendingDeleteAnalysisId] = useState<string | null>(null);
@@ -698,6 +701,16 @@ export default function AdminPage() {
     await loadAllData();
   }
 
+  async function archiveScorecard(scorecardId: string) {
+    setArchivingScorecard(true);
+    const { error } = await supabase.from("scorecards").update({ active: false }).eq("id", scorecardId);
+    if (error) { showToast({ type: "err", msg: error.message }); }
+    else { showToast({ type: "ok", msg: "Scorecard archivado" }); }
+    setArchivingScorecard(false);
+    setArchivingScorecardId(null);
+    await loadAllData();
+  }
+
   function stageAnalysisCount(stageId: string) {
     return analyses.filter(a => a.organization_id === (editingStage?.organization_id || embudoOrgFilter)).length;
   }
@@ -1112,6 +1125,52 @@ export default function AdminPage() {
               })}
             </div>
           )}
+
+          {/* Scorecard list per org */}
+          {embudoOrgFilter && (() => {
+            const orgSc = scorecards.filter(s => s.organization_id === embudoOrgFilter);
+            if (orgSc.length === 0) return null;
+            return (
+              <div style={{ marginTop: 24 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 8px", color: "var(--ink)" }}>Scorecards de esta org</h3>
+                <div className="adm-table">
+                  <div className="adm-table-head">
+                    <span style={{ flex: 1.3 }}>Nombre</span>
+                    <span style={{ flex: 0.6 }}>Versión</span>
+                    <span style={{ flex: 0.6 }}>Vertical</span>
+                    <span style={{ flex: 0.6 }}>Etapas</span>
+                    <span style={{ flex: 0.6 }}>Análisis</span>
+                    <span style={{ flex: 0.5 }}>Estado</span>
+                    <span style={{ flex: 0.5 }} />
+                  </div>
+                  {orgSc.map(sc => {
+                    const activeStagesUsing = stages.filter(s => s.scorecard_id === sc.id && s.active);
+                    const analysisCount = analyses.filter(a => a.scorecard_id === sc.id).length;
+                    return (
+                      <div key={sc.id} className="adm-table-row" style={{ opacity: sc.active ? 1 : 0.5 }}>
+                        <span style={{ flex: 1.3 }}>{sc.name}</span>
+                        <span style={{ flex: 0.6, fontSize: 13 }}>{sc.version}</span>
+                        <span style={{ flex: 0.6, fontSize: 13 }}>{sc.vertical}</span>
+                        <span style={{ flex: 0.6, fontSize: 13 }}>{activeStagesUsing.length} etapa{activeStagesUsing.length !== 1 ? "s" : ""}</span>
+                        <span style={{ flex: 0.6, fontSize: 13 }}>{analysisCount}</span>
+                        <span style={{ flex: 0.5 }}>
+                          <span className={`adm-pill ${sc.active ? "admin-badge-green" : "admin-badge-red"}`}>{sc.active ? "Activo" : "Archivado"}</span>
+                        </span>
+                        <span className="adm-row-actions" style={{ flex: 0.5 }}>
+                          {sc.active && (
+                            <>
+                              <button className="adm-btn-ghost" style={{ fontSize: 12 }} onClick={() => openScorecardEditor(sc.id)}>Editar</button>
+                              <button className="adm-btn-ghost adm-btn-danger-text" style={{ fontSize: 12 }} onClick={() => setArchivingScorecardId(sc.id)}>Archivar</button>
+                            </>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1153,6 +1212,54 @@ export default function AdminPage() {
                   <button className="adm-btn-primary" style={{ background: "#ef4444" }} onClick={() => archiveStage(archivingStageId)}>Confirmar archivar</button>
                   <button className="adm-btn-ghost" onClick={() => setArchivingStageId(null)}>Cancelar</button>
                 </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+      {/* Archive scorecard confirmation */}
+      {archivingScorecardId && (() => {
+        const sc = scorecards.find(x => x.id === archivingScorecardId);
+        const activeStagesUsing = stages.filter(s => s.scorecard_id === archivingScorecardId && s.active);
+        const analysisCount = analyses.filter(a => a.scorecard_id === archivingScorecardId).length;
+        const blocked = activeStagesUsing.length > 0;
+        return (
+          <>
+            <div className="adm-overlay" onClick={() => setArchivingScorecardId(null)} />
+            <div className="adm-slideover" style={{ maxWidth: 440 }}>
+              <div className="adm-slideover-header">
+                <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Archivar scorecard</h2>
+                <button className="adm-icon-btn" onClick={() => setArchivingScorecardId(null)}>&times;</button>
+              </div>
+              <div className="adm-slideover-body">
+                {blocked ? (
+                  <>
+                    <p style={{ fontSize: 14, margin: "0 0 8px", color: "#dc2626" }}>
+                      No se puede archivar &quot;{sc?.name}&quot; porque está asignado a {activeStagesUsing.length} etapa{activeStagesUsing.length !== 1 ? "s" : ""} activa{activeStagesUsing.length !== 1 ? "s" : ""}:
+                    </p>
+                    <ul style={{ fontSize: 13, margin: "0 0 12px", paddingLeft: 20 }}>
+                      {activeStagesUsing.map(s => <li key={s.id}>{s.name}</li>)}
+                    </ul>
+                    <p style={{ fontSize: 13, color: "#737373", margin: "0 0 12px" }}>
+                      Desasocia el scorecard de estas etapas primero (edita cada etapa y quita el scorecard).
+                    </p>
+                    <button className="adm-btn-ghost" onClick={() => setArchivingScorecardId(null)} style={{ width: "100%" }}>Entendido</button>
+                  </>
+                ) : (
+                  <>
+                    <p style={{ fontSize: 14, margin: "0 0 12px" }}>
+                      Este scorecard tiene <strong>{analysisCount}</strong> análisis históricos.
+                      Archivarlo lo ocultará del dropdown de etapas pero los análisis pasados se preservan.
+                    </p>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button className="adm-btn-primary" style={{ background: "#ef4444" }} onClick={() => archiveScorecard(archivingScorecardId)} disabled={archivingScorecard}>
+                        {archivingScorecard ? "Archivando..." : "Confirmar archivar"}
+                      </button>
+                      <button className="adm-btn-ghost" onClick={() => setArchivingScorecardId(null)}>Cancelar</button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </>
