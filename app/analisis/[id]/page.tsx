@@ -68,11 +68,13 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
   const [transcription, setTranscription] = useState<string | null>(null);
   const [transcriptionOriginal, setTranscriptionOriginal] = useState<string | null>(null);
   const [editPercentage, setEditPercentage] = useState(0);
+  const [userId, setUserId] = useState("");
 
   useEffect(() => {
     async function load() {
       const session = await requireAuth(["captadora", "super_admin"]);
       if (!session) return;
+      setUserId(session.userId);
 
       // super_admin may be viewing an analysis from an org different
       // from their profile org (admin_active_org_id). RLS would hide
@@ -522,7 +524,9 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
             transcriptionText={transcription}
             transcriptionOriginal={transcriptionOriginal}
             editPercentage={editPercentage}
-            showEditBadge={false}
+            showEditBadge={true}
+            showEditHistory={false}
+            userId={userId}
             onSaved={(newText, newPct) => { setTranscription(newText); setEditPercentage(newPct); }}
           />
         </details>

@@ -30,11 +30,13 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
   const [relatedCalls, setRelatedCalls] = useState<RelatedCall[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [userId, setUserId] = useState("");
 
   useEffect(() => {
     async function load() {
       const session = await requireAuth(["gerente", "direccion", "super_admin"]);
       if (!session) return;
+      setUserId(session.userId);
 
       const { data: a } = await supabase.from("analyses")
         .select("id, user_id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, created_at, organization_id, manager_note, prospect_name, prospect_zone, property_type, sale_reason, prospect_phone, checklist_results, legacy_note")
@@ -332,6 +334,8 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
             transcriptionOriginal={transcriptionOriginal}
             editPercentage={editPercentage}
             showEditBadge={true}
+            showEditHistory={true}
+            userId={userId}
             onSaved={(newText, newPct) => { setTranscription(newText); setEditPercentage(newPct); }}
           />
         )}
