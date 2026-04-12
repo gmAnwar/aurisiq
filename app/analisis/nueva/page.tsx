@@ -27,25 +27,7 @@ function isMobile(): boolean {
   return window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
-const CHECKLIST_FALLBACK_BY_VERTICAL: Record<string, string[]> = {
-  inmobiliario: [
-    "Nombre completo", "Dirección de la propiedad", "Dirección INE", "Estado civil",
-    "Libre de gravamen", "Pagos puntuales", "Adeudos en tiempo consecutivo",
-    "Crédito individual o conyugal", "NSS", "NC", "Papelería/escrituras",
-    "Descripción del domicilio", "Casa habitada o desocupada",
-    "Servicios a nombre de quién", "Adeudos de servicios", "Financiamiento de adeudos",
-    "Motivo de venta", "Expectativa del cliente", "Precio estimado de venta",
-    "Precio estimado de captación", "Disponibilidad para visita", "Fecha y hora propuesta",
-    "Lectura de urgencia", "Lectura de disposición", "Lectura de resistencia", "Promesa de venta",
-  ],
-  financiero: [
-    "Nombre del titular", "Nombre del negocio", "Tipo de negocio",
-    "Ubicación del negocio", "Antigüedad del negocio", "Ingresos mensuales estimados",
-    "Equipo que necesita financiar", "Monto de crédito solicitado", "Plazo deseado",
-    "Enganche disponible", "Historial crediticio", "Documentación disponible",
-    "Disponibilidad para visita", "Fecha y hora propuesta",
-  ],
-};
+interface ChecklistField { slug: string; label: string; }
 
 export default function NuevaLlamadaPage() {
   const rec = useRecording();
@@ -53,6 +35,7 @@ export default function NuevaLlamadaPage() {
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [funnelStages, setFunnelStages] = useState<FunnelStage[]>([]);
   const [orgVertical, setOrgVertical] = useState<string>("inmobiliario");
+  const [checklistFields, setChecklistFields] = useState<ChecklistField[]>([]);
   const [selectedSource, setSelectedSource] = useState("");
   const [selectedStage, setSelectedStage] = useState("");
   const [transcription, setTranscription] = useState("");
@@ -255,14 +238,18 @@ export default function NuevaLlamadaPage() {
       const sources = (sourcesRaw || []).filter(s => s.active !== false);
       setFunnelStages(stagesRes.data || []);
 
-      // Resolve org vertical from any active scorecard
+      // Resolve org vertical + checklist_fields from active per-org scorecard
       try {
         const { data: sc } = await supabase.from("scorecards")
-          .select("vertical")
+          .select("vertical, structure")
           .eq("organization_id", effectiveOrgId).eq("active", true)
           .limit(1).maybeSingle();
         if (sc?.vertical) setOrgVertical(sc.vertical);
-      } catch { /* ignore — keeps default inmobiliario */ }
+        const fields = (sc?.structure as { checklist_fields?: ChecklistField[] } | null)?.checklist_fields;
+        if (Array.isArray(fields) && fields.length > 0) {
+          setChecklistFields(fields);
+        }
+      } catch { /* ignore — checklistFields stays empty, fail-loud in render */ }
 
       if (error) {
         setErrorMsg("No pudimos cargar las fuentes de lead. Intenta de nuevo.");
@@ -968,22 +955,20 @@ export default function NuevaLlamadaPage() {
 
           {/* 2. Checklist — full list with missed-field highlights */}
           <details className="c2-collapse">
-            <summary className="c2-collapse-summary">Checklist de referencia ({(CHECKLIST_FALLBACK_BY_VERTICAL[orgVertical] || []).length} campos)</summary>
+            <summary className="c2-collapse-summary">Checklist de referencia ({checklistFields.length} campos)</summary>
             <div className="c2-collapse-body">
-              {(() => {
-                const allFields = CHECKLIST_FALLBACK_BY_VERTICAL[orgVertical];
-                if (!allFields || allFields.length === 0) {
-                  return <p className="c2-hint">Checklist no configurado para esta vertical — contactar admin.</p>;
-                }
+              {checklistFields.length === 0 ? (
+                <p className="c2-hint">Esta organización no tiene checklist configurado — contactar admin.</p>
+              ) : (() => {
                 const missedSet = new Set(missedFields);
                 return (
                   <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, columns: 2, columnGap: 24 }}>
-                    {allFields.map((f, i) => {
-                      const isMissed = missedSet.has(f);
+                    {checklistFields.map((f, i) => {
+                      const isMissed = missedSet.has(f.label);
                       return (
-                        <li key={i} className={isMissed ? "c2-checklist-missed" : ""} style={{ marginBottom: 3 }} title={isMissed ? "Campo que se te olvida frecuentemente" : undefined}>
+                        <li key={f.slug} className={isMissed ? "c2-checklist-missed" : ""} style={{ marginBottom: 3 }} title={isMissed ? "Campo que se te olvida frecuentemente" : undefined}>
                           {isMissed && <span className="c2-checklist-warn">!</span>}
-                          {f}
+                          {f.label}
                         </li>
                       );
                     })}
