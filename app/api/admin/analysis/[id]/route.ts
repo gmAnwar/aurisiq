@@ -31,7 +31,7 @@ export async function GET(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const [phasesRes, categoriesRes, vertRes, relatedRes] = await Promise.all([
+    const [phasesRes, categoriesRes, vertRes, relatedRes, jobRes] = await Promise.all([
       admin
         .from("analysis_phases")
         .select("phase_name, score, score_max")
@@ -55,6 +55,11 @@ export async function GET(
             .order("created_at", { ascending: false })
             .limit(5)
         : Promise.resolve({ data: [], error: null }),
+      admin
+        .from("analysis_jobs")
+        .select("transcription_text, transcription_edited, transcription_original, edit_percentage")
+        .eq("analysis_id", id)
+        .maybeSingle(),
     ]);
 
     return NextResponse.json({
@@ -64,6 +69,7 @@ export async function GET(
       descal_categories: categoriesRes.data || [],
       vertical: (vertRes.data as { vertical?: string } | null)?.vertical || null,
       related: relatedRes.data || [],
+      job: jobRes.data || null,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown error";

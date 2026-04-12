@@ -64,6 +64,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
   const [error, setError] = useState("");
   const [relatedCalls, setRelatedCalls] = useState<RelatedCall[]>([]);
   const [vertical, setVertical] = useState<string | null>(null);
+  const [transcription, setTranscription] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -105,6 +106,9 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
             setDescalLabels(map);
           }
           setRelatedCalls(body.related || []);
+          if (body.job) {
+            setTranscription(body.job.transcription_edited || body.job.transcription_text || body.job.transcription_original || null);
+          }
           setLoading(false);
           return;
         } catch (e) {
@@ -154,6 +158,16 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
         const map: Record<string, string> = {};
         for (const c of cats || []) map[c.code] = c.label;
         setDescalLabels(map);
+      }
+
+      // Fetch transcription from analysis_jobs
+      const { data: job } = await supabase
+        .from("analysis_jobs")
+        .select("transcription_text, transcription_edited, transcription_original")
+        .eq("analysis_id", id)
+        .maybeSingle();
+      if (job) {
+        setTranscription(job.transcription_edited || job.transcription_text || job.transcription_original || null);
       }
 
       // Fetch related calls with same prospect
@@ -491,6 +505,16 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
           </div>
         );
       })()}
+
+      {/* 4b. TRANSCRIPTION */}
+      {transcription && (
+        <details className="c3-expandable">
+          <summary className="c3-expand-summary">Ver transcripción de la llamada</summary>
+          <div className="c3-transcription" style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.6, color: "var(--ink)", padding: "12px 0" }}>
+            {transcription}
+          </div>
+        </details>
+      )}
 
       {/* 5. CHECKLIST VISUAL */}
       {checklist.length > 0 && (
