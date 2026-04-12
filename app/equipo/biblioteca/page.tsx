@@ -296,7 +296,7 @@ export default function BibliotecaPage() {
                 >
                   {stage.name}
                   {speechByStage[stage.id] && !speechByStage[stage.id].isProvisional && <span className="g5-tab-dot" />}
-                  {!stage.scorecard_id && <span style={{ fontSize: 10, color: "#a8a29e", display: "block" }}>sin scorecard</span>}
+                  {!stage.scorecard_id && <span style={{ fontSize: 10, color: "#a8a29e", display: "block" }}>sin evaluación configurada</span>}
                 </button>
               ))}
             </div>
@@ -308,7 +308,7 @@ export default function BibliotecaPage() {
                 className="btn-submit"
                 style={{ fontSize: 13, padding: "6px 14px", whiteSpace: "nowrap", ...(hasEligible ? {} : { opacity: 0.45, cursor: "not-allowed" }) }}
                 onClick={() => hasEligible && setShowCreateModal(true)}
-                title={hasEligible ? undefined : "Todas las etapas con scorecard ya tienen speech. Para editar, selecciona la etapa en los tabs."}
+                title={hasEligible ? undefined : "Todas las etapas con evaluación ya tienen speech. Para editar, selecciona la etapa en los tabs."}
               >
                 + Crear speech
               </button>
@@ -394,7 +394,7 @@ export default function BibliotecaPage() {
             return (
               <div className="c5-empty-card" style={{ background: "#f5f5f4", borderColor: "#d6d3d1" }}>
                 <div className="c5-empty-title" style={{ color: "#78716c" }}>Aún no configurado</div>
-                <div className="c5-empty-sub" style={{ color: "#a8a29e" }}>Asigna un scorecard a esta etapa desde /admin → Embudo para empezar a crear el speech.</div>
+                <div className="c5-empty-sub" style={{ color: "#a8a29e" }}>Esta etapa aún no tiene criterios de evaluación. Contacta a tu administrador para configurarla. Él puede hacerlo desde la sección de administración.</div>
               </div>
             );
           }
@@ -447,11 +447,11 @@ export default function BibliotecaPage() {
             <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: "white", borderRadius: 12, padding: 24, zIndex: 101, width: "min(400px, 90vw)", boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
               <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 600 }}>Crear speech nuevo</h3>
               <p style={{ fontSize: 13, color: "#737373", margin: "0 0 12px" }}>
-                Selecciona la etapa del embudo. Se creará una plantilla basada en las fases del scorecard asociado.
+                Selecciona la etapa del embudo. Se creará una plantilla basada en los criterios de evaluación configurados.
               </p>
               {stages.filter(s => s.scorecard_id && (!speechByStage[s.id] || speechByStage[s.id].isProvisional)).length === 0 ? (
                 <p style={{ fontSize: 13, color: "#78716c", background: "#f5f5f4", borderRadius: 8, padding: "10px 12px", margin: "0 0 12px" }}>
-                  Todas las etapas con scorecard ya tienen speech. Para editarlas, selecciona la etapa en los tabs.
+                  Todas las etapas con evaluación ya tienen speech. Para editarlas, selecciona la etapa en los tabs.
                 </p>
               ) : (
                 <select className="input-field" value={createStageId} onChange={e => setCreateStageId(e.target.value)} style={{ marginBottom: 12 }}>
@@ -461,7 +461,7 @@ export default function BibliotecaPage() {
                   ))}
                   {stages.filter(s => !s.scorecard_id).map(s => (
                     <option key={s.id} value="" disabled>
-                      {s.name} (sin scorecard configurado)
+                      {s.name} (sin criterios de evaluación)
                     </option>
                   ))}
                 </select>
