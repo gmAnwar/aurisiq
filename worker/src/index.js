@@ -596,7 +596,7 @@ PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en l
 
     if (descalCats.length > 0) {
       const catList = descalCats.map(c => `- ${c.code}: ${c.label}`).join('\n');
-      promptWithDescal += `\n\n---\nDESCALIFICACION DE LEADS\nAnaliza la transcripción y determina si el lead fue descalificado. Usa SOLO los siguientes códigos del catálogo de la organización:\n${catList}\n\nAl final de tu respuesta, incluye una línea con el formato:\nDESCALIFICACION: ["codigo1", "codigo2"]\nSi el lead calificó (no hay razón de descalificación), escribe:\nDESCALIFICACION: []\nMáximo 3 códigos. Usa SOLO códigos del catálogo anterior.`;
+      promptWithDescal += `\n\n---\nDESCALIFICACION DE LEADS\nAnaliza la transcripción y determina si el lead fue descalificado. Usa SOLO los siguientes códigos del catálogo de la organización:\n${catList}\n\nAl final de tu respuesta, incluye una línea con el formato:\nDESCALIFICACION: ["codigo1", "codigo2", "codigo3"]\nSi el lead calificó (no hay razón de descalificación), escribe:\nDESCALIFICACION: []\nMáximo 3 códigos. Si detectas 3 razones concurrentes, devuelve las 3. No te limites a 2. Usa SOLO códigos del catálogo anterior.`;
       console.log(`[debug-descal] org=${organization_id} descalCats=${descalCats.length} codes=[${descalCats.map(c => c.code).join(',')}]`);
     } else {
       console.log(`[debug-descal] org=${organization_id} descalCats=0 — SKIPPING descal block in prompt`);
