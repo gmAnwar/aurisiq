@@ -326,38 +326,39 @@ export default function SpeechPage() {
       )}
 
       {current && (
-        <div key={selectedStageId} className="c5-phases">
+        <div key={selectedStageId} className="c5-phases" style={{ border: "1px solid var(--border, #e5e5e5)", borderRadius: 8, overflow: "hidden" }}>
           {current.phases.map((phase, i) => (
-            <div key={i} className="c5-phase-card">
-              <h3 className="c5-phase-name">{phase.phase_name}</h3>
+            <details key={i} open={i === 0} className="c2-speech-phase">
+              <summary className="c2-speech-phase-summary">{phase.phase_name}</summary>
+              <div className="c2-speech-phase-body">
+                {/* Transition phrase */}
+                {phase.transition && (
+                  <p className="c5-transition">{phase.transition}</p>
+                )}
 
-              {/* Transition phrase */}
-              {phase.transition && (
-                <p className="c5-transition">{phase.transition}</p>
-              )}
+                {/* New format: fields with bullets + accordion */}
+                {hasFields && phase.fields && phase.fields.length > 0 && (
+                  <div className="c5-fields">
+                    {phase.fields.map((field, j) => (
+                      <FieldItem key={j} field={field} />
+                    ))}
+                  </div>
+                )}
 
-              {/* New format: fields with bullets + accordion */}
-              {hasFields && phase.fields && phase.fields.length > 0 && (
-                <div className="c5-fields">
-                  {phase.fields.map((field, j) => (
-                    <FieldItem key={j} field={field} />
-                  ))}
-                </div>
-              )}
+                {/* Old format: flat phrases */}
+                {!hasFields && phase.phrases && phase.phrases.length > 0 && (
+                  <ul className="c5-phrase-list">
+                    {phase.phrases.map((phrase, j) => (
+                      <li key={j} className="c5-phrase">{phrase}</li>
+                    ))}
+                  </ul>
+                )}
 
-              {/* Old format: flat phrases */}
-              {!hasFields && phase.phrases && phase.phrases.length > 0 && (
-                <ul className="c5-phrase-list">
-                  {phase.phrases.map((phrase, j) => (
-                    <li key={j} className="c5-phrase">{phrase}</li>
-                  ))}
-                </ul>
-              )}
-
-              {!hasFields && (!phase.phrases || phase.phrases.length === 0) && (!phase.fields || phase.fields.length === 0) && (
-                <p className="c5-no-phrases">Sin frases destacadas aún</p>
-              )}
-            </div>
+                {!hasFields && (!phase.phrases || phase.phrases.length === 0) && (!phase.fields || phase.fields.length === 0) && (
+                  <p className="c5-no-phrases">Sin frases destacadas aún</p>
+                )}
+              </div>
+            </details>
           ))}
         </div>
       )}
