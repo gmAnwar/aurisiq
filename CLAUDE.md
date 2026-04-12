@@ -97,6 +97,26 @@ La sesión está completa SOLO cuando:
 6. Dos usuarios de organizaciones distintas no pueden ver datos del otro (prueba básica de RLS)
 7. Las tablas vacías de gamificación y objetivos existen
 
+## Herramientas disponibles y autonomía de Claude Code
+
+### PERMITIDO SIN PEDIR PERMISO:
+- npm install de paquetes nuevos en el proyecto cuando un feature lo requiera (reportar cuál paquete y por qué)
+- Verificar deploys con `npx vercel ls`, `npx vercel inspect`, `npx vercel logs` (usar siempre `--token=$VERCEL_TOKEN`)
+- Verificar estado del Worker con `wrangler deployments list`, `wrangler tail` (desde directorio worker/)
+- Verificar estado de DB con queries vía Supabase MCP (solo SELECT — para DDL siempre pasa por Anwar)
+- git push origin main después de cada commit — reportar siempre el hash + confirmación del push
+- Crear archivos de configuración menores (.eslintrc, .prettierrc, tsconfig tweaks) si mejoran DX
+- Auto-retry de builds que fallen por flakiness (máximo 2 retries antes de reportar)
+
+### REQUIERE PERMISO EXPLÍCITO DE ANWAR:
+- Aplicar migraciones DDL a DB (solo Anwar via MCP)
+- Instalar dependencias de sistema (brew, apt-get, etc.)
+- Cambiar variables de entorno en Vercel o Cloudflare
+- Borrar commits, forzar push, rewrite history
+- Crear branches nuevos
+- Merge de PRs
+- Cambios en RLS policies o security-sensitive code
+
 ## MCPs — variables de entorno requeridas
 ⚠️ El repo es PÚBLICO. Credenciales en variables de entorno del sistema, nunca en este archivo.
 Seguir canvas MCPs (F0AP872K8FL) para configuración completa.
