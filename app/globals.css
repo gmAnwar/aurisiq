@@ -914,6 +914,26 @@ body.has-nav {
 }
 
 /* Speech per-phase accordion */
+/* Checklist missed-field highlight */
+.c2-checklist-missed {
+  font-weight: 600;
+  color: #b45309;
+}
+.c2-checklist-warn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #fbbf24;
+  color: #78350f;
+  font-size: 10px;
+  font-weight: 800;
+  margin-right: 5px;
+  flex-shrink: 0;
+}
+
 .c2-speech-phase { border-top: 1px solid var(--border, #e5e5e5); }
 .c2-speech-phase-summary {
   padding: 9px 14px;

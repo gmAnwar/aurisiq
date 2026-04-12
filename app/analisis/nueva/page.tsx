@@ -973,20 +973,27 @@ export default function NuevaLlamadaPage() {
             )}
           </div>
 
-          {/* 2. Checklist */}
+          {/* 2. Checklist — full list with missed-field highlights */}
           <details className="c2-collapse">
-            <summary className="c2-collapse-summary">Checklist de referencia</summary>
+            <summary className="c2-collapse-summary">Checklist de referencia ({(CHECKLIST_FALLBACK_BY_VERTICAL[orgVertical] || []).length} campos)</summary>
             <div className="c2-collapse-body">
-              <p className="c2-hint" style={{ marginBottom: 8 }}>Campos que deberías cubrir en la llamada:</p>
               {(() => {
-                const fallback = CHECKLIST_FALLBACK_BY_VERTICAL[orgVertical];
-                const items = missedFields.length > 0 ? missedFields : fallback;
-                if (!items || items.length === 0) {
+                const allFields = CHECKLIST_FALLBACK_BY_VERTICAL[orgVertical];
+                if (!allFields || allFields.length === 0) {
                   return <p className="c2-hint">Checklist no configurado para esta vertical — contactar admin.</p>;
                 }
+                const missedSet = new Set(missedFields);
                 return (
                   <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, columns: 2, columnGap: 24 }}>
-                    {items.map((f, i) => <li key={i} style={{ marginBottom: 3 }}>{f}</li>)}
+                    {allFields.map((f, i) => {
+                      const isMissed = missedSet.has(f);
+                      return (
+                        <li key={i} className={isMissed ? "c2-checklist-missed" : ""} style={{ marginBottom: 3 }} title={isMissed ? "Campo que se te olvida frecuentemente" : undefined}>
+                          {isMissed && <span className="c2-checklist-warn">!</span>}
+                          {f}
+                        </li>
+                      );
+                    })}
                   </ul>
                 );
               })()}
