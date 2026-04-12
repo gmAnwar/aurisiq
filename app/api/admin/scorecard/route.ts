@@ -14,14 +14,12 @@ export async function GET(req: Request) {
 
     const admin = getServiceSupabase();
 
-    // Prefer the org-scoped active scorecard; fall back to a global
-    // (organization_id IS NULL) scorecard. Matches the client query in C2.
+    // Only select per-org scorecard — never fall back to globals
     const { data, error } = await admin
       .from("scorecards")
       .select("id, organization_id, name, version, vertical")
-      .or(`organization_id.eq.${orgId},organization_id.is.null`)
+      .eq("organization_id", orgId)
       .eq("active", true)
-      .order("organization_id", { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle();
 

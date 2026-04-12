@@ -563,12 +563,12 @@ export default function NuevaLlamadaPage() {
         if (!scRes.ok || !scBody.scorecard?.id) throw new Error("scorecard");
         scorecardId = scBody.scorecard.id;
       } else {
+        // Only select per-org scorecard — never fall back to globals
         const { data: scorecard } = await supabase
           .from("scorecards")
           .select("id")
-          .or(`organization_id.eq.${submitOrgId},organization_id.is.null`)
+          .eq("organization_id", submitOrgId)
           .eq("active", true)
-          .order("organization_id", { ascending: false, nullsFirst: false })
           .limit(1)
           .single();
         if (!scorecard) throw new Error("scorecard");
