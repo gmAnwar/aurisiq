@@ -27,11 +27,32 @@ function isMobile(): boolean {
   return window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
+const CHECKLIST_FALLBACK_BY_VERTICAL: Record<string, string[]> = {
+  inmobiliario: [
+    "Nombre completo", "Dirección de la propiedad", "Dirección INE", "Estado civil",
+    "Libre de gravamen", "Pagos puntuales", "Adeudos en tiempo consecutivo",
+    "Crédito individual o conyugal", "NSS", "NC", "Papelería/escrituras",
+    "Descripción del domicilio", "Casa habitada o desocupada",
+    "Servicios a nombre de quién", "Adeudos de servicios", "Financiamiento de adeudos",
+    "Motivo de venta", "Expectativa del cliente", "Precio estimado de venta",
+    "Precio estimado de captación", "Disponibilidad para visita", "Fecha y hora propuesta",
+    "Lectura de urgencia", "Lectura de disposición", "Lectura de resistencia", "Promesa de venta",
+  ],
+  financiero: [
+    "Nombre del titular", "Nombre del negocio", "Tipo de negocio",
+    "Ubicación del negocio", "Antigüedad del negocio", "Ingresos mensuales estimados",
+    "Equipo que necesita financiar", "Monto de crédito solicitado", "Plazo deseado",
+    "Enganche disponible", "Historial crediticio", "Documentación disponible",
+    "Disponibilidad para visita", "Fecha y hora propuesta",
+  ],
+};
+
 export default function NuevaLlamadaPage() {
   const rec = useRecording();
 
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [funnelStages, setFunnelStages] = useState<FunnelStage[]>([]);
+  const [orgVertical, setOrgVertical] = useState<string>("inmobiliario");
   const [selectedSource, setSelectedSource] = useState("");
   const [selectedStage, setSelectedStage] = useState("");
   const [transcription, setTranscription] = useState("");
@@ -233,6 +254,15 @@ export default function NuevaLlamadaPage() {
       const { data: sourcesRaw, error } = sourcesRes;
       const sources = (sourcesRaw || []).filter(s => s.active !== false);
       setFunnelStages(stagesRes.data || []);
+
+      // Resolve org vertical from any active scorecard
+      try {
+        const { data: sc } = await supabase.from("scorecards")
+          .select("vertical")
+          .eq("organization_id", effectiveOrgId).eq("active", true)
+          .limit(1).maybeSingle();
+        if (sc?.vertical) setOrgVertical(sc.vertical);
+      } catch { /* ignore — keeps default inmobiliario */ }
 
       if (error) {
         setErrorMsg("No pudimos cargar las fuentes de lead. Intenta de nuevo.");
@@ -948,14 +978,18 @@ export default function NuevaLlamadaPage() {
             <summary className="c2-collapse-summary">Checklist de referencia</summary>
             <div className="c2-collapse-body">
               <p className="c2-hint" style={{ marginBottom: 8 }}>Campos que deberías cubrir en la llamada:</p>
-              <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, columns: 2, columnGap: 24 }}>
-                {(missedFields.length > 0
-                  ? missedFields
-                  : ["Nombre completo", "Ubicación del negocio", "Tipo de negocio", "Antigüedad", "Ingresos estimados", "Equipo a financiar", "Monto solicitado", "Plazo", "Enganche", "Historial crediticio", "Documentación", "Disponibilidad para visita", "Fecha propuesta"]
-                ).map((f, i) => (
-                  <li key={i} style={{ marginBottom: 3 }}>{f}</li>
-                ))}
-              </ul>
+              {(() => {
+                const fallback = CHECKLIST_FALLBACK_BY_VERTICAL[orgVertical];
+                const items = missedFields.length > 0 ? missedFields : fallback;
+                if (!items || items.length === 0) {
+                  return <p className="c2-hint">Checklist no configurado para esta vertical — contactar admin.</p>;
+                }
+                return (
+                  <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, columns: 2, columnGap: 24 }}>
+                    {items.map((f, i) => <li key={i} style={{ marginBottom: 3 }}>{f}</li>)}
+                  </ul>
+                );
+              })()}
             </div>
           </details>
 
