@@ -202,7 +202,8 @@ export default function NuevaLlamadaPage() {
   };
   // Stage is optional: Claude auto-detects it from the transcription
   // when the user leaves it blank. User can still choose a stage manually.
-  const canSubmit = selectedSource !== "" && wordCount >= MIN_WORDS && status === "idle" && !isTranscribing;
+  const missingConfig = leadSources.length === 0 && !loading;
+  const canSubmit = selectedSource !== "" && wordCount >= MIN_WORDS && status === "idle" && !isTranscribing && !missingConfig;
   const charCount = transcription.length;
   const CHAR_LIMIT = 15000;
 
@@ -818,10 +819,10 @@ export default function NuevaLlamadaPage() {
               </option>
             ))}
           </select>
-          {leadSources.length === 0 && !errorMsg && (
-            <p className="c2-hint">
-              No hay fuentes de lead configuradas. Tu gerente puede agregarlas en Configuración.
-            </p>
+          {leadSources.length === 0 && !errorMsg && !loading && (
+            <div className="message-box message-error" style={{ marginTop: 8 }}>
+              <p>Tu organización no tiene fuentes de lead configuradas. No puedes registrar llamadas hasta que tu gerente las configure en <strong>Configuración</strong>.</p>
+            </div>
           )}
         </div>
 

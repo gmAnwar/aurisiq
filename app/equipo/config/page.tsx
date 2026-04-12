@@ -7,7 +7,8 @@ import { getRoleLabel } from "../../../lib/roleLabel";
 
 interface FunnelStage { id: string; name: string; stage_type: string; order_index: number; scorecard_id: string | null; }
 interface DescalCat { id: string; code: string; label: string; active: boolean; }
-interface LeadSrc { id: string; name: string; active: boolean; }
+interface LeadSrc { id: string; name: string; cost_per_lead: number | null; active: boolean; }
+interface VocabItem { term: string; definition: string; }
 interface Objective { id: string; name: string; type: string; target_value: number; period_type: string; is_active: boolean; target_user_id: string | null; }
 
 export default function ConfigPage() {
@@ -18,8 +19,18 @@ export default function ConfigPage() {
   const [org, setOrg] = useState<Record<string, unknown> | null>(null);
   const [orgId, setOrgId] = useState("");
   const [userId, setUserId] = useState("");
+  const [vocabulary, setVocabulary] = useState<VocabItem[]>([]);
+  const [newVocabTerm, setNewVocabTerm] = useState("");
+  const [newVocabDef, setNewVocabDef] = useState("");
+  const [savingVocab, setSavingVocab] = useState(false);
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editCatLabel, setEditCatLabel] = useState("");
+  const [editingSrcId, setEditingSrcId] = useState<string | null>(null);
+  const [editSrcName, setEditSrcName] = useState("");
+  const [editSrcCost, setEditSrcCost] = useState("");
   const [newCatLabel, setNewCatLabel] = useState("");
   const [newSrcName, setNewSrcName] = useState("");
+  const [newSrcCost, setNewSrcCost] = useState("");
   const [newObjTarget, setNewObjTarget] = useState("");
   const [newObjName, setNewObjName] = useState("Cierres del mes");
   const [captadoras, setCaptadoras] = useState<{ id: string; name: string }[]>([]);
@@ -50,9 +61,9 @@ export default function ConfigPage() {
           .eq("organization_id", session.organizationId).order("order_index"),
         supabase.from("descalification_categories").select("id, code, label, active")
           .eq("organization_id", session.organizationId).order("label"),
-        supabase.from("lead_sources").select("id, name, active")
+        supabase.from("lead_sources").select("id, name, cost_per_lead, active")
           .eq("organization_id", session.organizationId).order("name"),
-        supabase.from("organizations").select("plan, analysis_count_month, access_status, ticket_promedio, conversion_baseline")
+        supabase.from("organizations").select("plan, analysis_count_month, access_status, ticket_promedio, conversion_baseline, vocabulary")
           .eq("id", session.organizationId).single(),
         supabase.from("objectives").select("id, name, type, target_value, period_type, is_active, target_user_id")
           .eq("organization_id", session.organizationId).order("created_at", { ascending: false }),
@@ -66,6 +77,9 @@ export default function ConfigPage() {
       setDescalCats(catsRes.data || []);
       setLeadSrcs(srcsRes.data || []);
       setOrg(orgRes.data);
+      if (orgRes.data && Array.isArray(orgRes.data.vocabulary)) {
+        setVocabulary(orgRes.data.vocabulary as VocabItem[]);
+      }
       setObjectives((objRes.data || []) as Objective[]);
       setCaptadoras(capsRes.data || []);
       if (funnelRes.data) {
@@ -77,6 +91,27 @@ export default function ConfigPage() {
     load();
   }, []);
 
+  // --- Vocabulary ---
+  const saveVocabulary = async (updated: VocabItem[]) => {
+    setSavingVocab(true);
+    await supabase.from("organizations").update({ vocabulary: updated }).eq("id", orgId);
+    setVocabulary(updated);
+    setSavingVocab(false);
+  };
+
+  const addVocabItem = async () => {
+    if (!newVocabTerm.trim() || !newVocabDef.trim()) return;
+    const updated = [...vocabulary, { term: newVocabTerm.trim(), definition: newVocabDef.trim() }];
+    await saveVocabulary(updated);
+    setNewVocabTerm("");
+    setNewVocabDef("");
+  };
+
+  const removeVocabItem = async (idx: number) => {
+    await saveVocabulary(vocabulary.filter((_, i) => i !== idx));
+  };
+
+  // --- Categories ---
   const toggleCat = async (catId: string, currentActive: boolean) => {
     await supabase.from("descalification_categories").update({ active: !currentActive }).eq("id", catId);
     setDescalCats(prev => prev.map(c => c.id === catId ? { ...c, active: !currentActive } : c));
@@ -85,6 +120,7 @@ export default function ConfigPage() {
   const addCategory = async () => {
     if (!newCatLabel.trim()) return;
     const code = newCatLabel.trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_áéíóúñü]/g, "");
+    if (descalCats.some(c => c.code === code)) return;
     const { data } = await supabase.from("descalification_categories")
       .insert({ organization_id: orgId, code, label: newCatLabel.trim(), active: true })
       .select("id, code, label, active").single();
@@ -92,6 +128,14 @@ export default function ConfigPage() {
     setNewCatLabel("");
   };
 
+  const saveCatLabel = async (catId: string) => {
+    if (!editCatLabel.trim()) { setEditingCatId(null); return; }
+    await supabase.from("descalification_categories").update({ label: editCatLabel.trim() }).eq("id", catId);
+    setDescalCats(prev => prev.map(c => c.id === catId ? { ...c, label: editCatLabel.trim() } : c));
+    setEditingCatId(null);
+  };
+
+  // --- Lead sources ---
   const toggleSource = async (srcId: string, currentActive: boolean) => {
     await supabase.from("lead_sources").update({ active: !currentActive }).eq("id", srcId);
     setLeadSrcs(prev => prev.map(s => s.id === srcId ? { ...s, active: !currentActive } : s));
@@ -99,11 +143,21 @@ export default function ConfigPage() {
 
   const addSource = async () => {
     if (!newSrcName.trim()) return;
+    const cost = newSrcCost ? Number(newSrcCost) : null;
     const { data } = await supabase.from("lead_sources")
-      .insert({ organization_id: orgId, name: newSrcName.trim(), active: true })
-      .select("id, name, active").single();
-    if (data) setLeadSrcs(prev => [...prev, data]);
+      .insert({ organization_id: orgId, name: newSrcName.trim(), cost_per_lead: cost, active: true })
+      .select("id, name, cost_per_lead, active").single();
+    if (data) setLeadSrcs(prev => [...prev, data as LeadSrc]);
     setNewSrcName("");
+    setNewSrcCost("");
+  };
+
+  const saveSrcEdit = async (srcId: string) => {
+    if (!editSrcName.trim()) { setEditingSrcId(null); return; }
+    const cost = editSrcCost ? Number(editSrcCost) : null;
+    await supabase.from("lead_sources").update({ name: editSrcName.trim(), cost_per_lead: cost }).eq("id", srcId);
+    setLeadSrcs(prev => prev.map(s => s.id === srcId ? { ...s, name: editSrcName.trim(), cost_per_lead: cost } : s));
+    setEditingSrcId(null);
   };
 
   const addObjective = async () => {
@@ -201,14 +255,54 @@ export default function ConfigPage() {
           {stages.length === 0 && <p className="g1-empty">No hay etapas configuradas.</p>}
         </div>
 
+        {/* Vocabulario de la organización */}
+        <div className="g1-section">
+          <h2 className="g1-section-title">Vocabulario</h2>
+          <p className="c2-hint" style={{ marginBottom: 10 }}>Términos específicos de tu vertical. La IA los usará tal como los definas al analizar llamadas.</p>
+          {vocabulary.length > 0 && (
+            <div className="g7-list">
+              {vocabulary.map((v, i) => (
+                <div key={i} className="g7-list-item" style={{ flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+                    <span className="g7-item-name">{v.term}</span>
+                    <button className="adm-btn-ghost adm-btn-danger-text" style={{ fontSize: 12 }} onClick={() => removeVocabItem(i)}>Quitar</button>
+                  </div>
+                  <span style={{ fontSize: 13, color: "var(--ink-light)" }}>{v.definition}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {vocabulary.length === 0 && <p className="g1-empty" style={{ marginBottom: 10 }}>Sin términos. La IA usará vocabulario genérico.</p>}
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 120 }}>
+              <input className="input-field" value={newVocabTerm} onChange={e => setNewVocabTerm(e.target.value)} placeholder="Término" />
+            </div>
+            <div style={{ flex: 2, minWidth: 180 }}>
+              <input className="input-field" value={newVocabDef} onChange={e => setNewVocabDef(e.target.value)} placeholder="Definición" />
+            </div>
+            <button className="btn-submit" style={{ minWidth: "auto", padding: "10px 20px", marginTop: 0 }} onClick={addVocabItem} disabled={savingVocab || !newVocabTerm.trim() || !newVocabDef.trim()}>
+              {savingVocab ? "..." : "Agregar"}
+            </button>
+          </div>
+        </div>
+
         {/* Catálogo de Descalificación */}
         <div className="g1-section">
           <h2 className="g1-section-title">Catálogo de descalificación</h2>
+          <p className="c2-hint" style={{ marginBottom: 10 }}>La IA usa estos códigos para clasificar leads descartados. El código es inmutable; la etiqueta es editable.</p>
           <div className="g7-list">
             {descalCats.map(c => (
               <div key={c.id} className="g7-list-item">
-                <div>
-                  <span className="g7-item-name">{c.label}</span>
+                <div style={{ flex: 1 }}>
+                  {editingCatId === c.id ? (
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <input className="input-field" style={{ fontSize: 13, padding: "4px 8px" }} value={editCatLabel} onChange={e => setEditCatLabel(e.target.value)} onKeyDown={e => e.key === "Enter" && saveCatLabel(c.id)} autoFocus />
+                      <button className="g4-note-save" style={{ fontSize: 12 }} onClick={() => saveCatLabel(c.id)}>OK</button>
+                      <button className="g4-note-cancel" style={{ fontSize: 12 }} onClick={() => setEditingCatId(null)}>X</button>
+                    </div>
+                  ) : (
+                    <span className="g7-item-name" style={{ cursor: "pointer" }} onClick={() => { setEditingCatId(c.id); setEditCatLabel(c.label); }}>{c.label}</span>
+                  )}
                   <span className="g7-item-code">{c.code}</span>
                 </div>
                 <label className="g7-toggle">
@@ -218,19 +312,35 @@ export default function ConfigPage() {
               </div>
             ))}
           </div>
+          {descalCats.length === 0 && <p className="g1-empty" style={{ marginBottom: 10 }}>Sin categorías. La IA no podrá clasificar leads descartados.</p>}
           <div className="g7-add-row">
-            <input className="input-field" value={newCatLabel} onChange={e => setNewCatLabel(e.target.value)} placeholder="Nueva categoría..." />
-            <button className="btn-submit" style={{ minWidth: "auto", padding: "10px 20px", marginTop: 0 }} onClick={addCategory}>Agregar</button>
+            <input className="input-field" value={newCatLabel} onChange={e => setNewCatLabel(e.target.value)} placeholder="Nueva categoría..." onKeyDown={e => e.key === "Enter" && addCategory()} />
+            <button className="btn-submit" style={{ minWidth: "auto", padding: "10px 20px", marginTop: 0 }} onClick={addCategory} disabled={!newCatLabel.trim()}>Agregar</button>
           </div>
         </div>
 
         {/* Fuentes de Lead */}
         <div className="g1-section">
           <h2 className="g1-section-title">Fuentes de lead</h2>
+          <p className="c2-hint" style={{ marginBottom: 10 }}>Las captadoras seleccionan la fuente al registrar cada llamada. El costo por lead es opcional y se usa en reportes de ROI.</p>
           <div className="g7-list">
             {leadSrcs.map(s => (
               <div key={s.id} className="g7-list-item">
-                <span className="g7-item-name">{s.name}</span>
+                <div style={{ flex: 1 }}>
+                  {editingSrcId === s.id ? (
+                    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                      <input className="input-field" style={{ fontSize: 13, padding: "4px 8px", flex: 1, minWidth: 120 }} value={editSrcName} onChange={e => setEditSrcName(e.target.value)} autoFocus />
+                      <input className="input-field" style={{ fontSize: 13, padding: "4px 8px", width: 90 }} type="number" value={editSrcCost} onChange={e => setEditSrcCost(e.target.value)} placeholder="$/lead" />
+                      <button className="g4-note-save" style={{ fontSize: 12 }} onClick={() => saveSrcEdit(s.id)}>OK</button>
+                      <button className="g4-note-cancel" style={{ fontSize: 12 }} onClick={() => setEditingSrcId(null)}>X</button>
+                    </div>
+                  ) : (
+                    <span className="g7-item-name" style={{ cursor: "pointer" }} onClick={() => { setEditingSrcId(s.id); setEditSrcName(s.name); setEditSrcCost(s.cost_per_lead?.toString() || ""); }}>
+                      {s.name}
+                      {s.cost_per_lead != null && <span style={{ fontSize: 12, color: "var(--ink-light)", marginLeft: 6 }}>${s.cost_per_lead}/lead</span>}
+                    </span>
+                  )}
+                </div>
                 <label className="g7-toggle">
                   <input type="checkbox" checked={s.active} onChange={() => toggleSource(s.id, s.active)} />
                   <span className="g7-toggle-slider" />
@@ -238,9 +348,15 @@ export default function ConfigPage() {
               </div>
             ))}
           </div>
-          <div className="g7-add-row">
-            <input className="input-field" value={newSrcName} onChange={e => setNewSrcName(e.target.value)} placeholder="Nueva fuente..." />
-            <button className="btn-submit" style={{ minWidth: "auto", padding: "10px 20px", marginTop: 0 }} onClick={addSource}>Agregar</button>
+          {leadSrcs.length === 0 && <p className="g1-empty" style={{ marginBottom: 10 }}>Sin fuentes. Las captadoras no podrán registrar llamadas.</p>}
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 150 }}>
+              <input className="input-field" value={newSrcName} onChange={e => setNewSrcName(e.target.value)} placeholder="Nueva fuente..." onKeyDown={e => e.key === "Enter" && addSource()} />
+            </div>
+            <div style={{ width: 100 }}>
+              <input className="input-field" type="number" value={newSrcCost} onChange={e => setNewSrcCost(e.target.value)} placeholder="$/lead" />
+            </div>
+            <button className="btn-submit" style={{ minWidth: "auto", padding: "10px 20px", marginTop: 0 }} onClick={addSource} disabled={!newSrcName.trim()}>Agregar</button>
           </div>
         </div>
 
