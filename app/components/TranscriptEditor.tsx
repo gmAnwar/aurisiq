@@ -132,62 +132,20 @@ export default function TranscriptEditor({
     onSaved?.(draft, pct);
   };
 
-  // Normalize text for fuzzy matching: lowercase, strip accents, collapse whitespace, strip punctuation
-  const normalize = (s: string) =>
-    s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
-
-  // Try to find snippet in original text, returning { start, end, matchType } or null
-  const findSnippet = (text: string, snippet: string): { start: number; end: number; matchType: "exact" | "fuzzy" } | null => {
-    // 1. Exact match
-    const exactIdx = text.indexOf(snippet);
-    if (exactIdx !== -1) return { start: exactIdx, end: exactIdx + snippet.length, matchType: "exact" };
-
-    // 2. Fuzzy: normalize both, find in normalized, map back via window search
-    const normSnippet = normalize(snippet);
-    if (normSnippet.length < 8) return null;
-    const normText = normalize(text);
-    const normIdx = normText.indexOf(normSnippet);
-    if (normIdx === -1) return null;
-
-    // Map normalized position back to original using anchor-based window search
-    // Find the first and last ~10 normalized chars as anchors in the original text
-    const headAnchor = normSnippet.slice(0, 10);
-    const tailAnchor = normSnippet.slice(-10);
-
-    // Scan original text for a window that contains both anchors
-    const windowLen = Math.ceil(snippet.length * 1.3);
-    const searchStart = Math.max(0, Math.floor(normIdx * (text.length / normText.length)) - 20);
-    const searchEnd = Math.min(text.length, searchStart + windowLen + 40);
-
-    for (let i = searchStart; i < searchEnd; i++) {
-      const candidateEnd = Math.min(text.length, i + windowLen);
-      const candidate = text.slice(i, candidateEnd);
-      const normCandidate = normalize(candidate);
-      if (normCandidate.includes(headAnchor) && normCandidate.includes(tailAnchor)) {
-        return { start: i, end: candidateEnd, matchType: "fuzzy" };
-      }
-    }
-
-    return null;
-  };
-
   // Build highlighted text segments
   const renderHighlightedText = (text: string) => {
     if (!highlights || highlights.length === 0) return text;
 
     // Find all matches with positions, avoiding overlaps
-    const matches: { start: number; end: number; type: string; description: string; matchType: string }[] = [];
+    const matches: { start: number; end: number; type: string; description: string }[] = [];
     for (const h of highlights) {
       if (!h.snippet || h.snippet.length < 5) continue;
-      const found = findSnippet(text, h.snippet);
-      if (!found) {
-        console.warn("[highlight] snippet not found:", h.snippet.slice(0, 60));
-        continue;
-      }
+      const idx = text.indexOf(h.snippet);
+      if (idx === -1) continue;
       // Check overlap with existing matches
-      const overlaps = matches.some(m => found.start < m.end && found.end > m.start);
+      const overlaps = matches.some(m => idx < m.end && idx + h.snippet.length > m.start);
       if (overlaps) continue;
-      matches.push({ start: found.start, end: found.end, type: h.type, description: h.description, matchType: found.matchType });
+      matches.push({ start: idx, end: idx + h.snippet.length, type: h.type, description: h.description });
     }
 
     if (matches.length === 0) return text;
@@ -207,7 +165,7 @@ export default function TranscriptEditor({
         ? { background: "#fef3c7", borderLeft: "2px solid #f59e0b", paddingLeft: 4, paddingRight: 4 }
         : { background: "#fef2f2", borderLeft: "2px solid #f87171", paddingLeft: 4, paddingRight: 4 };
       segments.push(
-        <span key={i} style={style} title={m.description} data-highlight-matched={m.matchType}>
+        <span key={i} style={style} title={m.description}>
           {text.slice(m.start, m.end)}
         </span>
       );
