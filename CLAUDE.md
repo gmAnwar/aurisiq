@@ -74,6 +74,7 @@ En caso de conflicto entre este CLAUDE.md y el TÉCNICO, el TÉCNICO tiene prior
 - NUNCA guardar el name de fuente_lead directamente — siempre UUID reference
 - NUNCA separar check de cuota y decremento en dos llamadas — usar función RPC atómica
 - El Worker no verifica JWT hoy — organization_id y user_id vienen del body (MVP, deuda documentada)
+- Después de cada commit, hacer git push origin main ANTES de reportar el hash en Slack — el hash local no sirve si no está en remote y Vercel no despliega sin push
 
 ## Al arrancar una sesión — protocolo obligatorio
 1. Verificar que MCPs de Supabase, GitHub y Vercel estén conectados
