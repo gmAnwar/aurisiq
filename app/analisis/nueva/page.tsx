@@ -48,6 +48,10 @@ export default function NuevaLlamadaPage() {
   const [dragging, setDragging] = useState(false);
   const [fileMsg, setFileMsg] = useState("");
   const [method, setMethod] = useState<"none" | "record" | "upload" | "paste">("none");
+  const [checkedItems, setCheckedItems] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try { return new Set(JSON.parse(sessionStorage.getItem("c2_checked_items") || "[]")); } catch { return new Set(); }
+  });
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(true);
@@ -582,6 +586,7 @@ export default function NuevaLlamadaPage() {
     sessionStorage.removeItem("c2_phone");
     sessionStorage.removeItem("c2_original");
     sessionStorage.removeItem("c2_source_type");
+    sessionStorage.removeItem("c2_checked_items");
   };
 
   // ─── Shared: redirect to analysis result ─────────────────
@@ -1168,18 +1173,30 @@ export default function NuevaLlamadaPage() {
                 <p className="c2-hint">Esta etapa no tiene checklist configurado.</p>
               ) : (() => {
                 const missedSet = new Set(missedFields);
+                const checked = checkedItems;
+                const toggle = (slug: string) => {
+                  const next = new Set(checked);
+                  if (next.has(slug)) next.delete(slug); else next.add(slug);
+                  setCheckedItems(next);
+                  sessionStorage.setItem("c2_checked_items", JSON.stringify([...next]));
+                };
                 return (
-                  <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, columns: 2, columnGap: 24 }}>
-                    {checklistFields.map((f, i) => {
-                      const isMissed = missedSet.has(f.label);
-                      return (
-                        <li key={f.slug} className={isMissed ? "c2-checklist-missed" : ""} style={{ marginBottom: 3 }} title={isMissed ? "Campo que se te olvida frecuentemente" : undefined}>
-                          {isMissed && <span className="c2-checklist-warn">!</span>}
-                          {f.label}
-                        </li>
-                      );
-                    })}
-                  </ul>
+                  <div style={{ fontSize: 13 }}>
+                    <div style={{ fontSize: 11, color: "var(--ink-light)", marginBottom: 6 }}>{checked.size}/{checklistFields.length} marcados</div>
+                    <div style={{ columns: 2, columnGap: 24 }}>
+                      {checklistFields.map((f) => {
+                        const isMissed = missedSet.has(f.label);
+                        return (
+                          <label key={f.slug} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, cursor: "pointer" }}>
+                            <input type="checkbox" checked={checked.has(f.slug)} onChange={() => toggle(f.slug)} style={{ accentColor: "var(--accent)", flexShrink: 0 }} />
+                            <span style={{ color: isMissed ? "var(--red, #ef4444)" : checked.has(f.slug) ? "var(--ink-light)" : "var(--ink)", textDecoration: checked.has(f.slug) ? "line-through" : "none" }}>
+                              {isMissed && <span className="c2-checklist-warn">!</span>}{f.label}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })()}
             </div>
