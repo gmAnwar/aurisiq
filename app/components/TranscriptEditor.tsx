@@ -15,8 +15,9 @@ interface EditLogRow {
 }
 
 interface Highlight {
-  type: string;
+  category_code: string;
   snippet: string;
+  speaker: string;
   description: string;
 }
 
@@ -137,15 +138,14 @@ export default function TranscriptEditor({
     if (!highlights || highlights.length === 0) return text;
 
     // Find all matches with positions, avoiding overlaps
-    const matches: { start: number; end: number; type: string; description: string }[] = [];
+    const matches: { start: number; end: number; category_code: string; description: string }[] = [];
     for (const h of highlights) {
       if (!h.snippet || h.snippet.length < 5) continue;
       const idx = text.indexOf(h.snippet);
       if (idx === -1) continue;
-      // Check overlap with existing matches
       const overlaps = matches.some(m => idx < m.end && idx + h.snippet.length > m.start);
       if (overlaps) continue;
-      matches.push({ start: idx, end: idx + h.snippet.length, type: h.type, description: h.description });
+      matches.push({ start: idx, end: idx + h.snippet.length, category_code: h.category_code, description: h.description });
     }
 
     if (matches.length === 0) return text;
@@ -161,9 +161,9 @@ export default function TranscriptEditor({
       if (cursor < m.start) {
         segments.push(text.slice(cursor, m.start));
       }
-      const style = m.type === "momento_critico"
-        ? { background: "#fef3c7", borderLeft: "2px solid #f59e0b", paddingLeft: 4, paddingRight: 4 }
-        : { background: "#fffbeb", borderLeft: "2px solid #f59e0b", paddingLeft: 4, paddingRight: 4 };
+      const style = m.category_code === "coaching"
+        ? { background: "#fffbeb", borderLeft: "2px solid #f59e0b", paddingLeft: 4, paddingRight: 4 }
+        : { background: "#f9fafb", borderLeft: "2px solid #d1d5db", paddingLeft: 4, paddingRight: 4 };
       segments.push(
         <span key={i} style={style} title={m.description}>
           {text.slice(m.start, m.end)}

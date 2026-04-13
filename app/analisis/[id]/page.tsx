@@ -45,7 +45,7 @@ interface Analysis {
   lead_estado: string | null;
   related_analysis_id: string | null;
   legacy_note: string | null;
-  highlights: { type: string; snippet: string; description: string }[] | null;
+  highlights: { category_code: string; snippet: string; speaker: string; description: string }[] | null;
   created_at: string;
 }
 
@@ -70,6 +70,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
   const [transcriptionOriginal, setTranscriptionOriginal] = useState<string | null>(null);
   const [editPercentage, setEditPercentage] = useState(0);
   const [userId, setUserId] = useState("");
+  const [trackers, setTrackers] = useState<{ code: string; label: string; icon: string }[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -117,6 +118,14 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
             setTranscriptionOriginal(body.job.transcription_original || null);
             setEditPercentage(body.job.edit_percentage || 0);
           }
+          // Fetch trackers for super_admin path
+          const { data: trk } = await supabase
+            .from("conversation_trackers")
+            .select("code, label, icon")
+            .or(`organization_id.eq.${session.organizationId},organization_id.is.null`)
+            .eq("active", true)
+            .order("sort_order");
+          setTrackers(trk || []);
           setLoading(false);
           return;
         } catch (e) {
@@ -193,6 +202,15 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
           .limit(5);
         setRelatedCalls(related || []);
       }
+
+      // Fetch trackers for grouped highlights
+      const { data: trk } = await supabase
+        .from("conversation_trackers")
+        .select("code, label, icon")
+        .or(`organization_id.eq.${session.organizationId},organization_id.is.null`)
+        .eq("active", true)
+        .order("sort_order");
+      setTrackers(trk || []);
 
       setLoading(false);
     }
@@ -533,6 +551,45 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
           />
         </details>
       )}
+
+      {/* 4c. GROUPED HIGHLIGHTS */}
+      {(() => {
+        const grouped = trackers.reduce<{ code: string; label: string; icon: string; items: NonNullable<Analysis["highlights"]> }[]>((acc, t) => {
+          const items = (analysis.highlights || []).filter(h => h.category_code === t.code);
+          if (items.length > 0) acc.push({ ...t, items });
+          return acc;
+        }, []);
+        if (grouped.length === 0 && (analysis.highlights || []).length === 0) return null;
+        return (
+          <div className="c3-section">
+            <p className="c3-section-label">Fragmentos destacados</p>
+            {grouped.length === 0 ? (
+              <p style={{ fontSize: 13, color: "var(--ink-light)" }}>No se identificaron fragmentos destacados en esta llamada.</p>
+            ) : grouped.map(group => (
+              <div key={group.code} style={{ marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                  <span>{group.icon}</span>
+                  <span style={{ fontWeight: 600, fontSize: 14 }}>{group.label}</span>
+                  <span style={{ fontSize: 12, color: "var(--ink-light)" }}>({group.items.length})</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {group.items.map((h, i) => (
+                    <div key={i} style={{
+                      padding: "10px 12px",
+                      borderRadius: 6,
+                      borderLeft: `4px solid ${group.code === "coaching" ? "#f59e0b" : "#d1d5db"}`,
+                      background: group.code === "coaching" ? "#fffbeb" : "#f9fafb",
+                    }}>
+                      <p style={{ margin: 0, fontSize: 13, fontStyle: "italic", lineHeight: 1.5 }}>&ldquo;{h.snippet}&rdquo;</p>
+                      <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--ink-light)" }}>{h.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* 5. CHECKLIST VISUAL */}
       {checklist.length > 0 && (

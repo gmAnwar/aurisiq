@@ -31,6 +31,7 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [userId, setUserId] = useState("");
+  const [trackers, setTrackers] = useState<{ code: string; label: string; icon: string }[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -84,6 +85,15 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
           .limit(5);
         setRelatedCalls(related || []);
       }
+
+      // Fetch trackers for grouped highlights
+      const { data: trk } = await supabase
+        .from("conversation_trackers")
+        .select("code, label, icon")
+        .or(`organization_id.eq.${a.organization_id},organization_id.is.null`)
+        .eq("active", true)
+        .order("sort_order");
+      setTrackers(trk || []);
 
       setLoading(false);
     }
@@ -318,6 +328,46 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
           )}
         </div>
 
+        {/* Grouped Highlights */}
+        {(() => {
+          const highlights = (analysis?.highlights as { category_code: string; snippet: string; speaker: string; description: string }[]) || [];
+          const grouped = trackers.reduce<{ code: string; label: string; icon: string; items: typeof highlights }[]>((acc, t) => {
+            const items = highlights.filter(h => h.category_code === t.code);
+            if (items.length > 0) acc.push({ ...t, items });
+            return acc;
+          }, []);
+          if (grouped.length === 0 && highlights.length === 0) return null;
+          return (
+            <div className="g1-section">
+              <h2 className="g1-section-title">Fragmentos destacados</h2>
+              {grouped.length === 0 ? (
+                <p style={{ fontSize: 13, color: "#737373" }}>No se identificaron fragmentos destacados en esta llamada.</p>
+              ) : grouped.map(group => (
+                <div key={group.code} style={{ marginBottom: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                    <span>{group.icon}</span>
+                    <span style={{ fontWeight: 600, fontSize: 14 }}>{group.label}</span>
+                    <span style={{ fontSize: 12, color: "#737373" }}>({group.items.length})</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {group.items.map((h, i) => (
+                      <div key={i} style={{
+                        padding: "10px 12px",
+                        borderRadius: 6,
+                        borderLeft: `4px solid ${group.code === "coaching" ? "#f59e0b" : "#d1d5db"}`,
+                        background: group.code === "coaching" ? "#fffbeb" : "#f9fafb",
+                      }}>
+                        <p style={{ margin: 0, fontSize: 13, fontStyle: "italic", lineHeight: 1.5 }}>&ldquo;{h.snippet}&rdquo;</p>
+                        <p style={{ margin: "4px 0 0", fontSize: 12, color: "#737373" }}>{h.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
         {/* Audio */}
         {hasAudio && audioUrl && !audioExpired && (
           <div className="g1-section">
@@ -336,7 +386,7 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
             showEditBadge={true}
             showEditHistory={true}
             userId={userId}
-            highlights={(analysis?.highlights as { type: string; snippet: string; description: string }[]) || []}
+            highlights={(analysis?.highlights as { category_code: string; snippet: string; speaker: string; description: string }[]) || []}
             onSaved={(newText, newPct) => { setTranscription(newText); setEditPercentage(newPct); }}
           />
         )}
