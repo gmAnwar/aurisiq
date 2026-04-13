@@ -124,17 +124,17 @@ export async function getSession(): Promise<UserSession | null> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return null;
 
-  // Try with training_mode; fall back if migration 017 not applied yet
+  // Try with roles + training_mode; fall back defensively
   let userRes = await supabase
     .from("users")
-    .select("organization_id, role, name, training_mode")
+    .select("organization_id, role, roles, name, training_mode")
     .eq("id", session.user.id)
     .single();
 
   if (userRes.error && userRes.error.message?.includes("training_mode")) {
     userRes = await supabase
       .from("users")
-      .select("organization_id, role, name")
+      .select("organization_id, role, roles, name")
       .eq("id", session.user.id)
       .single();
   }
