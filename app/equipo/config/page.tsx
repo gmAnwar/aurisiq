@@ -82,7 +82,7 @@ function ConfigPage() {
 
       const [stagesRes, catsRes, srcsRes, orgRes, objRes, funnelRes, capsRes] = await Promise.all([
         supabase.from("funnel_stages").select("id, name, stage_type, order_index, scorecard_id")
-          .eq("organization_id", session.organizationId).order("order_index"),
+          .eq("organization_id", session.organizationId).eq("active", true).order("order_index"),
         supabase.from("descalification_categories").select("id, code, label, active")
           .eq("organization_id", session.organizationId).order("label"),
         supabase.from("lead_sources").select("id, name, cost_per_lead, active")

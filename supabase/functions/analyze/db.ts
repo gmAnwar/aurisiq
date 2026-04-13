@@ -195,9 +195,9 @@ export async function writeAnalysisResults(
   // Resolve detected stage
   let detectedStageId: string | null = null;
   if (parsed.detected_stage_name && orgStages.length > 0) {
-    const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    const norm = (s: string) => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     const target = norm(parsed.detected_stage_name);
-    const match = orgStages.find(s => norm(s.name) === target);
+    const match = orgStages.find(s => s.name && norm(s.name) === target);
     if (match) detectedStageId = match.id;
   }
 

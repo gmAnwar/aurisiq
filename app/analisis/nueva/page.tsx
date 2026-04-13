@@ -235,7 +235,7 @@ export default function NuevaLlamadaPage() {
         supabase.from("lead_sources").select("id, name, active")
           .eq("organization_id", effectiveOrgId).order("name"),
         supabase.from("funnel_stages").select("id, name, scorecard_id")
-          .eq("organization_id", effectiveOrgId).order("order_index"),
+          .eq("organization_id", effectiveOrgId).eq("active", true).order("order_index"),
       ]);
 
       const { data: sourcesRaw, error } = sourcesRes;

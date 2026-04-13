@@ -162,11 +162,11 @@ export function matchPhaseIds(
   scorecardPhases: ScorecardPhase[],
 ): MatchedPhase[] {
   const normalize = (s: string) =>
-    s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+    (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 
   return parsedPhases.map((parsed, idx) => {
     const normalizedParsed = normalize(parsed.phase_name);
-    const match = scorecardPhases.find(sp => normalize(sp.phase_name) === normalizedParsed);
+    const match = scorecardPhases.find(sp => sp.phase_name && normalize(sp.phase_name) === normalizedParsed);
     return {
       phase_id: match?.phase_id || null,
       phase_name: parsed.phase_name,

@@ -47,7 +47,7 @@ export default function HistorialPage() {
           .eq("user_id", session.userId).eq("organization_id", session.organizationId).eq("status", "completado")
           .order("created_at", { ascending: false }),
         supabase.from("funnel_stages").select("id, name")
-          .eq("organization_id", session.organizationId),
+          .eq("organization_id", session.organizationId).eq("active", true),
       ]);
 
       setAnalyses(analysesRes.data || []);

@@ -43,7 +43,7 @@ export default function DashboardEjecutivoPage() {
         supabase.from("objectives").select("id, name, target_value, current_value")
           .eq("organization_id", me.organization_id),
         supabase.from("funnel_stages").select("id, name")
-          .eq("organization_id", me.organization_id).order("order_index"),
+          .eq("organization_id", me.organization_id).eq("active", true).order("order_index"),
         supabase.from("descalification_categories").select("code, label")
           .eq("organization_id", me.organization_id),
         supabase.from("users").select("id, name, role")

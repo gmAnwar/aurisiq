@@ -71,7 +71,7 @@ export default function SpeechPage() {
 
       const { data: stagesData } = await supabase.from("funnel_stages")
         .select("id, name, scorecard_id")
-        .eq("organization_id", session.organizationId).order("order_index");
+        .eq("organization_id", session.organizationId).eq("active", true).order("order_index");
 
       const funnelStages = (stagesData || []) as FunnelStage[];
       setStages(funnelStages);
