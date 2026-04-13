@@ -300,7 +300,7 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
                     <div key={a.id} className="g2-coaching-card">
                       <span className="g2-coaching-date">{d.toLocaleDateString("es-MX", { day: "numeric", month: "short" })} · Score: {a.score_general ?? "—"}</span>
                       <div className="g2-coaching-row">
-                        <span className="g2-coaching-label">Lo que dije:</span>
+                        <span className="g2-coaching-label">Coachea a {name.split(" ")[0]}:</span>
                         <p>{error || "Sin patrón identificado en esta llamada"}</p>
                       </div>
                       <div className="g2-coaching-row">

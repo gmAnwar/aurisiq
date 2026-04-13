@@ -460,7 +460,7 @@ export default function MiDiaPage() {
         <div className="tip-card">
           <div className="tip-lbl">Tu tip del día</div>
           <div className={`tip-title ${tipExpanded ? "tip-title-expanded" : ""}`}>
-            {tipExpanded ? tipFull : tipTitle}
+            Para tu siguiente llamada: {tipExpanded ? tipFull : tipTitle}
           </div>
           {tipFull && tipFull.length > 120 && (
             <button className="tip-toggle" onClick={() => setTipExpanded(!tipExpanded)}>
