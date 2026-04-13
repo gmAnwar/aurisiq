@@ -198,33 +198,42 @@ export default function TrackersCRUD({ orgId, showUniversals, readOnlyUniversals
       {error && <p style={{ fontSize: 13, color: "#ef4444", marginBottom: 8 }}>{error}</p>}
 
       {/* Add form */}
-      <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
-        <div style={{ width: 60 }}>
-          <input className="input-field" value={newIcon} onChange={e => setNewIcon(e.target.value)} placeholder="🎯" maxLength={4} style={{ textAlign: "center" }} />
-        </div>
-        <div style={{ flex: 1, minWidth: 150 }}>
-          <input className="input-field" value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="Nombre del tracker" />
-        </div>
-        <div style={{ width: 110 }}>
-          <select className="input-field" value={newSpeaker} onChange={e => setNewSpeaker(e.target.value)}>
-            <option value="prospect">Prospecto</option><option value="seller">Vendedor</option><option value="any">Cualquiera</option>
-          </select>
-        </div>
-      </div>
-      <div style={{ marginTop: 6 }}>
-        <textarea className="input-field" rows={2} value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Descripción para la IA (mín 20 caracteres)" style={{ width: "100%" }} />
-      </div>
-      <div style={{ marginTop: 6 }}>
-        <button className="btn-submit" style={{ minWidth: "auto", padding: "10px 20px" }} onClick={addTracker} disabled={!newLabel.trim() || !newIcon.trim() || newDesc.trim().length < 20}>
-          Agregar tracker
-        </button>
-        {newLabel.trim() && <span style={{ fontSize: 12, color: "var(--ink-light, #737373)", marginLeft: 8 }}>Código: {toSnakeCase(newLabel)}</span>}
-        {(!newIcon.trim() || !newLabel.trim() || newDesc.trim().length < 20) && (newIcon || newLabel || newDesc) && (
-          <p style={{ fontSize: 12, color: "var(--ink-light, #a3a3a3)", marginTop: 4 }}>
-            {!newIcon.trim() ? "Falta icono (emoji)" : !newLabel.trim() ? "Falta nombre del tracker" : `Descripción: ${newDesc.trim().length}/20 caracteres mínimo`}
-          </p>
-        )}
-      </div>
+      {(() => {
+        const hasInput = !!(newIcon || newLabel || newDesc);
+        const errField = hasInput ? (!newIcon.trim() ? "icon" : !newLabel.trim() ? "label" : newDesc.trim().length < 20 ? "desc" : null) : null;
+        const errBorder = "2px solid #ef4444";
+        return (
+          <>
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+              <div style={{ width: 60 }}>
+                <input className="input-field" value={newIcon} onChange={e => setNewIcon(e.target.value)} placeholder="🎯" maxLength={4} style={{ textAlign: "center", ...(errField === "icon" ? { border: errBorder } : {}) }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 150 }}>
+                <input className="input-field" value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="Nombre del tracker" style={errField === "label" ? { border: errBorder } : {}} />
+              </div>
+              <div style={{ width: 110 }}>
+                <select className="input-field" value={newSpeaker} onChange={e => setNewSpeaker(e.target.value)}>
+                  <option value="prospect">Prospecto</option><option value="seller">Vendedor</option><option value="any">Cualquiera</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ marginTop: 6 }}>
+              <textarea className="input-field" rows={2} value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Descripción para la IA (mín 20 caracteres)" style={{ width: "100%", ...(errField === "desc" ? { border: errBorder } : {}) }} />
+            </div>
+            <div style={{ marginTop: 6 }}>
+              <button className="btn-submit" style={{ minWidth: "auto", padding: "10px 20px" }} onClick={addTracker} disabled={!newLabel.trim() || !newIcon.trim() || newDesc.trim().length < 20}>
+                Agregar tracker
+              </button>
+              {newLabel.trim() && <span style={{ fontSize: 12, color: "var(--ink-light, #737373)", marginLeft: 8 }}>Código: {toSnakeCase(newLabel)}</span>}
+              {errField && (
+                <p style={{ fontSize: 12, color: "#ef4444", marginTop: 4 }}>
+                  {errField === "icon" ? "Falta icono (emoji)" : errField === "label" ? "Falta nombre del tracker" : `Descripción: ${newDesc.trim().length}/20 caracteres mínimo`}
+                </p>
+              )}
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
