@@ -1292,66 +1292,19 @@ export default function NuevaLlamadaPage() {
 }
 
 // C2 recording: show 1 phrase per field with optional selector, persisted in localStorage
-function SpeechFieldSingle({ field, storageKey }: { field: { field_name: string; phrases: string[] }; storageKey: string }) {
-  const lsKey = `c2_speech_pick_${storageKey}_${field.field_name}`;
-  const [selectedIdx, setSelectedIdx] = useState(() => {
-    if (typeof window === "undefined") return 0;
-    const saved = localStorage.getItem(lsKey);
-    const idx = saved ? parseInt(saved, 10) : 0;
-    return idx >= 0 && idx < (field.phrases?.length || 1) ? idx : 0;
-  });
-  const [showAlts, setShowAlts] = useState(false);
-
+function SpeechFieldSingle({ field }: { field: { field_name: string; phrases: string[] }; storageKey: string }) {
   if (!field.phrases || field.phrases.length === 0) return null;
-
   return (
     <div style={{ marginTop: 6 }}>
       <span style={{ fontSize: 13, fontWeight: 500 }}>{field.field_name}:</span>
-      <p style={{ margin: "2px 0 0 10px", fontSize: 13 }}>{field.phrases[selectedIdx]}</p>
-      {field.phrases.length > 1 && (
-        <div style={{ margin: "4px 0 0 10px", display: "flex", gap: 4, flexWrap: "wrap" }}>
-          {field.phrases.map((_, i) => (
-            <button key={i} type="button" onClick={() => { setSelectedIdx(i); localStorage.setItem(lsKey, String(i)); }}
-              style={{ background: i === selectedIdx ? "var(--accent, #00C2E0)" : "var(--border, #e5e5e5)", color: i === selectedIdx ? "#fff" : "var(--ink-light)", border: "none", borderRadius: 4, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>
-              {i + 1}
-            </button>
-          ))}
-        </div>
-      )}
+      <p style={{ margin: "2px 0 0 10px", fontSize: 13 }}>{field.phrases[0]}</p>
     </div>
   );
 }
 
-// C2 recording: show 1 phrase for phase-level phrases (no field_name)
-function SpeechPhraseSingle({ phrases, storageKey }: { phrases: string[]; storageKey: string }) {
-  const lsKey = `c2_speech_phase_pick_${storageKey}`;
-  const [selectedIdx, setSelectedIdx] = useState(() => {
-    if (typeof window === "undefined") return 0;
-    const saved = localStorage.getItem(lsKey);
-    const idx = saved ? parseInt(saved, 10) : 0;
-    return idx >= 0 && idx < phrases.length ? idx : 0;
-  });
-  const [showAlts, setShowAlts] = useState(false);
-
-  if (phrases.length <= 1) {
-    return <p style={{ margin: "4px 0 0 0", fontSize: 13 }}>{phrases[0]}</p>;
-  }
-
-  return (
-    <div>
-      <p style={{ margin: "4px 0 0 0", fontSize: 13 }}>{phrases[selectedIdx]}</p>
-      {phrases.length > 1 && (
-        <div style={{ margin: "4px 0 0", display: "flex", gap: 4, flexWrap: "wrap" }}>
-          {phrases.map((_, i) => (
-            <button key={i} type="button" onClick={() => { setSelectedIdx(i); localStorage.setItem(lsKey, String(i)); }}
-              style={{ background: i === selectedIdx ? "var(--accent, #00C2E0)" : "var(--border, #e5e5e5)", color: i === selectedIdx ? "#fff" : "var(--ink-light)", border: "none", borderRadius: 4, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>
-              {i + 1}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+function SpeechPhraseSingle({ phrases }: { phrases: string[]; storageKey: string }) {
+  if (!phrases || phrases.length === 0) return null;
+  return <p style={{ margin: "4px 0 0 0", fontSize: 13 }}>{phrases[0]}</p>;
 }
 
 function GuideFieldItem({ field }: { field: { field_name: string; phrases: string[] } }) {
