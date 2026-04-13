@@ -1,15 +1,36 @@
 import { supabase } from "./supabase";
 
+export type UserRole = 'captadora' | 'gerente' | 'direccion' | 'agencia' | 'super_admin';
+
 export interface UserSession {
   userId: string;
   role: string;              // effective role (may be overridden by training mode)
+  roles: string[];           // effective roles array (defensive — populated from roles[] or [role])
   realRole: string;          // actual DB role
+  realRoles: string[];       // actual DB roles array
   trainingMode: boolean;
   organizationId: string;
   organizationSlug: string | null;
   organizationName: string | null;
   roleLabelVendedor: string | null;
   name: string;
+}
+
+export function hasRole(session: { roles?: string[]; role?: string } | null, role: UserRole): boolean {
+  if (!session) return false;
+  const roles = session.roles ?? (session.role ? [session.role] : []);
+  return roles.includes(role);
+}
+
+export function hasAnyRole(session: { roles?: string[]; role?: string } | null, allowed: UserRole[]): boolean {
+  if (!session) return false;
+  const roles = session.roles ?? (session.role ? [session.role] : []);
+  return roles.some(r => allowed.includes(r as UserRole));
+}
+
+export function getRolesForSession(session: { roles?: string[]; role?: string } | null): string[] {
+  if (!session) return [];
+  return session.roles ?? (session.role ? [session.role] : []);
 }
 
 const TRAINING_ALLOWED_ROLES = ["captadora", "gerente", "direccion"];
@@ -53,7 +74,9 @@ const SKIP_AUTH = process.env.NEXT_PUBLIC_SKIP_AUTH === "true";
 const MOCK_SESSION: UserSession = {
   userId: "mock-user-001",
   role: "super_admin",
+  roles: ["super_admin"],
   realRole: "super_admin",
+  realRoles: ["super_admin"],
   trainingMode: false,
   organizationId: "mock-org-001",
   organizationSlug: "immobili",
@@ -117,14 +140,18 @@ export async function getSession(): Promise<UserSession | null> {
   }
 
   const userData = userRes.data as
-    | { organization_id: string; role: string; name: string; training_mode?: boolean | null }
+    | { organization_id: string; role: string; roles?: string[] | null; name: string; training_mode?: boolean | null }
     | null;
   if (!userData) return null;
 
   const realRole = userData.role;
+  const realRoles = Array.isArray(userData.roles) && userData.roles.length > 0
+    ? userData.roles
+    : [realRole];
   const trainingMode = !!userData.training_mode;
   const trainingRole = trainingMode ? getTrainingRole() : null;
   const effectiveRole = trainingRole || realRole;
+  const effectiveRoles = trainingRole ? [trainingRole] : realRoles;
 
   // Any multi-org user (or super_admin) can switch active org via the
   // navbar selector. The active org is stored in localStorage and read
@@ -163,7 +190,9 @@ export async function getSession(): Promise<UserSession | null> {
   return {
     userId: session.user.id,
     role: effectiveRole,
+    roles: effectiveRoles,
     realRole,
+    realRoles,
     trainingMode,
     organizationId: effectiveOrgId,
     organizationSlug: orgSlug,
@@ -187,7 +216,7 @@ export async function requireAuth(allowedRoles: string[]): Promise<UserSession |
     return null;
   }
 
-  if (!allowedRoles.includes(session.role)) {
+  if (!hasAnyRole(session, allowedRoles as UserRole[])) {
     window.location.href = getHomeForRole(session.role);
     return null;
   }
