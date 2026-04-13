@@ -328,9 +328,13 @@ export default function SpeechPage() {
       {current && (
         <div key={selectedStageId} className="c5-phases" style={{ border: "1px solid var(--border, #e5e5e5)", borderRadius: 8, overflow: "hidden" }}>
           {current.phases.map((phase, i) => (
-            <details key={i} open={i === 0} className="c2-speech-phase">
-              <summary className="c2-speech-phase-summary">{phase.phase_name}</summary>
-              <div className="c2-speech-phase-body">
+            <details key={i} open={i === 0} className="g5-speech-phase">
+              <summary className="g5-speech-phase-summary">
+                <span className="g5-phase-number">{i + 1}</span>
+                <span className="g5-phase-name">{phase.phase_name}</span>
+                <svg className="g5-phase-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+              </summary>
+              <div className="g5-speech-phase-body">
                 {/* Transition phrase */}
                 {phase.transition && (
                   <p className="c5-transition">{phase.transition}</p>

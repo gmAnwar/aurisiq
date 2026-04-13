@@ -961,6 +961,55 @@ body.has-nav {
   padding: 0 14px 12px 28px;
 }
 
+/* G5 speech phase (gerente collapsible) */
+.g5-speech-phase {
+  border-bottom: 1px solid var(--border, #e5e5e5);
+}
+.g5-speech-phase:last-child {
+  border-bottom: none;
+}
+.g5-speech-phase-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 14px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.g5-speech-phase-summary::-webkit-details-marker {
+  display: none;
+}
+.g5-phase-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent, #00D4D4);
+  color: #060B18;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.g5-phase-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 16px;
+}
+.g5-phase-chevron {
+  transition: transform 0.2s ease;
+  color: var(--muted, #6b7280);
+  flex-shrink: 0;
+}
+.g5-speech-phase[open] .g5-phase-chevron {
+  transform: rotate(90deg);
+}
+.g5-speech-phase-body {
+  padding: 0 14px 16px 54px;
+}
+
 /* C2 file drop zone */
 .c2-drop-zone {
   position: relative;
