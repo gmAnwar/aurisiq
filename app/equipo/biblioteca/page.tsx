@@ -58,6 +58,8 @@ export default function BibliotecaPage() {
   const [editPhaseNameValue, setEditPhaseNameValue] = useState("");
   const [editingTransition, setEditingTransition] = useState<number | null>(null);
   const [editTransitionValue, setEditTransitionValue] = useState("");
+  const [editingFieldName, setEditingFieldName] = useState<string | null>(null); // "pi-fi"
+  const [editFieldNameValue, setEditFieldNameValue] = useState("");
   const [scorecards, setScorecards] = useState<ScorecardRow[]>([]);
   const [orgId, setOrgId] = useState<string | null>(null);
   const [gerenteName, setGerenteName] = useState("");
@@ -171,6 +173,32 @@ export default function BibliotecaPage() {
     if (swapIdx < 0 || swapIdx >= current.phases.length) return;
     const updated = [...current.phases];
     [updated[pi], updated[swapIdx]] = [updated[swapIdx], updated[pi]];
+    await persistPhases(updated);
+  };
+
+  const saveFieldName = async (pi: number, fi: number) => {
+    if (!current || !editFieldNameValue.trim()) { setEditingFieldName(null); return; }
+    const updated = current.phases.map((p, i) => i !== pi ? p : {
+      ...p, fields: (p.fields || []).map((f, j) => j !== fi ? f : { ...f, field_name: editFieldNameValue.trim() }),
+    });
+    await persistPhases(updated);
+    setEditingFieldName(null);
+  };
+
+  const addField = async (pi: number) => {
+    if (!current) return;
+    const updated = current.phases.map((p, i) => i !== pi ? p : {
+      ...p, fields: [...(p.fields || []), { field_name: "Nuevo campo", phrases: [""] }],
+    });
+    await persistPhases(updated);
+  };
+
+  const deleteField = async (pi: number, fi: number) => {
+    if (!current) return;
+    if (!confirm("¿Eliminar este campo y sus frases?")) return;
+    const updated = current.phases.map((p, i) => i !== pi ? p : {
+      ...p, fields: (p.fields || []).filter((_, j) => j !== fi),
+    });
     await persistPhases(updated);
   };
 
@@ -430,27 +458,40 @@ export default function BibliotecaPage() {
                       {" "}<span className="g5-edit-icon" style={{ fontSize: 12, opacity: 0.4 }}>✎</span>
                     </p>
                   )}
-                  {phase.fields && phase.fields.map((field, fi) => (
-                    <div key={fi} className="c5-field">
-                      <span className="c5-field-name" style={{ padding: "6px 0", display: "block" }}>{field.field_name}</span>
-                      {field.phrases.map((ph, phi) => {
-                        const key = `${pi}-${fi}-${phi}`;
-                        return editingField === key ? (
-                          <div key={phi} className="g5-inline-edit">
-                            <textarea className="input-field" rows={2} value={editValue} onChange={e => setEditValue(e.target.value)} style={{ fontSize: 11 }} />
-                            <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                              <button className="g4-note-save" onClick={saveEdit} disabled={saving}>{saving ? "..." : "Guardar"}</button>
-                              <button className="g4-note-cancel" onClick={() => setEditingField(null)}>Cancelar</button>
+                  {phase.fields && phase.fields.map((field, fi) => {
+                    const fnKey = `${pi}-${fi}`;
+                    return (
+                      <div key={fi} className="c5-field">
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0" }}>
+                          {editingFieldName === fnKey ? (
+                            <input className="input-field" style={{ flex: 1, fontSize: 13, fontWeight: 600, padding: "2px 6px" }} value={editFieldNameValue} onChange={e => setEditFieldNameValue(e.target.value)} onBlur={() => saveFieldName(pi, fi)} onKeyDown={e => { if (e.key === "Enter") saveFieldName(pi, fi); if (e.key === "Escape") setEditingFieldName(null); }} autoFocus />
+                          ) : (
+                            <span className="c5-field-name" style={{ cursor: "pointer", display: "block" }} onClick={() => { setEditingFieldName(fnKey); setEditFieldNameValue(field.field_name); }}>
+                              {field.field_name} <span className="g5-edit-icon" style={{ fontSize: 11, opacity: 0.4 }}>✎</span>
+                            </span>
+                          )}
+                          <button className="adm-btn-ghost adm-btn-danger-text" style={{ fontSize: 11, padding: "2px 6px", flexShrink: 0 }} onClick={() => deleteField(pi, fi)} title="Eliminar campo">🗑</button>
+                        </div>
+                        {field.phrases.map((ph, phi) => {
+                          const key = `${pi}-${fi}-${phi}`;
+                          return editingField === key ? (
+                            <div key={phi} className="g5-inline-edit">
+                              <textarea className="input-field" rows={2} value={editValue} onChange={e => setEditValue(e.target.value)} style={{ fontSize: 11 }} />
+                              <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                                <button className="g4-note-save" onClick={saveEdit} disabled={saving}>{saving ? "..." : "Guardar"}</button>
+                                <button className="g4-note-cancel" onClick={() => setEditingField(null)}>Cancelar</button>
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <p key={phi} className={phi === 0 ? "c5-field-phrase-main" : "c5-field-phrase-alt"} style={{ cursor: "pointer" }} onClick={() => startEdit(key, ph)}>
-                            {ph} <span className="g5-edit-icon">✎</span>
-                          </p>
-                        );
-                      })}
-                    </div>
-                  ))}
+                          ) : (
+                            <p key={phi} className={phi === 0 ? "c5-field-phrase-main" : "c5-field-phrase-alt"} style={{ cursor: "pointer" }} onClick={() => startEdit(key, ph)}>
+                              {ph} <span className="g5-edit-icon">✎</span>
+                            </p>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                  <button className="adm-btn-ghost" style={{ fontSize: 12, marginTop: 8 }} onClick={() => addField(pi)}>+ Agregar campo</button>
                 </div>
               </details>
             ))}
