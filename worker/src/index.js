@@ -1150,71 +1150,57 @@ async function handleGenerateSpeech(body, env, origin) {
   const orgs = await supabaseSelect(env, 'organizations', `id=eq.${organization_id}&select=name`);
   const orgName = orgs.length > 0 ? orgs[0].name : 'la empresa';
 
-  const systemPrompt = `Eres AurisIQ. Genera frases modelo para un Speech Ideal de captación inmobiliaria. La empresa se llama "${orgName}". Usa SOLO este nombre — NO inventes otros nombres de empresa. Las frases deben sonar naturales, en español mexicano, y ser directamente usables en una llamada real. Cada frase es algo que la captadora diría literalmente al propietario.
+  // Load checklist items from DB if stage is specified
+  let stageItems = [];
+  if (funnel_stage_id) {
+    try {
+      stageItems = await supabaseSelect(
+        env, 'stage_checklist_items',
+        `funnel_stage_id=eq.${funnel_stage_id}&active=eq.true&select=label,description&order=sort_order`
+      );
+    } catch { /* ignore — proceed without items */ }
+  }
 
-REGLAS:
-- Sobre adeudos de servicios: la captadora pregunta SI tiene adeudos (sí/no), pero NO saca saldos exactos en la primera llamada. Ejemplo correcto: "¿Tiene algún adeudo de luz, agua o predial?" Ejemplo INCORRECTO: "¿Cuánto debe de luz?"
-- La Fase 5 DEBE incluir la promesa comercial: "${orgName} se compromete a vender la propiedad en 30 días, y si no se vende en ese plazo, baja la comisión.`;
+  // Extract business context from scorecard structure
+  const structure = scorecard.structure || {};
+  const businessContext = structure.context || '';
+  const businessObjective = structure.objective || '';
+  const vertical = scorecard.vertical || 'general';
 
-  const userPrompt = `La empresa se llama "${orgName}". Scorecard:
+  const systemPrompt = `Eres AurisIQ. Genera frases modelo para un Speech Ideal de venta. La empresa se llama "${orgName}". Usa SOLO este nombre — NO inventes otros nombres de empresa. Las frases deben sonar naturales, en español mexicano, y ser directamente usables en una llamada real. Cada frase es algo que el vendedor dirá literalmente al prospecto.
 
+CONTEXTO DEL NEGOCIO:
+${businessObjective}
+${businessContext}
+
+REGLA CRITICA: NO inventes información sobre el producto o servicio que no esté explícitamente en el contexto del negocio o en el scorecard. Si no sabes algo específico, usa lenguaje genérico.`;
+
+  const phasesBlock = phases.map((p, i) => {
+    // Attach checklist items to the first phase (or distribute if needed)
+    const itemsBlock = i === 0 && stageItems.length > 0
+      ? '\nCampos a cubrir:\n' + stageItems.map(it => `- ${it.label}${it.description ? ': ' + it.description : ''}`).join('\n')
+      : '';
+    return `FASE ${i + 1} — ${p.phase_name || p.name || 'Fase ' + (i + 1)}:
+Transición: Frase natural para entrar a esta fase.${itemsBlock}`;
+  }).join('\n\n');
+
+  const userPrompt = `La empresa se llama "${orgName}". Vertical: ${vertical}.
+
+Scorecard:
 ---
 ${scorecard.prompt_template}
 ---
 
-Genera un Speech Ideal${stageName ? ` para la etapa "${stageName}"` : ''}. Cada fase tiene una FRASE DE TRANSICIÓN (cómo la captadora pasa naturalmente de un tema al siguiente) y luego CAMPOS con 3 frases alternativas cada uno.
+Genera un Speech Ideal${stageName ? ` para la etapa "${stageName}"` : ''} basado EXCLUSIVAMENTE en las fases definidas en el scorecard de arriba.
 
-Las frases deben sonar como una conversación real, no como un formulario. La captadora habla con un propietario que quiere vender su casa.
+Cada fase debe tener una FRASE DE TRANSICIÓN (cómo el vendedor pasa naturalmente de un tema al siguiente) y luego CAMPOS con 3 frases alternativas cada uno (cuando aplique).
 
-FASE 1 — Apertura y Marco:
-Transición: El saludo ES la transición. La captadora se presenta, dice que llama de ${orgName}, explica el motivo de la llamada, y rompe el hielo antes de pedir datos.
-Campos:
-- Saludo y presentación (presentarse, decir de dónde llama, por qué llama — como conversación, no como formulario)
-- Nombre completo
-- Dirección de la propiedad
-- Dirección INE
-- Estado civil
+${phasesBlock}
 
-FASE 2 — Calificación de la Propiedad:
-Transición: Conectar naturalmente con "necesito hacerle unas preguntas sobre la documentación y el estado de la casa para poder evaluarla bien".
-Campos:
-- Libre de gravamen / crédito hipotecario
-- Pagos puntuales
-- Adeudos en tiempo consecutivo
-- Crédito individual o conyugal
-- NSS (si no lo tiene a la mano, ofrecerle que lo pase después por WhatsApp)
-- NC — Número de Crédito (si no lo tiene a la mano, ofrecerle que lo pase después por WhatsApp)
-- Papelería / escrituras
-- Descripción del domicilio
-- Casa habitada o desocupada
-- Servicios a nombre de quién
-- ¿Tiene adeudos de servicios? (solo si tiene o no, NO el monto exacto — agregar "si no sabe el monto exacto no se preocupe, eso lo checamos nosotros después")
-- Financiamiento de adeudos
-
-FASE 3 — Expectativa y Precio:
-Transición: Conectar con "ya con esa información, ahora hablemos de lo más importante: el precio y sus expectativas".
-Campos:
-- Motivo de venta
-- Expectativa del cliente (preguntar de forma INDIRECTA, nunca "¿en cuánto quiere vender?" — usar: "¿tiene alguna idea de cuánto podrían valer las propiedades por su zona?", "¿ha checado precios de casas similares en su colonia?")
-- Precio estimado de venta (solo una noción inicial, el precio real se da en la visita)
-- Precio estimado de captación
-
-FASE 4 — Avance a Visita:
-Transición: Conectar con "su propiedad tiene potencial, el siguiente paso es que vaya a conocerla en persona".
-Campos:
-- Disponibilidad
-- Proponer fecha y hora concretas
-
-FASE 5 — Lectura del Propietario:
-Transición: Conectar con "antes de despedirnos quiero comentarle algo importante sobre cómo trabajamos en ${orgName}".
-Campos:
-- Leer urgencia
-- Leer disposición
-- Leer resistencia
-- Promesa de venta (${orgName} se compromete a vender en 30 días, si no baja la comisión)
+Las frases deben sonar como una conversación real, no como un formulario. Adáptate al vertical "${vertical}" y al contexto del negocio. NO uses lenguaje inmobiliario a menos que el scorecard explícitamente lo requiera.
 
 Responde SOLO con JSON válido, sin texto adicional:
-{"phases": [{"phase_name": "Apertura y Marco", "transition": "frase de transición natural", "fields": [{"field_name": "Saludo y presentación", "phrases": ["frase1", "frase2", "frase3"]}, ...]}, ...]}`;
+{"phases": [{"phase_name": "nombre exacto de la fase del scorecard", "transition": "frase de transición natural", "fields": [{"field_name": "nombre del campo", "phrases": ["frase1", "frase2", "frase3"]}, ...]}, ...]}`;
 
   const rawOutput = await callClaude(env, systemPrompt, userPrompt);
 
