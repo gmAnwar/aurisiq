@@ -170,7 +170,7 @@ export default function BibliotecaPage() {
   };
 
   const regenerate = async () => {
-    if (!orgId || !selectedStageId) return;
+    if (!orgId || !selectedStageId || !userId) return;
     setGenerating(true);
     try {
       const res = await fetch(WORKER_URL, {
@@ -180,7 +180,26 @@ export default function BibliotecaPage() {
       });
       const data = await res.json();
       if (!res.ok || !data.phases) throw new Error("Error");
-      // Reload page to get fresh data from DB (Worker saves it)
+      // Auto-publish: find the provisional speech just created and publish it
+      const stageFilter = selectedStageId === "_global"
+        ? "funnel_stage_id.is.null"
+        : `funnel_stage_id.eq.${selectedStageId}`;
+      const { data: provisional } = await supabase
+        .from("speech_versions")
+        .select("id")
+        .eq("organization_id", orgId)
+        .eq("is_provisional", true)
+        .or(stageFilter)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (provisional && provisional.length > 0) {
+        await supabase.from("speech_versions").update({
+          published: true,
+          is_provisional: false,
+          published_by: userId,
+          published_at: new Date().toISOString(),
+        }).eq("id", provisional[0].id);
+      }
       window.location.reload();
     } catch { /* ignore */ }
     setGenerating(false);
