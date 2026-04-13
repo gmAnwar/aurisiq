@@ -868,14 +868,31 @@ export default function NuevaLlamadaPage() {
           </div>
         )}
 
-        {/* Speech visible during recording */}
+        {/* Notes during recording */}
+        {(rec.recMode === "recording" || rec.recMode === "paused") && (
+          <div style={{ width: "100%", maxWidth: 400, marginTop: 16 }}>
+            <textarea
+              className="input-field"
+              rows={3}
+              placeholder="Notas de la llamada..."
+              value={callNotes}
+              onChange={(e) => { setCallNotes(e.target.value); sessionStorage.setItem("c2_call_notes", e.target.value); }}
+              style={{ fontSize: 13, resize: "vertical" }}
+            />
+          </div>
+        )}
+
+        {/* Speech visible during recording — collapsible phases */}
         {(rec.recMode === "recording" || rec.recMode === "paused") && guidePhases.length > 0 && (
-          <details className="c2-collapse" style={{ marginTop: 16, width: "100%", maxWidth: 400 }}>
-            <summary className="c2-collapse-summary">Mi speech de referencia</summary>
-            <div className="c2-collapse-body">
-              {guidePhases.map((phase, i) => (
-                <div key={i} className="c2-guide-phase">
-                  <h3 className="c5-phase-name">{phase.phase_name}</h3>
+          <div style={{ width: "100%", maxWidth: 400, marginTop: 12, border: "1px solid var(--border, #e5e5e5)", borderRadius: 8, overflow: "hidden" }}>
+            {guidePhases.map((phase, i) => (
+              <details key={i} open={i === 0} className="g5-speech-phase">
+                <summary className="g5-speech-phase-summary">
+                  <span className="g5-phase-number">{i + 1}</span>
+                  <span className="g5-phase-name">{phase.phase_name}</span>
+                  <svg className="g5-phase-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+                </summary>
+                <div className="g5-speech-phase-body">
                   {phase.transition && <p className="c5-transition">{phase.transition}</p>}
                   {phase.fields && phase.fields.length > 0 ? (
                     <div className="c5-fields">
@@ -889,9 +906,9 @@ export default function NuevaLlamadaPage() {
                     </ul>
                   ) : null}
                 </div>
-              ))}
-            </div>
-          </details>
+              </details>
+            ))}
+          </div>
         )}
         {(rec.recMode === "recording" || rec.recMode === "paused") && guidePhases.length === 0 && selectedStage && (
           <p style={{ fontSize: 13, color: "var(--ink-light)", marginTop: 12, textAlign: "center" }}>Sin speech publicado para esta etapa</p>
