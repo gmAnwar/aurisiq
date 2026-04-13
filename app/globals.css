@@ -1617,6 +1617,8 @@ body.has-nav {
 
 .c3-check-yes { color: var(--ink); }
 .c3-check-yes .c3-check-icon { color: var(--green); }
+.c3-check-maybe { color: var(--ink); }
+.c3-check-maybe .c3-check-icon { color: #f59e0b; }
 .c3-check-no { color: var(--ink-light); }
 .c3-check-no .c3-check-icon { color: var(--red); }
 .c3-check-label { line-height: 1.3; }

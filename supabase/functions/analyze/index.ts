@@ -6,6 +6,7 @@ import {
   getOrgStages,
   getOrgVocabulary,
   getOrgTrackers,
+  getStageChecklistItems,
   checkQuota,
   createAnalysis,
   createAnalysisJob,
@@ -74,10 +75,11 @@ async function processJobAsync(jobId: string) {
     console.log(`[analyze] Created analysis ${analysisId} for job ${jobId}`);
 
     // 5. Fetch context data in parallel
-    const [descalCats, orgStages, vocabulary] = await Promise.all([
+    const [descalCats, orgStages, vocabulary, checklistItems] = await Promise.all([
       getDescalCategories(job.organization_id),
       getOrgStages(job.organization_id),
       getOrgVocabulary(job.organization_id),
+      payload.funnel_stage_id ? getStageChecklistItems(payload.funnel_stage_id) : Promise.resolve([]),
     ]);
 
     // 6. Build prompt
@@ -86,6 +88,7 @@ async function processJobAsync(jobId: string) {
       vocabulary,
       descalCats,
       orgStages,
+      checklistItems,
     );
 
     // 7. Call Claude

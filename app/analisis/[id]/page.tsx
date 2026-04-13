@@ -17,7 +17,8 @@ interface Phase {
 
 interface ChecklistItem {
   field: string;
-  covered: boolean;
+  covered?: boolean;
+  state?: "covered" | "asked_no_answer" | "not_covered";
 }
 
 interface Analysis {
@@ -252,7 +253,10 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
   const objecion = stripJson(analysis.objecion_principal) || null;
 
   const checklist = analysis.checklist_results || [];
-  const covered = checklist.filter(c => c.covered).length;
+  const isCovered = (c: ChecklistItem) => c.state ? c.state === "covered" : !!c.covered;
+  const isPartial = (c: ChecklistItem) => c.state === "asked_no_answer";
+  const covered = checklist.filter(isCovered).length;
+  const partial = checklist.filter(isPartial).length;
   const total = checklist.length || 26;
 
   const date = new Date(analysis.created_at);
@@ -594,14 +598,18 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
       {/* 5. CHECKLIST VISUAL */}
       {checklist.length > 0 && (
         <details className="c3-expandable">
-          <summary className="c3-expand-summary">Ver checklist completo ({covered}/{total})</summary>
+          <summary className="c3-expand-summary">Ver checklist completo ({covered}{partial > 0 ? `+${partial}` : ""}/{total})</summary>
           <div className="c3-checklist">
-            {checklist.map((item, i) => (
-              <div key={i} className={`c3-check-item ${item.covered ? "c3-check-yes" : "c3-check-no"}`}>
-                <span className="c3-check-icon">{item.covered ? "\u2713" : "\u2717"}</span>
-                <span className="c3-check-label">{item.field}</span>
-              </div>
-            ))}
+            {checklist.map((item, i) => {
+              const yes = isCovered(item);
+              const maybe = isPartial(item);
+              return (
+                <div key={i} className={`c3-check-item ${yes ? "c3-check-yes" : maybe ? "c3-check-maybe" : "c3-check-no"}`}>
+                  <span className="c3-check-icon">{yes ? "\u2713" : maybe ? "~" : "\u2717"}</span>
+                  <span className="c3-check-label">{item.field}</span>
+                </div>
+              );
+            })}
           </div>
         </details>
       )}

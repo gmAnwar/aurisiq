@@ -86,6 +86,16 @@ export async function getOrgTrackers(orgId: string): Promise<TrackerRow[]> {
   return (data || []) as TrackerRow[];
 }
 
+export async function getStageChecklistItems(stageId: string): Promise<{ label: string; description: string | null }[]> {
+  const { data } = await db()
+    .from("stage_checklist_items")
+    .select("label, description")
+    .eq("funnel_stage_id", stageId)
+    .eq("active", true)
+    .order("sort_order");
+  return (data || []) as { label: string; description: string | null }[];
+}
+
 // ─── Quota check ───────────────────────────────────────────
 
 export async function checkQuota(orgId: string): Promise<boolean> {

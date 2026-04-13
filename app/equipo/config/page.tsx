@@ -10,6 +10,7 @@ import TrackersCRUD from "../../components/TrackersCRUD";
 type ConfigTab = "proceso" | "equipo" | "preferencias" | "cuenta";
 
 interface FunnelStage { id: string; name: string; stage_type: string; order_index: number; scorecard_id: string | null; }
+interface StageChecklistItem { id: string; funnel_stage_id: string; label: string; description: string | null; sort_order: number; active: boolean; }
 interface DescalCat { id: string; code: string; label: string; active: boolean; }
 interface LeadSrc { id: string; name: string; cost_per_lead: number | null; active: boolean; }
 interface VocabItem { term: string; definition: string; }
@@ -59,6 +60,12 @@ function ConfigPage() {
   const [notifWeeklyReport, setNotifWeeklyReport] = useState(true);
   const [notifAlert, setNotifAlert] = useState(true);
   const [notifObjective, setNotifObjective] = useState(false);
+  const [expandedStageId, setExpandedStageId] = useState<string | null>(null);
+  const [stageItems, setStageItems] = useState<Record<string, StageChecklistItem[]>>({});
+  const [newStageName, setNewStageName] = useState("");
+  const [newStageType, setNewStageType] = useState("llamada");
+  const [newItemLabel, setNewItemLabel] = useState("");
+  const [newItemDesc, setNewItemDesc] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [orgSlug, setOrgSlug] = useState<string | null>(null);
@@ -107,6 +114,58 @@ function ConfigPage() {
     }
     load();
   }, []);
+
+  // --- Stages ---
+  const addStage = async () => {
+    if (!newStageName.trim() || !orgId) return;
+    const maxIdx = stages.reduce((m, s) => Math.max(m, s.order_index), 0);
+    const { data } = await supabase.from("funnel_stages")
+      .insert({ organization_id: orgId, name: newStageName.trim(), stage_type: newStageType, order_index: maxIdx + 1 })
+      .select("id, name, stage_type, order_index, scorecard_id").single();
+    if (data) setStages(prev => [...prev, data as FunnelStage]);
+    setNewStageName(""); setNewStageType("llamada");
+  };
+
+  const deleteStage = async (stageId: string) => {
+    if (!confirm("¿Eliminar esta etapa? Se eliminarán también sus items de checklist. Los análisis históricos se preservan.")) return;
+    await supabase.from("funnel_stages").update({ active: false }).eq("id", stageId);
+    setStages(prev => prev.filter(s => s.id !== stageId));
+  };
+
+  const loadStageItems = async (stageId: string) => {
+    if (stageItems[stageId]) return;
+    const { data } = await supabase.from("stage_checklist_items")
+      .select("id, funnel_stage_id, label, description, sort_order, active")
+      .eq("funnel_stage_id", stageId).order("sort_order");
+    setStageItems(prev => ({ ...prev, [stageId]: (data || []) as StageChecklistItem[] }));
+  };
+
+  const toggleExpand = async (stageId: string) => {
+    if (expandedStageId === stageId) { setExpandedStageId(null); return; }
+    setExpandedStageId(stageId);
+    await loadStageItems(stageId);
+  };
+
+  const addChecklistItem = async (stageId: string) => {
+    if (!newItemLabel.trim() || !orgId) return;
+    const items = stageItems[stageId] || [];
+    const maxSort = items.reduce((m, i) => Math.max(m, i.sort_order), 0);
+    const { data } = await supabase.from("stage_checklist_items")
+      .insert({ funnel_stage_id: stageId, organization_id: orgId, label: newItemLabel.trim(), description: newItemDesc.trim() || null, sort_order: maxSort + 1 })
+      .select("id, funnel_stage_id, label, description, sort_order, active").single();
+    if (data) setStageItems(prev => ({ ...prev, [stageId]: [...(prev[stageId] || []), data as StageChecklistItem] }));
+    setNewItemLabel(""); setNewItemDesc("");
+  };
+
+  const toggleChecklistItem = async (stageId: string, itemId: string, currentActive: boolean) => {
+    await supabase.from("stage_checklist_items").update({ active: !currentActive }).eq("id", itemId);
+    setStageItems(prev => ({ ...prev, [stageId]: (prev[stageId] || []).map(i => i.id === itemId ? { ...i, active: !currentActive } : i) }));
+  };
+
+  const deleteChecklistItem = async (stageId: string, itemId: string) => {
+    await supabase.from("stage_checklist_items").delete().eq("id", itemId);
+    setStageItems(prev => ({ ...prev, [stageId]: (prev[stageId] || []).filter(i => i.id !== itemId) }));
+  };
 
   // --- Vocabulary ---
   const saveVocabulary = async (updated: VocabItem[]) => {
@@ -290,15 +349,57 @@ function ConfigPage() {
         {/* Etapas del embudo */}
         <div className="g1-section">
           <h2 className="g1-section-title">Etapas del embudo</h2>
-          <div className="g7-list">
-            {stages.map(s => (
-              <div key={s.id} className="g7-list-item">
-                <span className="g7-item-name">{s.name}</span>
-                <span className="g7-item-meta">{s.stage_type}</span>
-              </div>
-            ))}
+          <p className="c2-hint" style={{ marginBottom: 10 }}>Cada etapa tiene su checklist de datos que la IA evalúa en cada llamada.</p>
+          {stages.length > 0 ? (
+            <div className="g7-list">
+              {stages.map(s => (
+                <div key={s.id}>
+                  <div className="g7-list-item">
+                    <div style={{ flex: 1, cursor: "pointer" }} onClick={() => toggleExpand(s.id)}>
+                      <span className="g7-item-name">{expandedStageId === s.id ? "▼" : "▶"} {s.name}</span>
+                      <span className="g7-item-code" style={{ marginLeft: 8 }}>{s.stage_type}</span>
+                      {stageItems[s.id] && <span style={{ fontSize: 11, color: "var(--ink-light)", marginLeft: 6 }}>({stageItems[s.id].filter(i => i.active).length} items)</span>}
+                    </div>
+                    <button className="adm-btn-ghost adm-btn-danger-text" style={{ fontSize: 12 }} onClick={() => deleteStage(s.id)}>Archivar</button>
+                  </div>
+                  {expandedStageId === s.id && (
+                    <div style={{ paddingLeft: 24, paddingBottom: 12, borderLeft: "2px solid var(--border, #e5e5e5)", marginLeft: 12, marginBottom: 8 }}>
+                      {(stageItems[s.id] || []).map(item => (
+                        <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", opacity: item.active ? 1 : 0.4 }}>
+                          <div>
+                            <span style={{ fontSize: 13 }}>{item.label}</span>
+                            {item.description && <span style={{ fontSize: 11, color: "var(--ink-light)", marginLeft: 6 }}>{item.description}</span>}
+                          </div>
+                          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                            <label className="g7-toggle" style={{ transform: "scale(0.8)" }}>
+                              <input type="checkbox" checked={item.active} onChange={() => toggleChecklistItem(s.id, item.id, item.active)} />
+                              <span className="g7-toggle-slider" />
+                            </label>
+                            <button className="adm-btn-ghost adm-btn-danger-text" style={{ fontSize: 11 }} onClick={() => deleteChecklistItem(s.id, item.id)}>x</button>
+                          </div>
+                        </div>
+                      ))}
+                      {(!stageItems[s.id] || stageItems[s.id].length === 0) && <p style={{ fontSize: 12, color: "var(--ink-light)", margin: "4px 0" }}>Sin items de checklist.</p>}
+                      <div style={{ display: "flex", gap: 6, marginTop: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+                        <input className="input-field" style={{ flex: 1, fontSize: 12, padding: "4px 8px", minWidth: 120 }} value={newItemLabel} onChange={e => setNewItemLabel(e.target.value)} placeholder="Nuevo item..." />
+                        <input className="input-field" style={{ flex: 1, fontSize: 12, padding: "4px 8px", minWidth: 120 }} value={newItemDesc} onChange={e => setNewItemDesc(e.target.value)} placeholder="Descripción (opcional)" />
+                        <button className="g4-note-save" style={{ fontSize: 11 }} onClick={() => addChecklistItem(s.id)} disabled={!newItemLabel.trim()}>+ Item</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="g1-empty">No hay etapas configuradas.</p>
+          )}
+          <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "flex-end" }}>
+            <input className="input-field" value={newStageName} onChange={e => setNewStageName(e.target.value)} placeholder="Nueva etapa..." style={{ flex: 1 }} />
+            <select className="input-field" value={newStageType} onChange={e => setNewStageType(e.target.value)} style={{ width: 110 }}>
+              <option value="llamada">Llamada</option><option value="visita">Visita</option><option value="cierre">Cierre</option>
+            </select>
+            <button className="btn-submit" style={{ minWidth: "auto", padding: "10px 20px", marginTop: 0 }} onClick={addStage} disabled={!newStageName.trim()}>Agregar etapa</button>
           </div>
-          {stages.length === 0 && <p className="g1-empty">No hay etapas configuradas.</p>}
         </div>
 
         {/* Vocabulario de la organización */}

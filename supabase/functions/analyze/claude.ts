@@ -88,6 +88,7 @@ export function buildFullPrompt(
   vocabulary: { term: string; definition: string }[],
   descalCats: DescalCategory[],
   orgStages: FunnelStage[],
+  checklistItems: { label: string; description: string | null }[],
 ): { systemPrompt: string; extractionPatterns: ScorecardStructure["extraction_patterns"] | null } {
   const structure = (scorecard.structure || {}) as ScorecardStructure;
 
@@ -106,10 +107,8 @@ export function buildFullPrompt(
   }
   prompt += TONE_BLOCK;
 
-  // Resolve prospect/checklist fields
+  // Resolve prospect fields
   const vertical = scorecard.vertical || "inmobiliario";
-  const dbChecklistFields = Array.isArray(structure.checklist_fields) && structure.checklist_fields.length > 0
-    ? structure.checklist_fields : null;
   const dbProspectFields = Array.isArray(structure.prospect_fields) && structure.prospect_fields.length > 0
     ? structure.prospect_fields : null;
   const dbExtractionPatterns = Array.isArray(structure.extraction_patterns) && structure.extraction_patterns.length > 0
@@ -119,11 +118,21 @@ export function buildFullPrompt(
     ? dbProspectFields.map(f => `${f.key}: [${f.instruction}]`).join("\n")
     : PROSPECT_BLOCK_LEGACY[vertical] || PROSPECT_BLOCK_LEGACY.inmobiliario;
 
-  const checklistFields = dbChecklistFields
-    ? `Los ${dbChecklistFields.length} campos del checklist son: ${dbChecklistFields.map(f => f.label).join(", ")}.`
-    : CHECKLIST_BLOCK_LEGACY[vertical] || CHECKLIST_BLOCK_LEGACY.inmobiliario;
+  prompt += `\n\n---\nEXTRACCION DE DATOS DEL PROSPECTO\nAl final de tu respuesta, incluye estas líneas:\n${prospectFields}`;
 
-  prompt += `\n\n---\nEXTRACCION DE DATOS DEL PROSPECTO\nAl final de tu respuesta, incluye estas líneas:\n${prospectFields}\n\nCHECKLIST: [JSON array con cada campo evaluado]\nFormato: [{"field":"Nombre del titular","covered":true},{"field":"Tipo de negocio","covered":true},...]\n${checklistFields}\nMarca covered=true si el asesor PREGUNTÓ o mencionó ese punto, covered=false si no.`;
+  // Checklist — dynamic from stage_checklist_items (DB) or legacy fallback
+  if (checklistItems.length > 0) {
+    const itemList = checklistItems.map(i => i.description ? `- ${i.label}: ${i.description}` : `- ${i.label}`).join("\n");
+    prompt += `\n\n---\nCHECKLIST A EVALUAR (${checklistItems.length} items configurados para esta etapa):\n\n${itemList}\n\nPara cada item, determina su estado:\n- "covered": el vendedor preguntó Y el prospecto respondió\n- "asked_no_answer": el vendedor preguntó pero el prospecto no pudo/quiso responder\n- "not_covered": el vendedor no preguntó\n\nResponde con una línea:\nCHECKLIST: [{"field":"label exacto","state":"covered|asked_no_answer|not_covered"}]\nUsa los labels EXACTOS de la lista anterior.`;
+  } else {
+    // Legacy fallback — flat list from scorecard structure or hardcoded
+    const dbChecklistFields = Array.isArray(structure.checklist_fields) && structure.checklist_fields.length > 0
+      ? structure.checklist_fields : null;
+    const checklistBlock = dbChecklistFields
+      ? `Los ${dbChecklistFields.length} campos del checklist son: ${dbChecklistFields.map(f => f.label).join(", ")}.`
+      : CHECKLIST_BLOCK_LEGACY[vertical] || CHECKLIST_BLOCK_LEGACY.inmobiliario;
+    prompt += `\n\nCHECKLIST: [JSON array con cada campo evaluado]\nFormato: [{"field":"Nombre del titular","covered":true},{"field":"Tipo de negocio","covered":true},...]\n${checklistBlock}\nMarca covered=true si el asesor PREGUNTÓ o mencionó ese punto, covered=false si no.`;
+  }
 
   if (orgStages.length > 0) {
     const stageList = orgStages.map(s => `- ${s.name}`).join("\n");
