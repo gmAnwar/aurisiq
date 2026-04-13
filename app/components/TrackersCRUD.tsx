@@ -38,6 +38,7 @@ export default function TrackersCRUD({ orgId, showUniversals, readOnlyUniversals
   const [editDraft, setEditDraft] = useState<Partial<Tracker>>({});
   const [error, setError] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [disabledOverrides, setDisabledOverrides] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     (async () => {
@@ -58,6 +59,18 @@ export default function TrackersCRUD({ orgId, showUniversals, readOnlyUniversals
         .order("organization_id", { ascending: true, nullsFirst: true })
         .order("sort_order");
       setTrackers((data || []) as Tracker[]);
+
+      // Load overrides for universal trackers (which ones this org disabled)
+      if (orgId && showUniversals) {
+        const { data: overrides } = await supabase
+          .from("tracker_org_overrides")
+          .select("tracker_id")
+          .eq("organization_id", orgId)
+          .eq("disabled", true);
+        setDisabledOverrides(new Set((overrides || []).map(o => o.tracker_id)));
+      } else {
+        setDisabledOverrides(new Set());
+      }
       setLoading(false);
     })();
   }, [orgId, showUniversals]);
@@ -126,8 +139,22 @@ export default function TrackersCRUD({ orgId, showUniversals, readOnlyUniversals
     setTrackers(prev => prev.filter(x => x.id !== t.id)); onChanged?.();
   };
 
+  const toggleOverride = async (trackerId: string, currentlyDisabled: boolean) => {
+    if (!orgId) return;
+    if (currentlyDisabled) {
+      // Re-enable: delete override or set disabled=false
+      await supabase.from("tracker_org_overrides").delete().eq("organization_id", orgId).eq("tracker_id", trackerId);
+      setDisabledOverrides(prev => { const n = new Set(prev); n.delete(trackerId); return n; });
+    } else {
+      // Disable: upsert override
+      await supabase.from("tracker_org_overrides").upsert({ organization_id: orgId, tracker_id: trackerId, disabled: true }, { onConflict: "organization_id,tracker_id" });
+      setDisabledOverrides(prev => new Set(prev).add(trackerId));
+    }
+    onChanged?.();
+  };
+
   const renderRow = (t: Tracker, editable: boolean) => (
-    <div key={t.id} className="g7-list-item" style={{ opacity: t.active ? 1 : 0.5 }}>
+    <div key={t.id} className="g7-list-item" style={{ opacity: (t.active && !disabledOverrides.has(t.id)) ? 1 : 0.5 }}>
       {editingId === t.id ? (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
@@ -149,12 +176,17 @@ export default function TrackersCRUD({ orgId, showUniversals, readOnlyUniversals
             <span className="g7-item-name" style={editable ? { cursor: "pointer" } : undefined} onClick={() => editable && startEdit(t)}>{t.icon} {t.label}</span>
             <span className="g7-item-code" style={{ marginLeft: 8 }}>{editable ? t.code : "Sistema"}</span>
           </div>
-          {editable && (
+          {editable ? (
             <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
               <label className="g7-toggle"><input type="checkbox" checked={t.active} onChange={() => toggleActive(t.id, t.active)} /><span className="g7-toggle-slider" /></label>
               <button className="adm-btn-ghost adm-btn-danger-text" style={{ fontSize: 12 }} onClick={() => deleteTracker(t)}>Eliminar</button>
             </div>
-          )}
+          ) : readOnlyUniversals && orgId && t.organization_id === null ? (
+            <label className="g7-toggle" title={disabledOverrides.has(t.id) ? "Desactivado para tu org" : "Activo para tu org"}>
+              <input type="checkbox" checked={!disabledOverrides.has(t.id)} onChange={() => toggleOverride(t.id, disabledOverrides.has(t.id))} />
+              <span className="g7-toggle-slider" />
+            </label>
+          ) : null}
         </>
       )}
     </div>
