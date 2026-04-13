@@ -5,7 +5,6 @@ import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
 import EditableField from "../components/EditableName";
-// sample data removed — clean empty state instead
 import { getOrgTimezone, todayStart, monthStart as getMonthStart, todayDisplay } from "../../lib/dates";
 import { stripJson } from "../../lib/text";
 import { useRecording } from "../contexts/RecordingContext";
