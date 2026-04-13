@@ -867,6 +867,35 @@ export default function NuevaLlamadaPage() {
             </button>
           </div>
         )}
+
+        {/* Speech visible during recording */}
+        {(rec.recMode === "recording" || rec.recMode === "paused") && guidePhases.length > 0 && (
+          <details className="c2-collapse" style={{ marginTop: 16, width: "100%", maxWidth: 400 }}>
+            <summary className="c2-collapse-summary">Mi speech de referencia</summary>
+            <div className="c2-collapse-body">
+              {guidePhases.map((phase, i) => (
+                <div key={i} className="c2-guide-phase">
+                  <h3 className="c5-phase-name">{phase.phase_name}</h3>
+                  {phase.transition && <p className="c5-transition">{phase.transition}</p>}
+                  {phase.fields && phase.fields.length > 0 ? (
+                    <div className="c5-fields">
+                      {phase.fields.map((field, j) => (
+                        <GuideFieldItem key={j} field={field} />
+                      ))}
+                    </div>
+                  ) : phase.phrases && phase.phrases.length > 0 ? (
+                    <ul className="c5-phrase-list">
+                      {phase.phrases.map((ph, j) => <li key={j} className="c5-phrase">{ph}</li>)}
+                    </ul>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+        {(rec.recMode === "recording" || rec.recMode === "paused") && guidePhases.length === 0 && selectedStage && (
+          <p style={{ fontSize: 13, color: "var(--ink-light)", marginTop: 12, textAlign: "center" }}>Sin speech publicado para esta etapa</p>
+        )}
         {rec.recMode === "transcribing" && (
           <div className="ear-recording">
             <div className="ear-rec-indicator">
