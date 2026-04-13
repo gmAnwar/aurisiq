@@ -5,7 +5,7 @@ import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
 import EditableField from "../components/EditableName";
-import { getSampleAnalyses } from "../../lib/sampleData";
+// sample data removed — clean empty state instead
 import { getOrgTimezone, todayStart, monthStart as getMonthStart, todayDisplay } from "../../lib/dates";
 import { stripJson } from "../../lib/text";
 import { useRecording } from "../contexts/RecordingContext";
@@ -45,7 +45,6 @@ export default function MiDiaPage() {
   const [focusPhase, setFocusPhase] = useState<string | null>(null);
   const [focusPhaseScore, setFocusPhaseScore] = useState<{ score: number; max: number } | null>(null);
   const [prevCall, setPrevCall] = useState<{ id: string; score: number | null; date: string } | null>(null);
-  const [usingSampleData, setUsingSampleData] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -70,12 +69,7 @@ export default function MiDiaPage() {
       ]);
 
       const realAnalyses = analysesRes.data || [];
-      let all = realAnalyses;
-      if (realAnalyses.length === 0) {
-        all = getSampleAnalyses(session.organizationSlug);
-        setUsingSampleData(true);
-      }
-      setAnalyses(all);
+      setAnalyses(realAnalyses);
       // super_admin may switch active org; users.current_streak is a
       // single cached value that doesn't know about orgs. Recompute
       // from analyses rows scoped to the active org.
@@ -214,14 +208,14 @@ export default function MiDiaPage() {
       // Monthly objective
       if (objRes.data && objRes.data.length > 0) {
         setMonthlyTarget(objRes.data[0].target_value);
-        const thisMonthCount = all.filter(a => new Date(a.created_at) >= new Date(mStart)).length;
+        const thisMonthCount = realAnalyses.filter(a => new Date(a.created_at) >= new Date(mStart)).length;
         setMonthlyDone(thisMonthCount);
       }
 
       // Tip from last 7 days — short title from patron_error, phrase from siguiente_accion
       const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
       const errors: Record<string, { count: number; analysisId: string }> = {};
-      for (const a of all) {
+      for (const a of realAnalyses) {
         if (a.patron_error && new Date(a.created_at) >= weekAgo) {
           const cleaned = stripJson(a.patron_error.replace(/^[-•*]\s*/, ""));
           if (cleaned && !errors[cleaned]) {
@@ -242,7 +236,7 @@ export default function MiDiaPage() {
           title = lastPunct > 40 ? cut.slice(0, lastPunct + 1) : cut.slice(0, cut.lastIndexOf(" "));
         }
         setTipTitle(title);
-        const srcAnalysis = all.find(a => a.id === topErr[1].analysisId);
+        const srcAnalysis = realAnalyses.find(a => a.id === topErr[1].analysisId);
         if (srcAnalysis?.siguiente_accion) {
           setTipFrase(stripJson(srcAnalysis.siguiente_accion));
         }
@@ -370,11 +364,12 @@ export default function MiDiaPage() {
         </div>
       )}
 
-      {/* Sample data banner */}
-      {usingSampleData && (
-        <div className="c1-sample-banner">
-          <p className="c1-sample-text">Estos son datos de ejemplo — cuando analices tu primera llamada aparecerán tus resultados reales</p>
-          <Link href="/analisis/nueva" className="c1-sample-cta">Analizar primera llamada →</Link>
+      {/* Empty state — no analyses yet */}
+      {analyses.length === 0 && (
+        <div style={{ textAlign: "center", padding: "40px 20px", background: "var(--card-bg, #fff)", borderRadius: 12, border: "1px solid var(--border, #e5e5e5)", marginBottom: 16 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 600, margin: "0 0 8px" }}>Aún no tienes análisis</h2>
+          <p style={{ fontSize: 14, color: "var(--ink-light, #737373)", margin: "0 0 20px" }}>Analiza tu primera llamada para empezar a ver tus resultados, tips personalizados y evolución de score.</p>
+          <Link href="/analisis/nueva" className="btn-submit" style={{ textDecoration: "none", display: "inline-block" }}>+ Analizar primera llamada</Link>
         </div>
       )}
 
