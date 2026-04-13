@@ -427,16 +427,14 @@ export default function NuevaLlamadaPage() {
     }));
   }
 
-  // Reload checklist when stage changes — use scorecard of selected stage
+  // Reload vertical when stage changes
   useEffect(() => {
     if (!orgId) return;
     const stage = funnelStages.find(s => s.id === selectedStage);
     const scorecardId = stage?.scorecard_id;
-
-    // No stage selected or stage without scorecard → fall back to first active org scorecard
     (async () => {
       try {
-        let query = supabase.from("scorecards").select("vertical, structure").eq("active", true);
+        let query = supabase.from("scorecards").select("vertical").eq("active", true);
         if (scorecardId) {
           query = query.eq("id", scorecardId);
         } else {
@@ -444,11 +442,28 @@ export default function NuevaLlamadaPage() {
         }
         const { data: sc } = await query.limit(1).maybeSingle();
         if (sc?.vertical) setOrgVertical(sc.vertical);
-        const fields = (sc?.structure as { checklist_fields?: ChecklistField[] } | null)?.checklist_fields;
-        setChecklistFields(Array.isArray(fields) && fields.length > 0 ? fields : []);
       } catch { /* ignore */ }
     })();
   }, [selectedStage, orgId, funnelStages]);
+
+  // Reload checklist from stage_checklist_items when stage changes
+  useEffect(() => {
+    if (!selectedStage) {
+      setChecklistFields([]);
+      return;
+    }
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("stage_checklist_items")
+          .select("label")
+          .eq("funnel_stage_id", selectedStage)
+          .eq("active", true)
+          .order("sort_order");
+        setChecklistFields((data || []).map(d => ({ slug: d.label.toLowerCase().replace(/\s+/g, "_"), label: d.label })));
+      } catch { setChecklistFields([]); }
+    })();
+  }, [selectedStage]);
 
   // Reload speech when stage or org changes — 2-step priority:
   // 1. Published speech for the specific stage
@@ -1095,10 +1110,12 @@ export default function NuevaLlamadaPage() {
 
           {/* 2. Checklist — full list with missed-field highlights */}
           <details className="c2-collapse">
-            <summary className="c2-collapse-summary">Checklist de referencia ({checklistFields.length} campos)</summary>
+            <summary className="c2-collapse-summary">Checklist de referencia{checklistFields.length > 0 ? ` (${checklistFields.length} campos)` : ""}</summary>
             <div className="c2-collapse-body">
-              {checklistFields.length === 0 ? (
-                <p className="c2-hint">Esta organización no tiene checklist configurado — contactar admin.</p>
+              {!selectedStage ? (
+                <p className="c2-hint">Selecciona una etapa para ver su checklist, o se detectará automáticamente.</p>
+              ) : checklistFields.length === 0 ? (
+                <p className="c2-hint">Esta etapa no tiene checklist configurado.</p>
               ) : (() => {
                 const missedSet = new Set(missedFields);
                 return (
