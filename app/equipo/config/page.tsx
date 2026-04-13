@@ -399,11 +399,15 @@ function ConfigPage() {
           ) : (
             <p className="g1-empty">No hay etapas configuradas.</p>
           )}
-          <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "flex-end" }}>
-            <input className="input-field" value={newStageName} onChange={e => setNewStageName(e.target.value)} placeholder="Nueva etapa..." style={{ flex: 1 }} />
-            <select className="input-field" value={newStageType} onChange={e => setNewStageType(e.target.value)} style={{ width: 110 }}>
-              <option value="llamada">Llamada</option><option value="visita">Visita</option><option value="cierre">Cierre</option>
-            </select>
+          <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 150 }}>
+              <input className="input-field" value={newStageName} onChange={e => setNewStageName(e.target.value)} placeholder="Nombre de la etapa" />
+            </div>
+            <div style={{ width: 110 }}>
+              <select className="input-field" value={newStageType} onChange={e => setNewStageType(e.target.value)}>
+                <option value="llamada">Llamada</option><option value="visita">Visita</option><option value="cierre">Cierre</option>
+              </select>
+            </div>
             <button className="btn-submit" style={{ minWidth: "auto", padding: "10px 20px", marginTop: 0 }} onClick={addStage} disabled={!newStageName.trim()}>Agregar etapa</button>
           </div>
         </div>
