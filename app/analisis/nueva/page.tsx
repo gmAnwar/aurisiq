@@ -958,7 +958,7 @@ export default function NuevaLlamadaPage() {
           </p>
         )}
         <h1 className="c2-title">Nueva llamada</h1>
-        <p className="c2-subtitle">Graba en vivo, sube un audio o pega la transcripción — la IA se encarga del resto.</p>
+        <p className="c2-subtitle">Graba en vivo, sube un audio o pega la transcripción, aurisIQ se encarga del resto.</p>
       </div>
 
       <div className="c2-form">
