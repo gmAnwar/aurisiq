@@ -402,7 +402,7 @@ function ConfigPage() {
                           </div>
                         </div>
                       ))}
-                      {(!stageItems[s.id] || stageItems[s.id].length === 0) && <p style={{ fontSize: 12, color: "var(--ink-light)", margin: "4px 0" }}>Sin items de checklist.</p>}
+                      {(!stageItems[s.id] || stageItems[s.id].length === 0) && <p style={{ fontSize: 12, color: "var(--ink-light)", margin: "4px 0 8px" }}>Aún no hay items en esta etapa. Agrega el primero abajo.</p>}
                       <div style={{ display: "flex", gap: 6, marginTop: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
                         <input className="input-field" style={{ flex: 1, fontSize: 12, padding: "4px 8px", minWidth: 120 }} value={newItemLabel} onChange={e => setNewItemLabel(e.target.value)} placeholder="Nuevo item..." />
                         <input className="input-field" style={{ flex: 1, fontSize: 12, padding: "4px 8px", minWidth: 120 }} value={newItemDesc} onChange={e => setNewItemDesc(e.target.value)} placeholder="Descripción (opcional)" />
