@@ -534,6 +534,221 @@ export default function NuevaLlamadaPage() {
 
   // ─── Submit ────────────────────────────────────────────────
 
+  // ─── Shared: resolve scorecard before submit ──────────────
+  const resolveScorecard = async (submitOrgId: string): Promise<string> => {
+    if (isSuperAdmin) {
+      const { data: { session: s } } = await supabase.auth.getSession();
+      const token = s?.access_token;
+      const scRes = await fetch(`/api/admin/scorecard?organization_id=${encodeURIComponent(submitOrgId)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const scBody = await scRes.json();
+      if (!scRes.ok || !scBody.scorecard?.id) throw new Error("scorecard");
+      return scBody.scorecard.id;
+    }
+    const { data: scorecard } = await supabase
+      .from("scorecards")
+      .select("id")
+      .eq("organization_id", submitOrgId)
+      .eq("active", true)
+      .limit(1)
+      .single();
+    if (!scorecard) throw new Error("scorecard");
+    return scorecard.id;
+  };
+
+  // ─── Shared: clear session storage after redirect ────────
+  const clearSessionData = () => {
+    sessionStorage.removeItem("c2_transcription");
+    sessionStorage.removeItem("c2_stage");
+    sessionStorage.removeItem("c2_source");
+    sessionStorage.removeItem("c2_notes");
+    sessionStorage.removeItem("c2_call_notes");
+    sessionStorage.removeItem("c2_phone");
+    sessionStorage.removeItem("c2_original");
+    sessionStorage.removeItem("c2_source_type");
+  };
+
+  // ─── Shared: redirect to analysis result ─────────────────
+  const redirectToResult = async (analysisId: string) => {
+    setAnalysisPct(100);
+    setAnalysisPhase("Listo — redirigiendo a resultados...");
+    if (!selectedStage) {
+      try {
+        const { data: a } = await supabase
+          .from("analyses")
+          .select("funnel_stage_id")
+          .eq("id", analysisId)
+          .maybeSingle();
+        if (a?.funnel_stage_id) setSelectedStage(a.funnel_stage_id);
+      } catch { /* ignore */ }
+    }
+    setTimeout(() => {
+      clearSessionData();
+      window.location.href = `/analisis/${analysisId}`;
+    }, 600);
+  };
+
+  // ─── Path A: Cloudflare Worker (existing, flag=false) ────
+  const submitViaWorker = async (submitOrgId: string, scorecardId: string) => {
+    const res = await fetch(WORKER_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        transcription: transcription.trim(),
+        scorecard_id: scorecardId,
+        user_id: userId,
+        organization_id: submitOrgId,
+        fuente_lead_id: selectedSource,
+        funnel_stage_id: selectedStage || null,
+        prospect_phone: prospectPhone.trim() || null,
+        transcription_original: transcriptionOriginal,
+        transcription_edited: transcriptionSource === "audio" && transcriptionOriginal && transcription.trim() !== transcriptionOriginal
+          ? transcription.trim() : null,
+        edit_percentage: transcriptionOriginal && transcription.trim() !== transcriptionOriginal
+          ? editPct : 0,
+        call_notes: callNotes.trim() || null,
+        has_audio: transcriptionSource === "audio",
+        pause_count: rec.pauseCount,
+        total_paused_seconds: rec.totalPausedSecs,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      if (res.status === 429) throw new Error("quota");
+      if (res.status === 403) throw new Error("readonly");
+      throw new Error(data.error || "worker_error");
+    }
+
+    const analysisId = data.analysis_id;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const statusRes = await fetch(WORKER_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "status", analysis_id: analysisId, organization_id: submitOrgId }),
+        });
+        const statusData = await statusRes.json();
+
+        if (statusData.status === "completado") {
+          clearInterval(pollInterval);
+          if (progressRef.current) clearInterval(progressRef.current);
+          await redirectToResult(analysisId);
+        } else if (statusData.status === "error") {
+          clearInterval(pollInterval);
+          if (progressRef.current) clearInterval(progressRef.current);
+          setStatus("error");
+          setErrorMsg(statusData.error_message || "Hubo un problema al analizar tu llamada. Intenta de nuevo.");
+        }
+      } catch {
+        // Network error on poll — keep trying
+      }
+    }, 3000);
+
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      setStatus((current) => {
+        if (current === "analyzing") {
+          setErrorMsg("El análisis está tomando más tiempo de lo esperado. Intenta de nuevo en unos minutos.");
+          return "error";
+        }
+        return current;
+      });
+    }, 120000);
+  };
+
+  // ─── Path B: Supabase Edge Function (flag=true) ──────────
+  const submitViaEdgeFunction = async (submitOrgId: string, scorecardId: string) => {
+    const { data: job, error: insertError } = await supabase
+      .from("background_jobs")
+      .insert({
+        organization_id: submitOrgId,
+        user_id: userId,
+        type: "analysis",
+        status: "pending",
+        priority: 0,
+        payload: {
+          transcription_text: transcription.trim(),
+          scorecard_id: scorecardId,
+          funnel_stage_id: selectedStage || null,
+          fuente_lead_id: selectedSource,
+          prospect_phone: prospectPhone.trim() || null,
+          transcription_original: transcriptionOriginal,
+          transcription_edited: transcriptionSource === "audio" && transcriptionOriginal && transcription.trim() !== transcriptionOriginal
+            ? transcription.trim() : null,
+          edit_percentage: transcriptionOriginal && transcription.trim() !== transcriptionOriginal
+            ? editPct : 0,
+          call_notes: callNotes.trim() || null,
+          has_audio: transcriptionSource === "audio",
+          pause_count: rec.pauseCount,
+          total_paused_seconds: rec.totalPausedSecs,
+          avanzo_a_siguiente_etapa: "pending",
+        },
+      })
+      .select("id")
+      .single();
+
+    if (insertError || !job) {
+      throw new Error(insertError?.message || "No se pudo crear el job de análisis.");
+    }
+
+    const jobId = job.id;
+    let softWarningShown = false;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const { data } = await supabase
+          .from("background_jobs")
+          .select("status, result, error_message")
+          .eq("id", jobId)
+          .single();
+
+        if (data?.status === "completed") {
+          clearInterval(pollInterval);
+          if (progressRef.current) clearInterval(progressRef.current);
+          const analysisId = (data.result as { analysis_id: string })?.analysis_id;
+          if (analysisId) {
+            await redirectToResult(analysisId);
+          } else {
+            setStatus("error");
+            setErrorMsg("Análisis completado pero no se encontró el resultado. Revisa tu historial.");
+          }
+        } else if (data?.status === "error" || data?.status === "cancelled") {
+          clearInterval(pollInterval);
+          if (progressRef.current) clearInterval(progressRef.current);
+          setStatus("error");
+          setErrorMsg(data.error_message || "Hubo un problema al analizar tu llamada. Intenta de nuevo.");
+        }
+      } catch {
+        // Network error on poll — keep trying
+      }
+    }, 3000);
+
+    // Soft warning at 90s — don't kill anything
+    setTimeout(() => {
+      if (!softWarningShown) {
+        softWarningShown = true;
+        setAnalysisPhase("El análisis está tardando más de lo esperado. Puedes cerrar esta pantalla y revisar tu historial en unos minutos.");
+      }
+    }, 90000);
+
+    // Hard timeout at 180s — stop polling, show error
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      setStatus((current) => {
+        if (current === "analyzing") {
+          if (progressRef.current) clearInterval(progressRef.current);
+          setErrorMsg("Timeout esperando análisis. Consulta tu historial en unos minutos.");
+          return "error";
+        }
+        return current;
+      });
+    }, 180000);
+  };
+
+  // ─── Main submit handler ─────────────────────────────────
   const handleSubmit = async () => {
     if (!canSubmit || !userId || !orgId) return;
 
@@ -563,133 +778,15 @@ export default function NuevaLlamadaPage() {
     }, 500);
 
     try {
-      // Super_admin may have an admin_active_org_id different from
-      // their profile org. Always read it fresh at submit and send
-      // it to the Worker instead of the profile org.
-      // orgId already reflects the active org for super_admin via
-      // session.organizationId (see getSession override).
       const submitOrgId = orgId;
+      const scorecardId = await resolveScorecard(submitOrgId);
 
-      let scorecardId: string | null = null;
-      if (isSuperAdmin) {
-        // RLS prevents the client from reading another org's scorecard;
-        // fetch via the super_admin service-role endpoint.
-        const { data: { session: s } } = await supabase.auth.getSession();
-        const token = s?.access_token;
-        const scRes = await fetch(`/api/admin/scorecard?organization_id=${encodeURIComponent(submitOrgId || "")}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        const scBody = await scRes.json();
-        if (!scRes.ok || !scBody.scorecard?.id) throw new Error("scorecard");
-        scorecardId = scBody.scorecard.id;
+      const useEdgeFunction = process.env.NEXT_PUBLIC_USE_EDGE_FUNCTION === "true";
+      if (useEdgeFunction) {
+        await submitViaEdgeFunction(submitOrgId, scorecardId);
       } else {
-        // Only select per-org scorecard — never fall back to globals
-        const { data: scorecard } = await supabase
-          .from("scorecards")
-          .select("id")
-          .eq("organization_id", submitOrgId)
-          .eq("active", true)
-          .limit(1)
-          .single();
-        if (!scorecard) throw new Error("scorecard");
-        scorecardId = scorecard.id;
+        await submitViaWorker(submitOrgId, scorecardId);
       }
-
-      const res = await fetch(WORKER_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          transcription: transcription.trim(),
-          scorecard_id: scorecardId,
-          user_id: userId,
-          organization_id: submitOrgId,
-          fuente_lead_id: selectedSource,
-          funnel_stage_id: selectedStage || null,
-          prospect_phone: prospectPhone.trim() || null,
-          transcription_original: transcriptionOriginal,
-          transcription_edited: transcriptionSource === "audio" && transcriptionOriginal && transcription.trim() !== transcriptionOriginal
-            ? transcription.trim() : null,
-          edit_percentage: transcriptionOriginal && transcription.trim() !== transcriptionOriginal
-            ? editPct : 0,
-          call_notes: callNotes.trim() || null,
-          has_audio: transcriptionSource === "audio",
-          pause_count: rec.pauseCount,
-          total_paused_seconds: rec.totalPausedSecs,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (res.status === 429) throw new Error("quota");
-        if (res.status === 403) throw new Error("readonly");
-        throw new Error(data.error || "worker_error");
-      }
-
-      const analysisId = data.analysis_id;
-
-      const pollInterval = setInterval(async () => {
-        try {
-          const statusRes = await fetch(WORKER_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "status", analysis_id: analysisId, organization_id: submitOrgId }),
-          });
-          const statusData = await statusRes.json();
-
-          if (statusData.status === "completado") {
-            clearInterval(pollInterval);
-            if (progressRef.current) clearInterval(progressRef.current);
-            setAnalysisPct(100);
-            setAnalysisPhase("Listo — redirigiendo a resultados...");
-
-            // Pre-select the auto-detected stage in the dropdown if the
-            // user didn't pick one. Fetch the analysis row to read the
-            // funnel_stage_id Claude resolved.
-            if (!selectedStage) {
-              try {
-                const { data: a } = await supabase
-                  .from("analyses")
-                  .select("funnel_stage_id")
-                  .eq("id", analysisId)
-                  .maybeSingle();
-                if (a?.funnel_stage_id) setSelectedStage(a.funnel_stage_id);
-              } catch { /* ignore */ }
-            }
-
-            setTimeout(() => {
-              sessionStorage.removeItem("c2_transcription");
-              sessionStorage.removeItem("c2_stage");
-              sessionStorage.removeItem("c2_source");
-              sessionStorage.removeItem("c2_notes");
-              sessionStorage.removeItem("c2_call_notes");
-              sessionStorage.removeItem("c2_phone");
-              sessionStorage.removeItem("c2_original");
-              sessionStorage.removeItem("c2_source_type");
-              window.location.href = `/analisis/${analysisId}`;
-            }, 600);
-          } else if (statusData.status === "error") {
-            clearInterval(pollInterval);
-            if (progressRef.current) clearInterval(progressRef.current);
-            setStatus("error");
-            setErrorMsg(statusData.error_message || "Hubo un problema al analizar tu llamada. Intenta de nuevo.");
-          }
-        } catch {
-          // Network error on poll — keep trying
-        }
-      }, 3000);
-
-      setTimeout(() => {
-        clearInterval(pollInterval);
-        setStatus((current) => {
-          if (current === "analyzing") {
-            setErrorMsg("El análisis está tomando más tiempo de lo esperado. Intenta de nuevo en unos minutos.");
-            return "error";
-          }
-          return current;
-        });
-      }, 120000);
-
     } catch (err: unknown) {
       if (progressRef.current) clearInterval(progressRef.current);
       setStatus("error");
