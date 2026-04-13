@@ -43,6 +43,7 @@ Deno.serve(async (req) => {
 
 async function processJobAsync(jobId: string) {
   let analysisId: string | undefined;
+  let lastRawOutput: string | undefined;
 
   try {
     console.log(`[analyze] Starting job ${jobId}`);
@@ -95,6 +96,7 @@ async function processJobAsync(jobId: string) {
     const transcription = payload.transcription_edited || payload.transcription_original || payload.transcription_text;
     console.log(`[analyze] Calling Claude for job ${jobId}, transcription length: ${transcription.length}`);
     const rawOutput = await callClaude(systemPrompt, transcription);
+    lastRawOutput = rawOutput;
     console.log(`[analyze] Claude response length: ${rawOutput.length}`);
 
     // 8. Parse
@@ -131,7 +133,10 @@ async function processJobAsync(jobId: string) {
     await completeJob(jobId, analysisId);
     console.log(`[analyze] Completed job ${jobId} → analysis ${analysisId}`);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
+    let msg = err instanceof Error ? err.message : "Unknown error";
+    if (msg.includes("score_general is null") && lastRawOutput) {
+      msg = `${msg} | RAW_HEAD: ${lastRawOutput.slice(0, 800).replace(/\s+/g, " ")}`;
+    }
     console.error(`[analyze] Error processing job ${jobId}: ${msg}`);
 
     if (analysisId) {
