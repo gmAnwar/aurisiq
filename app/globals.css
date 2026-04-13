@@ -1040,6 +1040,27 @@ body.has-nav {
   .g5-field-delete { opacity: 0.4; }
 }
 
+/* Mobile FAB — Nueva llamada */
+.c1-fab {
+  display: none;
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent, #00C2E0);
+  color: #fff;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  z-index: 100;
+  text-decoration: none;
+}
+@media (max-width: 768px) {
+  .c1-fab { display: flex; }
+}
+
 /* Config sub-tabs */
 .config-subtabs {
   display: flex;
