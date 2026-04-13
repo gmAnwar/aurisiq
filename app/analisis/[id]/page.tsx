@@ -596,7 +596,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
       })()}
 
       {/* 5. CHECKLIST VISUAL */}
-      {checklist.length > 0 && (
+      {checklist.length > 0 ? (
         <details className="c3-expandable">
           <summary className="c3-expand-summary">Ver checklist completo ({covered}{partial > 0 ? `+${partial}` : ""}/{total})</summary>
           <div className="c3-checklist">
@@ -612,6 +612,10 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
             })}
           </div>
         </details>
+      ) : (
+        <div style={{ padding: "10px 12px", background: "#f5f5f4", borderRadius: 6, fontSize: 13, color: "#78716c" }}>
+          Esta etapa no tiene checklist configurado. Tu gerente puede configurarlo en Configuración → Proceso de venta.
+        </div>
       )}
 
       <Link href="/analisis/nueva" className="btn-submit btn-terracota" style={{ textDecoration: "none", textAlign: "center", marginTop: 24 }}>
