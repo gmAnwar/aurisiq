@@ -1010,6 +1010,31 @@ body.has-nav {
   padding: 0 14px 16px 54px;
 }
 
+/* Config sub-tabs */
+.config-subtabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border, #e5e5e5);
+  margin-bottom: 24px;
+  overflow-x: auto;
+}
+.config-subtab {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted, #6b7280);
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  background: none;
+  white-space: nowrap;
+  font-family: 'DM Sans', sans-serif;
+}
+.config-subtab-active {
+  color: var(--accent, #00D4D4);
+  border-bottom-color: var(--accent, #00D4D4);
+}
+
 /* C2 file drop zone */
 .c2-drop-zone {
   position: relative;

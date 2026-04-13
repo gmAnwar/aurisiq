@@ -28,7 +28,9 @@ function ConfigPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const activeTab = (searchParams.get("tab") as ConfigTab) || "proceso";
+  const activeSub = searchParams.get("sub") || "etapas";
   const setTab = (tab: ConfigTab) => router.push(`/equipo/config?tab=${tab}`, { scroll: false });
+  const setSub = (sub: string) => router.push(`/equipo/config?tab=proceso&sub=${sub}`, { scroll: false });
 
   const [stages, setStages] = useState<FunnelStage[]>([]);
   const [descalCats, setDescalCats] = useState<DescalCat[]>([]);
@@ -352,7 +354,22 @@ function ConfigPage() {
         </div>
 
         {activeTab === "proceso" && <>
+        {/* Sub-tabs */}
+        <div className="config-subtabs">
+          {[
+            { key: "etapas", label: "Etapas" },
+            { key: "vocabulario", label: "Vocabulario" },
+            { key: "descalificacion", label: "Descalificación" },
+            { key: "trackers", label: "Trackers" },
+          ].map(s => (
+            <button key={s.key} className={`config-subtab ${activeSub === s.key ? "config-subtab-active" : ""}`} onClick={() => setSub(s.key)}>
+              {s.label}
+            </button>
+          ))}
+        </div>
+
         {/* Etapas del embudo */}
+        {activeSub === "etapas" && (
         <div className="g1-section">
           <h2 className="g1-section-title">Etapas del embudo</h2>
           <p className="c2-hint" style={{ marginBottom: 10 }}>Cada etapa tiene su checklist de datos que la IA evalúa en cada llamada.</p>
@@ -411,8 +428,10 @@ function ConfigPage() {
             <button className="btn-submit" style={{ minWidth: "auto", padding: "10px 20px", marginTop: 0 }} onClick={addStage} disabled={!newStageName.trim()}>Agregar etapa</button>
           </div>
         </div>
+        )}
 
         {/* Vocabulario de la organización */}
+        {activeSub === "vocabulario" && (
         <div className="g1-section">
           <h2 className="g1-section-title">Vocabulario</h2>
           <p className="c2-hint" style={{ marginBottom: 10 }}>Términos específicos de tu vertical. La IA los usará tal como los definas al analizar llamadas.</p>
@@ -442,8 +461,10 @@ function ConfigPage() {
             </button>
           </div>
         </div>
+        )}
 
         {/* Catálogo de Descalificación */}
+        {activeSub === "descalificacion" && (
         <div className="g1-section">
           <h2 className="g1-section-title">Catálogo de descalificación</h2>
           <p className="c2-hint" style={{ marginBottom: 10 }}>La IA usa estos códigos para clasificar leads descartados. El código es inmutable; la etiqueta es editable.</p>
@@ -470,18 +491,24 @@ function ConfigPage() {
             ))}
           </div>
           {descalCats.length === 0 && <p className="g1-empty" style={{ marginBottom: 10 }}>Sin categorías. La IA no podrá clasificar leads descartados.</p>}
-          <div className="g7-add-row">
-            <input className="input-field" value={newCatLabel} onChange={e => setNewCatLabel(e.target.value)} placeholder="Nueva categoría..." onKeyDown={e => e.key === "Enter" && addCategory()} />
-            <button className="btn-submit" style={{ minWidth: "auto", padding: "10px 20px", marginTop: 0 }} onClick={addCategory} disabled={!newCatLabel.trim()}>Agregar</button>
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap", marginTop: 12 }}>
+            <div style={{ flex: 1, minWidth: 150 }}>
+              <input className="input-field" value={newCatLabel} onChange={e => setNewCatLabel(e.target.value)} placeholder="Nueva categoría..." onKeyDown={e => e.key === "Enter" && addCategory()} />
+            </div>
+            {newCatLabel.trim() && <span style={{ fontSize: 12, color: "var(--ink-light)", marginBottom: 10 }}>Código: {newCatLabel.trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_áéíóúñü]/g, "")}</span>}
+            <button className="btn-submit" style={{ minWidth: "auto", padding: "10px 20px", marginTop: 0 }} onClick={addCategory} disabled={!newCatLabel.trim()}>+ Agregar categoría</button>
           </div>
         </div>
+        )}
 
         {/* Trackers de conversación */}
+        {activeSub === "trackers" && (
         <div className="g1-section">
           <h2 className="g1-section-title">Trackers de conversación</h2>
           <p className="c2-hint" style={{ marginBottom: 10 }}>Define qué fragmentos busca la IA en cada llamada. Los del sistema aplican a todas las organizaciones.</p>
           <TrackersCRUD orgId={orgId} showUniversals={true} readOnlyUniversals={true} />
         </div>
+        )}
         </>}
 
         {activeTab === "equipo" && <>
