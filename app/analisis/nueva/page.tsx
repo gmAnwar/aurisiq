@@ -1038,6 +1038,24 @@ export default function NuevaLlamadaPage() {
           <p className="c2-hint">Si lo dejas vacío, lo detectamos automáticamente de la transcripción.</p>
         </div>
 
+        {/* Action buttons — above textarea for mobile visibility */}
+        <div className="c2-file-row" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+          <button
+            className="btn-submit"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "12px 20px", fontSize: 15, fontWeight: 600 }}
+            onClick={() => orgId && rec.startRecording(orgId)}
+            disabled={status === "analyzing" || isTranscribing || transcription.length > 0}
+            type="button"
+          >
+            🎙️ Grabar llamada
+          </button>
+          <label className="c2-file-btn">
+            Buscar archivo
+            <input type="file" accept=".txt,.doc,.docx,.mp3,.m4a,.wav,.ogg,.opus,.webm,.mp4,audio/ogg,audio/opus" onChange={handleFileInput} hidden disabled={status === "analyzing" || isTranscribing} />
+          </label>
+          {fileMsg && <span className="c2-file-msg">{fileMsg}</span>}
+        </div>
+
         <div className="input-group">
           <label htmlFor="transcription" className="input-label">
             Transcripción de la llamada *
@@ -1076,22 +1094,7 @@ export default function NuevaLlamadaPage() {
           >
             {selectedStage ? "Ver mi guía antes de llamar" : "Selecciona una etapa para ver tu guía"}
           </button>
-          <div className="c2-file-row" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <button
-              className="btn-submit"
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "12px 20px", fontSize: 15, fontWeight: 600 }}
-              onClick={() => orgId && rec.startRecording(orgId)}
-              disabled={status === "analyzing" || isTranscribing || transcription.length > 0}
-              type="button"
-            >
-              🎙️ Grabar llamada
-            </button>
-            <label className="c2-file-btn">
-              Buscar archivo
-              <input type="file" accept=".txt,.doc,.docx,.mp3,.m4a,.wav,.ogg,.opus,.webm,.mp4,audio/ogg,audio/opus" onChange={handleFileInput} hidden disabled={status === "analyzing" || isTranscribing} />
-            </label>
-            {fileMsg && <span className="c2-file-msg">{fileMsg}</span>}
-          </div>
+          {/* Buttons moved above textarea — see c2-file-row above */}
           <p className="c2-rec-hint">
             {mobile
               ? "Pon tu llamada en altavoz y presiona grabar."
