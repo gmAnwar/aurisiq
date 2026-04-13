@@ -442,13 +442,15 @@ body > * { position: relative; z-index: 1; }
   margin-bottom: 6px;
 }
 
-/* Mobile / top-bar: menu opens DOWN-LEFT */
+/* Mobile / top-bar: menu opens DOWN-LEFT, inside viewport */
 @media (max-width: 519px) {
   .navbar-user-menu {
     top: 100%;
     bottom: auto;
     right: 0;
+    left: auto;
     margin-top: 6px;
+    max-width: calc(100vw - 24px);
   }
 }
 
@@ -1032,6 +1034,11 @@ body.has-nav {
 .g5-field-row:hover .g5-field-delete { opacity: 1; }
 .g5-field-delete:hover { color: var(--red, #ef4444); }
 .g5-edit-pencil { display: none; }
+
+/* Mobile: show actions permanently (no hover on touch) */
+@media (hover: none) {
+  .g5-field-delete { opacity: 0.4; }
+}
 
 /* Config sub-tabs */
 .config-subtabs {

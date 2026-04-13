@@ -375,7 +375,7 @@ export default function BibliotecaPage() {
         {/* Stage tabs + create button */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
           {stages.length > 0 && (
-            <div className="g5-stage-tabs" style={{ flex: 1 }}>
+            <div className="g5-stage-tabs" style={{ flex: 1, minWidth: 0 }}>
               {stages.map(stage => (
                 <button key={stage.id}
                   className={`g5-stage-tab ${selectedStageId === stage.id ? "g5-stage-tab-active" : ""}`}
