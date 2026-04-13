@@ -54,6 +54,10 @@ export default function BibliotecaPage() {
   const [speechByStage, setSpeechByStage] = useState<Record<string, { id: string; phases: SpeechPhase[]; versionNum: number; updatedAt: string | null; isProvisional: boolean }>>({});
   const [editingField, setEditingField] = useState<string | null>(null); // "phaseIdx-fieldIdx-phraseIdx"
   const [editValue, setEditValue] = useState("");
+  const [editingPhaseName, setEditingPhaseName] = useState<number | null>(null);
+  const [editPhaseNameValue, setEditPhaseNameValue] = useState("");
+  const [editingTransition, setEditingTransition] = useState<number | null>(null);
+  const [editTransitionValue, setEditTransitionValue] = useState("");
   const [scorecards, setScorecards] = useState<ScorecardRow[]>([]);
   const [orgId, setOrgId] = useState<string | null>(null);
   const [gerenteName, setGerenteName] = useState("");
@@ -133,6 +137,43 @@ export default function BibliotecaPage() {
   const hasFields = current?.phases.some(p => p.fields && p.fields.length > 0);
 
   // Inline edit helpers
+  const persistPhases = async (updatedPhases: SpeechPhase[]) => {
+    if (!current || !selectedStageId) return;
+    const content = hasFields ? { phases: updatedPhases } : (() => {
+      const c: Record<string, string[]> = {};
+      for (const p of updatedPhases) c[p.phase_name] = p.phrases || [];
+      return c;
+    })();
+    await supabase.from("speech_versions").update({ content }).eq("id", current.id);
+    setSpeechByStage(prev => ({
+      ...prev,
+      [selectedStageId]: { ...current, phases: updatedPhases, updatedAt: new Date().toISOString() },
+    }));
+  };
+
+  const savePhaseName = async (pi: number) => {
+    if (!current || !editPhaseNameValue.trim()) { setEditingPhaseName(null); return; }
+    const updated = current.phases.map((p, i) => i === pi ? { ...p, phase_name: editPhaseNameValue.trim() } : p);
+    await persistPhases(updated);
+    setEditingPhaseName(null);
+  };
+
+  const saveTransition = async (pi: number) => {
+    if (!current) { setEditingTransition(null); return; }
+    const updated = current.phases.map((p, i) => i === pi ? { ...p, transition: editTransitionValue.trim() || undefined } : p);
+    await persistPhases(updated);
+    setEditingTransition(null);
+  };
+
+  const reorderPhase = async (pi: number, direction: "up" | "down") => {
+    if (!current) return;
+    const swapIdx = direction === "up" ? pi - 1 : pi + 1;
+    if (swapIdx < 0 || swapIdx >= current.phases.length) return;
+    const updated = [...current.phases];
+    [updated[pi], updated[swapIdx]] = [updated[swapIdx], updated[pi]];
+    await persistPhases(updated);
+  };
+
   const startEdit = (key: string, value: string) => { setEditingField(key); setEditValue(value); };
 
   const saveEdit = async () => {
@@ -352,11 +393,43 @@ export default function BibliotecaPage() {
               <details key={pi} open={pi === 0} className="g5-speech-phase">
                 <summary className="g5-speech-phase-summary">
                   <span className="g5-phase-number">{pi + 1}</span>
-                  <span className="g5-phase-name">{phase.phase_name}</span>
+                  {editingPhaseName === pi ? (
+                    <input
+                      className="input-field" style={{ flex: 1, fontSize: 14, fontWeight: 600, padding: "4px 8px" }}
+                      value={editPhaseNameValue}
+                      onChange={e => setEditPhaseNameValue(e.target.value)}
+                      onBlur={() => savePhaseName(pi)}
+                      onKeyDown={e => { if (e.key === "Enter") savePhaseName(pi); if (e.key === "Escape") setEditingPhaseName(null); }}
+                      onClick={e => e.stopPropagation()}
+                      autoFocus
+                    />
+                  ) : (
+                    <span className="g5-phase-name" style={{ cursor: "pointer" }} onClick={e => { e.preventDefault(); setEditingPhaseName(pi); setEditPhaseNameValue(phase.phase_name); }}>
+                      {phase.phase_name} <span className="g5-edit-icon" style={{ fontSize: 12, opacity: 0.4 }}>✎</span>
+                    </span>
+                  )}
+                  <div style={{ display: "flex", gap: 2, marginLeft: "auto", flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                    <button className="adm-btn-ghost" style={{ fontSize: 11, padding: "2px 6px" }} disabled={pi === 0} onClick={e => { e.preventDefault(); reorderPhase(pi, "up"); }}>▲</button>
+                    <button className="adm-btn-ghost" style={{ fontSize: 11, padding: "2px 6px" }} disabled={pi === current.phases.length - 1} onClick={e => { e.preventDefault(); reorderPhase(pi, "down"); }}>▼</button>
+                  </div>
                   <svg className="g5-phase-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
                 </summary>
                 <div className="g5-speech-phase-body">
-                  {phase.transition && <p className="c5-transition">{phase.transition}</p>}
+                  {editingTransition === pi ? (
+                    <textarea
+                      className="input-field" rows={2} style={{ fontSize: 13, marginBottom: 8 }}
+                      value={editTransitionValue}
+                      onChange={e => setEditTransitionValue(e.target.value)}
+                      onBlur={() => saveTransition(pi)}
+                      onKeyDown={e => { if (e.key === "Escape") setEditingTransition(null); }}
+                      autoFocus
+                    />
+                  ) : (
+                    <p className="c5-transition" style={{ cursor: "pointer" }} onClick={() => { setEditingTransition(pi); setEditTransitionValue(phase.transition || ""); }}>
+                      {phase.transition || <span style={{ color: "var(--ink-light)", fontStyle: "italic" }}>Click para agregar transición...</span>}
+                      {" "}<span className="g5-edit-icon" style={{ fontSize: 12, opacity: 0.4 }}>✎</span>
+                    </p>
+                  )}
                   {phase.fields && phase.fields.map((field, fi) => (
                     <div key={fi} className="c5-field">
                       <span className="c5-field-name" style={{ padding: "6px 0", display: "block" }}>{field.field_name}</span>
@@ -391,7 +464,17 @@ export default function BibliotecaPage() {
               <details key={pi} open={pi === 0} className="g5-speech-phase">
                 <summary className="g5-speech-phase-summary">
                   <span className="g5-phase-number">{pi + 1}</span>
-                  <span className="g5-phase-name">{p.phase_name}</span>
+                  {editingPhaseName === pi ? (
+                    <input className="input-field" style={{ flex: 1, fontSize: 14, fontWeight: 600, padding: "4px 8px" }} value={editPhaseNameValue} onChange={e => setEditPhaseNameValue(e.target.value)} onBlur={() => savePhaseName(pi)} onKeyDown={e => { if (e.key === "Enter") savePhaseName(pi); if (e.key === "Escape") setEditingPhaseName(null); }} onClick={e => e.stopPropagation()} autoFocus />
+                  ) : (
+                    <span className="g5-phase-name" style={{ cursor: "pointer" }} onClick={e => { e.preventDefault(); setEditingPhaseName(pi); setEditPhaseNameValue(p.phase_name); }}>
+                      {p.phase_name} <span className="g5-edit-icon" style={{ fontSize: 12, opacity: 0.4 }}>✎</span>
+                    </span>
+                  )}
+                  <div style={{ display: "flex", gap: 2, marginLeft: "auto", flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                    <button className="adm-btn-ghost" style={{ fontSize: 11, padding: "2px 6px" }} disabled={pi === 0} onClick={e => { e.preventDefault(); reorderPhase(pi, "up"); }}>▲</button>
+                    <button className="adm-btn-ghost" style={{ fontSize: 11, padding: "2px 6px" }} disabled={pi === current.phases.length - 1} onClick={e => { e.preventDefault(); reorderPhase(pi, "down"); }}>▼</button>
+                  </div>
                   <svg className="g5-phase-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
                 </summary>
                 <div className="g5-speech-phase-body">
