@@ -428,9 +428,13 @@ export default function BibliotecaPage() {
                       {phase.phase_name}<span className="g5-edit-pencil">✎</span>
                     </span>
                   )}
-                  <div className="g5-phase-actions" style={{ display: "flex", gap: 2, marginLeft: "auto", flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                    <button className="adm-btn-ghost" style={{ fontSize: 11, padding: "2px 6px", opacity: pi === 0 ? 0.3 : 1 }} disabled={pi === 0} onClick={e => { e.preventDefault(); reorderPhase(pi, "up"); }}>▲</button>
-                    <button className="adm-btn-ghost" style={{ fontSize: 11, padding: "2px 6px", opacity: pi === current.phases.length - 1 ? 0.3 : 1 }} disabled={pi === current.phases.length - 1} onClick={e => { e.preventDefault(); reorderPhase(pi, "down"); }}>▼</button>
+                  <div className="g5-phase-actions" onClick={e => e.stopPropagation()} style={{ marginLeft: "auto", flexShrink: 0 }}>
+                    <button disabled={pi === 0} onClick={e => { e.preventDefault(); reorderPhase(pi, "up"); }} title="Subir">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+                    </button>
+                    <button disabled={pi === current.phases.length - 1} onClick={e => { e.preventDefault(); reorderPhase(pi, "down"); }} title="Bajar">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
                   </div>
                   <svg className="g5-phase-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
                 </summary>
@@ -455,7 +459,9 @@ export default function BibliotecaPage() {
                               {field.field_name}<span className="g5-edit-pencil">✎</span>
                             </span>
                           )}
-                          <button className="g5-field-actions" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, padding: "2px 4px", flexShrink: 0 }} onClick={() => deleteField(pi, fi)} title="Eliminar campo">🗑</button>
+                          <button className="g5-field-actions" onClick={() => deleteField(pi, fi)} title="Eliminar campo">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                          </button>
                         </div>
                         {field.phrases.map((ph, phi) => {
                           const key = `${pi}-${fi}-${phi}`;
@@ -497,9 +503,13 @@ export default function BibliotecaPage() {
                       {p.phase_name} <span className="g5-edit-icon" style={{ fontSize: 12, opacity: 0.4 }}>✎</span>
                     </span>
                   )}
-                  <div style={{ display: "flex", gap: 2, marginLeft: "auto", flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                    <button className="adm-btn-ghost" style={{ fontSize: 11, padding: "2px 6px" }} disabled={pi === 0} onClick={e => { e.preventDefault(); reorderPhase(pi, "up"); }}>▲</button>
-                    <button className="adm-btn-ghost" style={{ fontSize: 11, padding: "2px 6px" }} disabled={pi === current.phases.length - 1} onClick={e => { e.preventDefault(); reorderPhase(pi, "down"); }}>▼</button>
+                  <div className="g5-phase-actions" onClick={e => e.stopPropagation()} style={{ marginLeft: "auto", flexShrink: 0 }}>
+                    <button disabled={pi === 0} onClick={e => { e.preventDefault(); reorderPhase(pi, "up"); }} title="Subir">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+                    </button>
+                    <button disabled={pi === current.phases.length - 1} onClick={e => { e.preventDefault(); reorderPhase(pi, "down"); }} title="Bajar">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
                   </div>
                   <svg className="g5-phase-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
                 </summary>
