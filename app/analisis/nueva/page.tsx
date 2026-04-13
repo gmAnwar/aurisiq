@@ -252,10 +252,10 @@ export default function NuevaLlamadaPage() {
 
       setLoading(false);
 
-      // Daily counter: objective + today's count
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const [objRes, todayRes] = await Promise.all([
+      // Monthly progress counter
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const [objRes, monthRes] = await Promise.all([
         supabase.from("objectives").select("target_value")
           .eq("organization_id", effectiveOrgId).eq("is_active", true)
           .eq("type", "volume").in("period_type", ["monthly"])
@@ -264,13 +264,12 @@ export default function NuevaLlamadaPage() {
           .limit(1),
         supabase.from("analyses").select("id")
           .eq("user_id", session.userId).eq("organization_id", effectiveOrgId).eq("status", "completado")
-          .gte("created_at", todayStart.toISOString()),
+          .gte("created_at", monthStart),
       ]);
       if (objRes.data && objRes.data.length > 0) {
-        const monthly = objRes.data[0].target_value;
-        setDailyTarget(Math.max(1, Math.ceil(monthly / 22)));
+        setDailyTarget(objRes.data[0].target_value);
       }
-      setDailyDone(todayRes.data?.length || 0);
+      setDailyDone(monthRes.data?.length || 0);
 
       // Restore draft from sessionStorage
       const savedText = sessionStorage.getItem("c2_transcription");
@@ -907,8 +906,8 @@ export default function NuevaLlamadaPage() {
         {dailyTarget !== null && (
           <p className={`c2-daily-counter ${dailyDone >= dailyTarget ? "c2-daily-done" : ""}`}>
             {dailyDone >= dailyTarget
-              ? `${dailyDone} de ${dailyTarget} — objetivo cumplido`
-              : `${dailyDone} de ${dailyTarget} llamadas hoy`}
+              ? `${dailyDone} de ${dailyTarget} este mes — objetivo cumplido`
+              : `${dailyDone} de ${dailyTarget} este mes`}
           </p>
         )}
         <h1 className="c2-title">Nueva Llamada</h1>
