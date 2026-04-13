@@ -903,13 +903,14 @@ export default function NuevaLlamadaPage() {
                   {phase.fields && phase.fields.length > 0 ? (
                     <div className="c5-fields">
                       {phase.fields.map((field, j) => (
-                        <GuideFieldItem key={j} field={field} />
+                        <div key={j} style={{ marginTop: 6 }}>
+                          <span style={{ fontSize: 13, fontWeight: 500 }}>{field.field_name}:</span>
+                          {field.phrases[0] && <p style={{ margin: "2px 0 0 10px", fontSize: 13 }}>{field.phrases[0]}</p>}
+                        </div>
                       ))}
                     </div>
                   ) : phase.phrases && phase.phrases.length > 0 ? (
-                    <ul className="c5-phrase-list">
-                      {phase.phrases.map((ph, j) => <li key={j} className="c5-phrase">{ph}</li>)}
-                    </ul>
+                    <p style={{ margin: "4px 0 0", fontSize: 13 }}>{phase.phrases[0]}</p>
                   ) : null}
                 </div>
               </details>
@@ -1303,38 +1304,17 @@ function SpeechFieldSingle({ field, storageKey }: { field: { field_name: string;
 
   if (!field.phrases || field.phrases.length === 0) return null;
 
-  const altCount = field.phrases.length - 1;
-
   return (
     <div style={{ marginTop: 6 }}>
       <span style={{ fontSize: 13, fontWeight: 500 }}>{field.field_name}:</span>
       <p style={{ margin: "2px 0 0 10px", fontSize: 13 }}>{field.phrases[selectedIdx]}</p>
-      {altCount > 0 && !showAlts && (
-        <button
-          type="button"
-          onClick={() => setShowAlts(true)}
-          style={{ background: "none", border: "none", padding: "2px 10px", fontSize: 11, color: "var(--ink-light, #888)", cursor: "pointer", textDecoration: "underline" }}
-        >
-          Ver otra{altCount > 1 ? "s" : ""} {altCount} opci{altCount > 1 ? "ones" : "ón"}
-        </button>
-      )}
-      {showAlts && (
-        <div style={{ margin: "4px 0 0 10px", fontSize: 12 }}>
-          {field.phrases.map((ph, i) => (
-            <label key={i} style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 2, cursor: "pointer" }}>
-              <input
-                type="radio"
-                name={lsKey}
-                checked={i === selectedIdx}
-                onChange={() => {
-                  setSelectedIdx(i);
-                  localStorage.setItem(lsKey, String(i));
-                  setShowAlts(false);
-                }}
-                style={{ margin: 0, accentColor: "var(--accent, #4f46e5)" }}
-              />
-              <span style={{ color: i === selectedIdx ? "var(--ink, #1a1a1a)" : "var(--ink-light, #888)" }}>{ph}</span>
-            </label>
+      {field.phrases.length > 1 && (
+        <div style={{ margin: "4px 0 0 10px", display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {field.phrases.map((_, i) => (
+            <button key={i} type="button" onClick={() => { setSelectedIdx(i); localStorage.setItem(lsKey, String(i)); }}
+              style={{ background: i === selectedIdx ? "var(--accent, #00C2E0)" : "var(--border, #e5e5e5)", color: i === selectedIdx ? "#fff" : "var(--ink-light)", border: "none", borderRadius: 4, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>
+              {i + 1}
+            </button>
           ))}
         </div>
       )}
@@ -1357,37 +1337,16 @@ function SpeechPhraseSingle({ phrases, storageKey }: { phrases: string[]; storag
     return <p style={{ margin: "4px 0 0 0", fontSize: 13 }}>{phrases[0]}</p>;
   }
 
-  const altCount = phrases.length - 1;
-
   return (
     <div>
       <p style={{ margin: "4px 0 0 0", fontSize: 13 }}>{phrases[selectedIdx]}</p>
-      {!showAlts && (
-        <button
-          type="button"
-          onClick={() => setShowAlts(true)}
-          style={{ background: "none", border: "none", padding: "2px 0", fontSize: 11, color: "var(--ink-light, #888)", cursor: "pointer", textDecoration: "underline" }}
-        >
-          Ver otra{altCount > 1 ? "s" : ""} {altCount} opci{altCount > 1 ? "ones" : "ón"}
-        </button>
-      )}
-      {showAlts && (
-        <div style={{ margin: "4px 0 0", fontSize: 12 }}>
-          {phrases.map((ph, i) => (
-            <label key={i} style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 2, cursor: "pointer" }}>
-              <input
-                type="radio"
-                name={lsKey}
-                checked={i === selectedIdx}
-                onChange={() => {
-                  setSelectedIdx(i);
-                  localStorage.setItem(lsKey, String(i));
-                  setShowAlts(false);
-                }}
-                style={{ margin: 0, accentColor: "var(--accent, #4f46e5)" }}
-              />
-              <span style={{ color: i === selectedIdx ? "var(--ink, #1a1a1a)" : "var(--ink-light, #888)" }}>{ph}</span>
-            </label>
+      {phrases.length > 1 && (
+        <div style={{ margin: "4px 0 0", display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {phrases.map((_, i) => (
+            <button key={i} type="button" onClick={() => { setSelectedIdx(i); localStorage.setItem(lsKey, String(i)); }}
+              style={{ background: i === selectedIdx ? "var(--accent, #00C2E0)" : "var(--border, #e5e5e5)", color: i === selectedIdx ? "#fff" : "var(--ink-light)", border: "none", borderRadius: 4, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>
+              {i + 1}
+            </button>
           ))}
         </div>
       )}
