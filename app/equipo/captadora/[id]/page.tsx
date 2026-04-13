@@ -5,7 +5,7 @@ import { supabase } from "../../../../lib/supabase";
 import { requireAuth } from "../../../../lib/auth";
 import { stripJson } from "../../../../lib/text";
 
-interface AnalysisRow { id: string; score_general: number | null; clasificacion: string | null; created_at: string; categoria_descalificacion: string[] | null; patron_error: string | null; siguiente_accion: string | null; }
+interface AnalysisRow { id: string; score_general: number | null; clasificacion: string | null; created_at: string; categoria_descalificacion: string[] | null; patron_error: string | null; siguiente_accion: string | null; prospect_name: string | null; funnel_stage_id: string | null; property_type: string | null; business_type: string | null; }
 interface PhaseRow { phase_name: string; score: number; score_max: number; analysis_id: string; }
 interface DescalCat { code: string; label: string; }
 
@@ -17,6 +17,7 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
   const [analyses, setAnalyses] = useState<AnalysisRow[]>([]);
   const [phases, setPhases] = useState<PhaseRow[]>([]);
   const [descalMap, setDescalMap] = useState<Record<string, string>>({});
+  const [stageMap, setStageMap] = useState<Record<string, string>>({});
   const [teamAvgByPhase, setTeamAvgByPhase] = useState<Record<string, number>>({});
   const [objectives, setObjectives] = useState<{ name: string; target_value: number; current_value: number; is_active: boolean }[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("hoy");
@@ -37,8 +38,8 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
 
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
 
-      const [analysesRes, phasesRes, descalRes, teamPhasesRes, objRes, todayRes] = await Promise.all([
-        supabase.from("analyses").select("id, score_general, clasificacion, created_at, categoria_descalificacion, patron_error, siguiente_accion")
+      const [analysesRes, phasesRes, descalRes, teamPhasesRes, objRes, todayRes, stagesRes] = await Promise.all([
+        supabase.from("analyses").select("id, score_general, clasificacion, created_at, categoria_descalificacion, patron_error, siguiente_accion, prospect_name, funnel_stage_id, property_type, business_type")
           .eq("user_id", id).eq("organization_id", me.organization_id).eq("status", "completado").order("created_at", { ascending: false }).limit(100),
         supabase.from("analysis_phases").select("phase_name, score, score_max, analysis_id")
           .eq("user_id", id).eq("organization_id", me.organization_id).order("created_at", { ascending: false }).limit(500),
@@ -48,6 +49,7 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
           .eq("organization_id", me.organization_id).eq("is_active", true)
           .or(`target_user_id.eq.${id},target_user_id.is.null`),
         supabase.from("analyses").select("id").eq("user_id", id).eq("organization_id", me.organization_id).eq("status", "completado").gte("created_at", todayStart.toISOString()),
+        supabase.from("funnel_stages").select("id, name").eq("organization_id", me.organization_id).eq("active", true),
       ]);
 
       setAnalyses(analysesRes.data || []);
@@ -57,6 +59,9 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
       const dm: Record<string, string> = {};
       for (const c of (descalRes.data || []) as DescalCat[]) dm[c.code] = c.label;
       setDescalMap(dm);
+      const sm: Record<string, string> = {};
+      for (const s of stagesRes.data || []) sm[s.id] = s.name;
+      setStageMap(sm);
 
       // Team avg by phase
       const phaseAcc: Record<string, { total: number; max: number }> = {};
@@ -171,12 +176,29 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
             </div>
             {todayAnalyses.length > 0 ? (
               <div className="c4-list">
-                {todayAnalyses.slice(0, 10).map(a => (
-                  <a key={a.id} href={`/equipo/analisis/${a.id}`} className="c4-item" style={{ textDecoration: "none", color: "inherit" }}>
-                    <span className="c4-item-date">{new Date(a.created_at).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}</span>
-                    <span className={`c4-item-score c4-score-${a.clasificacion || "regular"}`}>{a.score_general ?? "—"}</span>
-                  </a>
-                ))}
+                {todayAnalyses.slice(0, 10).map(a => {
+                  const codes = a.categoria_descalificacion || [];
+                  return (
+                    <a key={a.id} href={`/equipo/analisis/${a.id}`} className="c4-item" style={{ textDecoration: "none", color: "inherit" }}>
+                      <div className="c4-item-left">
+                        <span className="c4-item-date">{a.prospect_name || "Sin nombre"}</span>
+                        <span className="c4-item-source">
+                          {new Date(a.created_at).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
+                          {a.funnel_stage_id && stageMap[a.funnel_stage_id] ? ` · ${stageMap[a.funnel_stage_id]}` : ""}
+                          {(a.property_type || a.business_type) ? ` · ${a.property_type || a.business_type}` : ""}
+                          {" · "}{codes.length > 0 ? (
+                            <span className="c1-pill-inline c1-pill-red">{descalMap[codes[0]] || codes[0]}</span>
+                          ) : (
+                            <span className="c1-pill-inline c1-pill-green">Calificado</span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="c4-item-right">
+                        <span className={`c4-item-score c4-score-${a.clasificacion || "regular"}`}>{a.score_general ?? "—"}</span>
+                      </div>
+                    </a>
+                  );
+                })}
               </div>
             ) : <p className="g1-empty">Sin análisis hoy.</p>}
           </>
