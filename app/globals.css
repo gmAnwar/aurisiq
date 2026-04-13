@@ -1047,8 +1047,8 @@ body.has-nav {
 .c1-fab {
   display: none;
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: 80px;
+  right: 20px;
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -1056,10 +1056,12 @@ body.has-nav {
   color: #fff;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
   z-index: 100;
   text-decoration: none;
+  transition: transform 0.15s ease;
 }
+.c1-fab:hover { transform: scale(1.05); }
 @media (max-width: 768px) {
   .c1-fab { display: flex; }
 }
