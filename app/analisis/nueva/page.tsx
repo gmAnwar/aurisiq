@@ -957,39 +957,11 @@ export default function NuevaLlamadaPage() {
               : `${dailyDone} de ${dailyTarget} este mes`}
           </p>
         )}
-        <h1 className="c2-title">Analiza una llamada</h1>
-        <p className="c2-subtitle">Tienes 3 formas de hacerlo. Elige la que te acomode.</p>
+        <h1 className="c2-title">Nueva llamada</h1>
+        <p className="c2-subtitle">Graba en vivo, sube un audio o pega la transcripción — la IA se encarga del resto.</p>
       </div>
 
-      {/* Method selector — 3 cards */}
-      {method === "none" && status === "idle" && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 20 }}>
-          <button onClick={() => { setMethod("record"); if (orgId) rec.startRecording(orgId); }} style={{ background: "var(--card-bg, #fff)", border: "1px solid var(--border, #e5e5e5)", borderRadius: 12, padding: "20px 16px", textAlign: "center", cursor: "pointer", transition: "box-shadow 0.15s" }} onMouseOver={e => (e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)")} onMouseOut={e => (e.currentTarget.style.boxShadow = "none")}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>🎙️</div>
-            <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Grabar en vivo</div>
-            <div style={{ fontSize: 13, color: "var(--ink-light)" }}>Estoy en la llamada ahora. Graba directo y se analiza al terminar.</div>
-          </button>
-          <button onClick={() => setMethod("upload")} style={{ background: "var(--card-bg, #fff)", border: "1px solid var(--border, #e5e5e5)", borderRadius: 12, padding: "20px 16px", textAlign: "center", cursor: "pointer", transition: "box-shadow 0.15s" }} onMouseOver={e => (e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)")} onMouseOut={e => (e.currentTarget.style.boxShadow = "none")}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>📁</div>
-            <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Subir audio</div>
-            <div style={{ fontSize: 13, color: "var(--ink-light)" }}>Ya grabé la llamada en otro lado. Sube el archivo y lo transcribimos.</div>
-          </button>
-          <button onClick={() => setMethod("paste")} style={{ background: "var(--card-bg, #fff)", border: "1px solid var(--border, #e5e5e5)", borderRadius: 12, padding: "20px 16px", textAlign: "center", cursor: "pointer", transition: "box-shadow 0.15s" }} onMouseOver={e => (e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)")} onMouseOut={e => (e.currentTarget.style.boxShadow = "none")}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
-            <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Pegar texto</div>
-            <div style={{ fontSize: 13, color: "var(--ink-light)" }}>Ya tengo la transcripción escrita. Pégala directamente.</div>
-          </button>
-        </div>
-      )}
-
-      {/* Back to method selector */}
-      {method !== "none" && status === "idle" && !transcription && rec.recMode === "off" && (
-        <button onClick={() => setMethod("none")} style={{ background: "none", border: "none", color: "var(--accent, #00C2E0)", cursor: "pointer", fontSize: 13, marginBottom: 12, padding: 0 }}>
-          ← Cambiar método
-        </button>
-      )}
-
-      {(method === "upload" || method === "paste") && <div className="c2-form">
+      <div className="c2-form">
         <div className="input-group">
           <label htmlFor="funnel-stage" className="input-label">
             Etapa del embudo <span style={{ fontWeight: 400, color: "var(--ink-light)" }}>(opcional — se detecta automáticamente)</span>
@@ -1104,13 +1076,20 @@ export default function NuevaLlamadaPage() {
           >
             {selectedStage ? "Ver mi guía antes de llamar" : "Selecciona una etapa para ver tu guía"}
           </button>
-          <div className="c2-file-row">
-            {method === "upload" && (
-              <label className="c2-file-btn">
-                Buscar archivo de audio
-                <input type="file" accept=".txt,.doc,.docx,.mp3,.m4a,.wav,.ogg,.opus,.webm,.mp4,audio/ogg,audio/opus" onChange={handleFileInput} hidden disabled={status === "analyzing" || isTranscribing} />
-              </label>
-            )}
+          <div className="c2-file-row" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <button
+              className="btn-submit"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "12px 20px", fontSize: 15, fontWeight: 600 }}
+              onClick={() => orgId && rec.startRecording(orgId)}
+              disabled={status === "analyzing" || isTranscribing || transcription.length > 0}
+              type="button"
+            >
+              🎙️ Grabar llamada
+            </button>
+            <label className="c2-file-btn">
+              Buscar archivo
+              <input type="file" accept=".txt,.doc,.docx,.mp3,.m4a,.wav,.ogg,.opus,.webm,.mp4,audio/ogg,audio/opus" onChange={handleFileInput} hidden disabled={status === "analyzing" || isTranscribing} />
+            </label>
             {fileMsg && <span className="c2-file-msg">{fileMsg}</span>}
           </div>
           <p className="c2-rec-hint">
@@ -1250,7 +1229,7 @@ export default function NuevaLlamadaPage() {
             Analizar
           </button>
         )}
-      </div>}
+      </div>
 
       {/* Guide drawer */}
       {guideOpen && (
