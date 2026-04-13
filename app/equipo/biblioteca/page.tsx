@@ -451,15 +451,17 @@ export default function BibliotecaPage() {
                     const fnKey = `${pi}-${fi}`;
                     return (
                       <div key={fi} className="c5-field g5-field-row">
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0" }}>
-                          {editingFieldName === fnKey ? (
-                            <input className="input-field" style={{ flex: 1, fontSize: 13, fontWeight: 600, padding: "2px 6px" }} value={editFieldNameValue} onChange={e => setEditFieldNameValue(e.target.value)} onBlur={() => saveFieldName(pi, fi)} onKeyDown={e => { if (e.key === "Enter") saveFieldName(pi, fi); if (e.key === "Escape") setEditingFieldName(null); }} autoFocus />
-                          ) : (
-                            <span className="c5-field-name g5-editable" style={{ cursor: "pointer", display: "block" }} onClick={() => { setEditingFieldName(fnKey); setEditFieldNameValue(field.field_name); }}>
-                              {field.field_name}<span className="g5-edit-pencil">✎</span>
-                            </span>
-                          )}
-                          <button className="g5-field-actions" onClick={() => deleteField(pi, fi)} title="Eliminar campo">
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0" }}>
+                          <div style={{ flex: 1 }}>
+                            {editingFieldName === fnKey ? (
+                              <input className="input-field" style={{ fontSize: 13, fontWeight: 600, padding: "2px 6px", width: "100%" }} value={editFieldNameValue} onChange={e => setEditFieldNameValue(e.target.value)} onBlur={() => saveFieldName(pi, fi)} onKeyDown={e => { if (e.key === "Enter") saveFieldName(pi, fi); if (e.key === "Escape") setEditingFieldName(null); }} autoFocus />
+                            ) : (
+                              <span className="c5-field-name" style={{ cursor: "pointer" }} onClick={() => { setEditingFieldName(fnKey); setEditFieldNameValue(field.field_name); }}>
+                                {field.field_name}
+                              </span>
+                            )}
+                          </div>
+                          <button className="g5-field-delete" onClick={() => deleteField(pi, fi)} title="Eliminar campo">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                           </button>
                         </div>

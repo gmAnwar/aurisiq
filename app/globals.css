@@ -1012,26 +1012,25 @@ body.has-nav {
 
 /* Biblioteca hover-reveal actions */
 .g5-phase-actions {
-  opacity: 0; transition: opacity 0.15s ease;
   display: flex; gap: 2px; align-items: center;
 }
-.g5-speech-phase-summary:hover .g5-phase-actions { opacity: 1; }
-.g5-field-actions {
-  opacity: 0; transition: opacity 0.15s ease;
-  display: inline-flex; align-items: center;
-}
-.g5-field-row:hover .g5-field-actions { opacity: 1; }
-.g5-field-actions button,
 .g5-phase-actions button {
   background: transparent; border: none; padding: 4px;
-  cursor: pointer; color: var(--ink-light, #a3a3a3);
+  cursor: pointer; color: #9ca3af;
   display: inline-flex; align-items: center; justify-content: center;
-  line-height: 1;
 }
-.g5-field-actions button:hover { color: var(--red, #ef4444); }
 .g5-phase-actions button:hover { color: var(--accent, #00C2E0); }
 .g5-phase-actions button:disabled { opacity: 0.25; cursor: default; }
-.g5-phase-actions button:disabled:hover { color: var(--ink-light, #a3a3a3); }
+.g5-phase-actions button:disabled:hover { color: #9ca3af; }
+.g5-field-delete {
+  opacity: 0; transition: opacity 0.15s ease;
+  background: transparent; border: none; padding: 4px;
+  cursor: pointer; color: #9ca3af;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.g5-field-row:hover .g5-field-delete { opacity: 1; }
+.g5-field-delete:hover { color: var(--red, #ef4444); }
 .g5-edit-pencil { display: none; }
 
 /* Config sub-tabs */
