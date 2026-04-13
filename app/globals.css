@@ -1010,6 +1010,14 @@ body.has-nav {
   padding: 0 14px 16px 54px;
 }
 
+/* Biblioteca hover-reveal actions */
+.g5-phase-actions { opacity: 0; transition: opacity 0.15s ease; }
+.g5-speech-phase-summary:hover .g5-phase-actions { opacity: 1; }
+.g5-field-actions { opacity: 0; transition: opacity 0.15s ease; }
+.g5-field-row:hover .g5-field-actions { opacity: 1; }
+.g5-edit-pencil { opacity: 0; transition: opacity 0.15s ease; font-size: 12px; margin-left: 4px; }
+.g5-editable:hover .g5-edit-pencil { opacity: 0.5; }
+
 /* Config sub-tabs */
 .config-subtabs {
   display: flex;

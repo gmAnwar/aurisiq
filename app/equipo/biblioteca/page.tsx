@@ -422,55 +422,40 @@ export default function BibliotecaPage() {
                 <summary className="g5-speech-phase-summary">
                   <span className="g5-phase-number">{pi + 1}</span>
                   {editingPhaseName === pi ? (
-                    <input
-                      className="input-field" style={{ flex: 1, fontSize: 14, fontWeight: 600, padding: "4px 8px" }}
-                      value={editPhaseNameValue}
-                      onChange={e => setEditPhaseNameValue(e.target.value)}
-                      onBlur={() => savePhaseName(pi)}
-                      onKeyDown={e => { if (e.key === "Enter") savePhaseName(pi); if (e.key === "Escape") setEditingPhaseName(null); }}
-                      onClick={e => e.stopPropagation()}
-                      autoFocus
-                    />
+                    <input className="input-field" style={{ flex: 1, fontSize: 14, fontWeight: 600, padding: "4px 8px" }} value={editPhaseNameValue} onChange={e => setEditPhaseNameValue(e.target.value)} onBlur={() => savePhaseName(pi)} onKeyDown={e => { if (e.key === "Enter") savePhaseName(pi); if (e.key === "Escape") setEditingPhaseName(null); }} onClick={e => e.stopPropagation()} autoFocus />
                   ) : (
-                    <span className="g5-phase-name" style={{ cursor: "pointer" }} onClick={e => { e.preventDefault(); setEditingPhaseName(pi); setEditPhaseNameValue(phase.phase_name); }}>
-                      {phase.phase_name} <span className="g5-edit-icon" style={{ fontSize: 12, opacity: 0.4 }}>✎</span>
+                    <span className="g5-phase-name g5-editable" style={{ cursor: "pointer" }} onClick={e => { e.preventDefault(); setEditingPhaseName(pi); setEditPhaseNameValue(phase.phase_name); }}>
+                      {phase.phase_name}<span className="g5-edit-pencil">✎</span>
                     </span>
                   )}
-                  <div style={{ display: "flex", gap: 2, marginLeft: "auto", flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                    <button className="adm-btn-ghost" style={{ fontSize: 11, padding: "2px 6px" }} disabled={pi === 0} onClick={e => { e.preventDefault(); reorderPhase(pi, "up"); }}>▲</button>
-                    <button className="adm-btn-ghost" style={{ fontSize: 11, padding: "2px 6px" }} disabled={pi === current.phases.length - 1} onClick={e => { e.preventDefault(); reorderPhase(pi, "down"); }}>▼</button>
+                  <div className="g5-phase-actions" style={{ display: "flex", gap: 2, marginLeft: "auto", flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                    <button className="adm-btn-ghost" style={{ fontSize: 11, padding: "2px 6px", opacity: pi === 0 ? 0.3 : 1 }} disabled={pi === 0} onClick={e => { e.preventDefault(); reorderPhase(pi, "up"); }}>▲</button>
+                    <button className="adm-btn-ghost" style={{ fontSize: 11, padding: "2px 6px", opacity: pi === current.phases.length - 1 ? 0.3 : 1 }} disabled={pi === current.phases.length - 1} onClick={e => { e.preventDefault(); reorderPhase(pi, "down"); }}>▼</button>
                   </div>
                   <svg className="g5-phase-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
                 </summary>
                 <div className="g5-speech-phase-body">
                   {editingTransition === pi ? (
-                    <textarea
-                      className="input-field" rows={2} style={{ fontSize: 13, marginBottom: 8 }}
-                      value={editTransitionValue}
-                      onChange={e => setEditTransitionValue(e.target.value)}
-                      onBlur={() => saveTransition(pi)}
-                      onKeyDown={e => { if (e.key === "Escape") setEditingTransition(null); }}
-                      autoFocus
-                    />
+                    <textarea className="input-field" rows={2} style={{ fontSize: 13, marginBottom: 8 }} value={editTransitionValue} onChange={e => setEditTransitionValue(e.target.value)} onBlur={() => saveTransition(pi)} onKeyDown={e => { if (e.key === "Escape") setEditingTransition(null); }} autoFocus />
                   ) : (
-                    <p className="c5-transition" style={{ cursor: "pointer" }} onClick={() => { setEditingTransition(pi); setEditTransitionValue(phase.transition || ""); }}>
+                    <p className="c5-transition g5-editable" style={{ cursor: "pointer" }} onClick={() => { setEditingTransition(pi); setEditTransitionValue(phase.transition || ""); }}>
                       {phase.transition || <span style={{ color: "var(--ink-light)", fontStyle: "italic" }}>Click para agregar transición...</span>}
-                      {" "}<span className="g5-edit-icon" style={{ fontSize: 12, opacity: 0.4 }}>✎</span>
+                      <span className="g5-edit-pencil">✎</span>
                     </p>
                   )}
                   {phase.fields && phase.fields.map((field, fi) => {
                     const fnKey = `${pi}-${fi}`;
                     return (
-                      <div key={fi} className="c5-field">
+                      <div key={fi} className="c5-field g5-field-row">
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0" }}>
                           {editingFieldName === fnKey ? (
                             <input className="input-field" style={{ flex: 1, fontSize: 13, fontWeight: 600, padding: "2px 6px" }} value={editFieldNameValue} onChange={e => setEditFieldNameValue(e.target.value)} onBlur={() => saveFieldName(pi, fi)} onKeyDown={e => { if (e.key === "Enter") saveFieldName(pi, fi); if (e.key === "Escape") setEditingFieldName(null); }} autoFocus />
                           ) : (
-                            <span className="c5-field-name" style={{ cursor: "pointer", display: "block" }} onClick={() => { setEditingFieldName(fnKey); setEditFieldNameValue(field.field_name); }}>
-                              {field.field_name} <span className="g5-edit-icon" style={{ fontSize: 11, opacity: 0.4 }}>✎</span>
+                            <span className="c5-field-name g5-editable" style={{ cursor: "pointer", display: "block" }} onClick={() => { setEditingFieldName(fnKey); setEditFieldNameValue(field.field_name); }}>
+                              {field.field_name}<span className="g5-edit-pencil">✎</span>
                             </span>
                           )}
-                          <button className="adm-btn-ghost adm-btn-danger-text" style={{ fontSize: 11, padding: "2px 6px", flexShrink: 0 }} onClick={() => deleteField(pi, fi)} title="Eliminar campo">🗑</button>
+                          <button className="g5-field-actions" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, padding: "2px 4px", flexShrink: 0 }} onClick={() => deleteField(pi, fi)} title="Eliminar campo">🗑</button>
                         </div>
                         {field.phrases.map((ph, phi) => {
                           const key = `${pi}-${fi}-${phi}`;
@@ -484,14 +469,14 @@ export default function BibliotecaPage() {
                             </div>
                           ) : (
                             <p key={phi} className={phi === 0 ? "c5-field-phrase-main" : "c5-field-phrase-alt"} style={{ cursor: "pointer" }} onClick={() => startEdit(key, ph)}>
-                              {ph} <span className="g5-edit-icon">✎</span>
+                              {ph}
                             </p>
                           );
                         })}
                       </div>
                     );
                   })}
-                  <button className="adm-btn-ghost" style={{ fontSize: 12, marginTop: 8 }} onClick={() => addField(pi)}>+ Agregar campo</button>
+                  <button style={{ background: "none", border: "none", color: "var(--ink-light)", cursor: "pointer", fontSize: 12, marginTop: 8, padding: 0 }} onClick={() => addField(pi)}>+ Agregar campo</button>
                 </div>
               </details>
             ))}
