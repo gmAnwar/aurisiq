@@ -67,6 +67,8 @@ interface ScorecardRow {
   active: boolean;
 }
 
+interface AdminTracker { id: string; organization_id: string | null; code: string; label: string; icon: string; description: string; speaker: string; sort_order: number; active: boolean; }
+
 interface ScorecardTemplate {
   id: string;
   name: string;
@@ -91,7 +93,7 @@ const ACCESS_STATUS_CLASS: Record<string, string> = {
 };
 
 type Toast = { type: "ok" | "err"; msg: string } | null;
-type Tab = "orgs" | "users" | "analyses" | "speech" | "embudo";
+type Tab = "orgs" | "users" | "analyses" | "speech" | "embudo" | "trackers";
 
 const ROLE_COLOR: Record<string, string> = {
   captadora: "#3b82f6",
@@ -116,6 +118,8 @@ export default function AdminPage() {
   const [stages, setStages] = useState<StageRow[]>([]);
   const [scorecards, setScorecards] = useState<ScorecardRow[]>([]);
   const [templates, setTemplates] = useState<ScorecardTemplate[]>([]);
+  const [adminTrackers, setAdminTrackers] = useState<AdminTracker[]>([]);
+  const [trackerOrgFilter, setTrackerOrgFilter] = useState<string>("");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -213,6 +217,14 @@ export default function AdminPage() {
     setStages((body.funnel_stages || []) as StageRow[]);
     setScorecards((body.scorecards || []) as ScorecardRow[]);
     setTemplates((body.scorecard_templates || []) as ScorecardTemplate[]);
+
+    // Fetch all trackers (super_admin sees all)
+    const { data: trkData } = await supabase
+      .from("conversation_trackers")
+      .select("id, organization_id, code, label, icon, description, speaker, sort_order, active")
+      .order("organization_id", { ascending: true, nullsFirst: true })
+      .order("sort_order");
+    setAdminTrackers((trkData || []) as AdminTracker[]);
   }, []);
 
   const loadOrgs = loadAllData;
@@ -780,6 +792,7 @@ export default function AdminPage() {
     { key: "analyses", label: "Análisis", count: analyses.length },
     { key: "speech", label: "Speech", count: speechVersions.length },
     { key: "embudo", label: "Embudo", count: stages.filter(s => s.active).length },
+    { key: "trackers", label: "Trackers", count: adminTrackers.length },
   ];
 
   return (
@@ -1319,6 +1332,86 @@ export default function AdminPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* ===== TAB: Trackers ===== */}
+      {activeTab === "trackers" && (
+        <div className="adm-section">
+          <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16 }}>
+            <select className="input-field" value={trackerOrgFilter} onChange={e => setTrackerOrgFilter(e.target.value)} style={{ maxWidth: 260, padding: "6px 10px" }}>
+              <option value="">Universales (sistema)</option>
+              {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+          </div>
+
+          {(() => {
+            const filtered = trackerOrgFilter
+              ? adminTrackers.filter(t => t.organization_id === trackerOrgFilter || t.organization_id === null)
+              : adminTrackers.filter(t => t.organization_id === null);
+            const universal = filtered.filter(t => t.organization_id === null);
+            const custom = filtered.filter(t => t.organization_id !== null);
+
+            return (
+              <>
+                {universal.length > 0 && (
+                  <>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#737373", marginBottom: 6 }}>Del sistema ({universal.length})</div>
+                    <div className="adm-table" style={{ marginBottom: 16 }}>
+                      <div className="adm-table-head">
+                        <span style={{ flex: 0.3 }}>Icono</span>
+                        <span style={{ flex: 1 }}>Label</span>
+                        <span style={{ flex: 0.6 }}>Código</span>
+                        <span style={{ flex: 0.5 }}>Speaker</span>
+                        <span style={{ flex: 0.4 }}>Estado</span>
+                      </div>
+                      {universal.map(t => (
+                        <div key={t.id} className="adm-table-row" style={{ opacity: t.active ? 1 : 0.5 }}>
+                          <span style={{ flex: 0.3 }}>{t.icon}</span>
+                          <span style={{ flex: 1 }}>{t.label}</span>
+                          <span style={{ flex: 0.6, fontSize: 12, color: "#737373" }}>{t.code}</span>
+                          <span style={{ flex: 0.5, fontSize: 12 }}>{t.speaker}</span>
+                          <span style={{ flex: 0.4 }}>
+                            <span className={`adm-pill ${t.active ? "admin-badge-green" : "admin-badge-red"}`}>{t.active ? "Activo" : "Inactivo"}</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {trackerOrgFilter && custom.length > 0 && (
+                  <>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#737373", marginBottom: 6 }}>Personalizados ({custom.length})</div>
+                    <div className="adm-table">
+                      <div className="adm-table-head">
+                        <span style={{ flex: 0.3 }}>Icono</span>
+                        <span style={{ flex: 1 }}>Label</span>
+                        <span style={{ flex: 0.6 }}>Código</span>
+                        <span style={{ flex: 0.5 }}>Speaker</span>
+                        <span style={{ flex: 0.4 }}>Estado</span>
+                      </div>
+                      {custom.map(t => (
+                        <div key={t.id} className="adm-table-row" style={{ opacity: t.active ? 1 : 0.5 }}>
+                          <span style={{ flex: 0.3 }}>{t.icon}</span>
+                          <span style={{ flex: 1 }}>{t.label}</span>
+                          <span style={{ flex: 0.6, fontSize: 12, color: "#737373" }}>{t.code}</span>
+                          <span style={{ flex: 0.5, fontSize: 12 }}>{t.speaker}</span>
+                          <span style={{ flex: 0.4 }}>
+                            <span className={`adm-pill ${t.active ? "admin-badge-green" : "admin-badge-red"}`}>{t.active ? "Activo" : "Inactivo"}</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {trackerOrgFilter && custom.length === 0 && (
+                  <div className="adm-empty"><p>Sin trackers personalizados para esta org.</p></div>
+                )}
+              </>
+            );
+          })()}
+        </div>
       )}
 
       {/* ===== Modal: Crear scorecard desde template ===== */}
