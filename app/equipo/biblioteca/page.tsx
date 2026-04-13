@@ -330,31 +330,37 @@ export default function BibliotecaPage() {
         {current && hasFields && (
           <div className="c5-phases">
             {current.phases.map((phase, pi) => (
-              <div key={pi} className="c5-phase-card">
-                <h3 className="c5-phase-name">{phase.phase_name}</h3>
-                {phase.transition && <p className="c5-transition">{phase.transition}</p>}
-                {phase.fields && phase.fields.map((field, fi) => (
-                  <div key={fi} className="c5-field">
-                    <span className="c5-field-name" style={{ padding: "6px 0", display: "block" }}>{field.field_name}</span>
-                    {field.phrases.map((ph, phi) => {
-                      const key = `${pi}-${fi}-${phi}`;
-                      return editingField === key ? (
-                        <div key={phi} className="g5-inline-edit">
-                          <textarea className="input-field" rows={2} value={editValue} onChange={e => setEditValue(e.target.value)} style={{ fontSize: 11 }} />
-                          <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                            <button className="g4-note-save" onClick={saveEdit} disabled={saving}>{saving ? "..." : "Guardar"}</button>
-                            <button className="g4-note-cancel" onClick={() => setEditingField(null)}>Cancelar</button>
+              <details key={pi} open={pi === 0} className="g5-speech-phase">
+                <summary className="g5-speech-phase-summary">
+                  <span className="g5-phase-number">{pi + 1}</span>
+                  <span className="g5-phase-name">{phase.phase_name}</span>
+                  <svg className="g5-phase-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+                </summary>
+                <div className="g5-speech-phase-body">
+                  {phase.transition && <p className="c5-transition">{phase.transition}</p>}
+                  {phase.fields && phase.fields.map((field, fi) => (
+                    <div key={fi} className="c5-field">
+                      <span className="c5-field-name" style={{ padding: "6px 0", display: "block" }}>{field.field_name}</span>
+                      {field.phrases.map((ph, phi) => {
+                        const key = `${pi}-${fi}-${phi}`;
+                        return editingField === key ? (
+                          <div key={phi} className="g5-inline-edit">
+                            <textarea className="input-field" rows={2} value={editValue} onChange={e => setEditValue(e.target.value)} style={{ fontSize: 11 }} />
+                            <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                              <button className="g4-note-save" onClick={saveEdit} disabled={saving}>{saving ? "..." : "Guardar"}</button>
+                              <button className="g4-note-cancel" onClick={() => setEditingField(null)}>Cancelar</button>
+                            </div>
                           </div>
-                        </div>
-                      ) : (
-                        <p key={phi} className={phi === 0 ? "c5-field-phrase-main" : "c5-field-phrase-alt"} style={{ cursor: "pointer" }} onClick={() => startEdit(key, ph)}>
-                          {ph} <span className="g5-edit-icon">✎</span>
-                        </p>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
+                        ) : (
+                          <p key={phi} className={phi === 0 ? "c5-field-phrase-main" : "c5-field-phrase-alt"} style={{ cursor: "pointer" }} onClick={() => startEdit(key, ph)}>
+                            {ph} <span className="g5-edit-icon">✎</span>
+                          </p>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </details>
             ))}
           </div>
         )}
@@ -363,26 +369,32 @@ export default function BibliotecaPage() {
         {current && !hasFields && (
           <div className="c5-phases">
             {current.phases.map((p, pi) => (
-              <div key={pi} className="c5-phase-card">
-                <h3 className="c5-phase-name">{p.phase_name}</h3>
-                {(p.phrases || []).map((ph, phi) => {
-                  const key = `${pi}-0-${phi}`;
-                  return editingField === key ? (
-                    <div key={phi} className="g5-inline-edit">
-                      <textarea className="input-field" rows={2} value={editValue} onChange={e => setEditValue(e.target.value)} style={{ fontSize: 11 }} />
-                      <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                        <button className="g4-note-save" onClick={saveEdit} disabled={saving}>{saving ? "..." : "Guardar"}</button>
-                        <button className="g4-note-cancel" onClick={() => setEditingField(null)}>Cancelar</button>
+              <details key={pi} open={pi === 0} className="g5-speech-phase">
+                <summary className="g5-speech-phase-summary">
+                  <span className="g5-phase-number">{pi + 1}</span>
+                  <span className="g5-phase-name">{p.phase_name}</span>
+                  <svg className="g5-phase-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+                </summary>
+                <div className="g5-speech-phase-body">
+                  {(p.phrases || []).map((ph, phi) => {
+                    const key = `${pi}-0-${phi}`;
+                    return editingField === key ? (
+                      <div key={phi} className="g5-inline-edit">
+                        <textarea className="input-field" rows={2} value={editValue} onChange={e => setEditValue(e.target.value)} style={{ fontSize: 11 }} />
+                        <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                          <button className="g4-note-save" onClick={saveEdit} disabled={saving}>{saving ? "..." : "Guardar"}</button>
+                          <button className="g4-note-cancel" onClick={() => setEditingField(null)}>Cancelar</button>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <li key={phi} className="c5-phrase" style={{ cursor: "pointer" }} onClick={() => startEdit(key, ph)}>
-                      {ph} <span className="g5-edit-icon">✎</span>
-                    </li>
-                  );
-                })}
-                {(!p.phrases || p.phrases.length === 0) && <p className="c5-no-phrases">Sin frases</p>}
-              </div>
+                    ) : (
+                      <li key={phi} className="c5-phrase" style={{ cursor: "pointer" }} onClick={() => startEdit(key, ph)}>
+                        {ph} <span className="g5-edit-icon">✎</span>
+                      </li>
+                    );
+                  })}
+                  {(!p.phrases || p.phrases.length === 0) && <p className="c5-no-phrases">Sin frases</p>}
+                </div>
+              </details>
             ))}
           </div>
         )}
