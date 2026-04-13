@@ -37,6 +37,7 @@ export default function TrackersCRUD({ orgId, showUniversals, readOnlyUniversals
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Partial<Tracker>>({});
   const [error, setError] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -205,8 +206,22 @@ export default function TrackersCRUD({ orgId, showUniversals, readOnlyUniversals
         return (
           <>
             <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
-              <div style={{ width: 60 }}>
-                <input className="input-field" value={newIcon} onChange={e => setNewIcon(e.target.value)} placeholder="🎯" maxLength={4} style={{ textAlign: "center", ...(errField === "icon" ? { border: errBorder } : {}) }} />
+              <div style={{ width: 60, position: "relative" }}>
+                <div style={{ display: "flex", gap: 2 }}>
+                  <input className="input-field" value={newIcon} onChange={e => setNewIcon(e.target.value)} placeholder="🎯" maxLength={4} style={{ textAlign: "center", flex: 1, ...(errField === "icon" ? { border: errBorder } : {}) }} />
+                  <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ background: "none", border: "1px solid var(--border, #d1d5db)", borderRadius: 4, cursor: "pointer", fontSize: 14, padding: "2px 4px", lineHeight: 1 }} title="Elegir emoji">▼</button>
+                </div>
+                {showEmojiPicker && (
+                  <div style={{ position: "absolute", top: "100%", left: 0, zIndex: 50, background: "white", border: "1px solid var(--border, #d1d5db)", borderRadius: 8, padding: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.1)", width: 240, marginTop: 4 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+                      {["💰","💵","💳","📊","📈","💎","🏦","⏰","⏱️","📅","🗓️","🔔","⌛","🕐","👥","👤","👔","🤝","👋","🙋","💪","📄","📋","📝","✅","❌","📎","🗂️","📍","🏠","🏢","🏪","🏗️","🌎","🗺️","📞","💬","📧","❓","💡","🔑","🎯","🚫","⚠️","🔴","🟡","🟢","🛠️"].map(e => (
+                        <button key={e} type="button" onClick={() => { setNewIcon(e); setShowEmojiPicker(false); }} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", padding: 4, borderRadius: 4, lineHeight: 1 }} onMouseOver={ev => (ev.currentTarget.style.background = "#f3f4f6")} onMouseOut={ev => (ev.currentTarget.style.background = "none")}>
+                          {e}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <div style={{ flex: 1, minWidth: 150 }}>
                 <input className="input-field" value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="Nombre del tracker" style={errField === "label" ? { border: errBorder } : {}} />
