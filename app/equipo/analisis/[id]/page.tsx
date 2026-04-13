@@ -7,7 +7,7 @@ import TranscriptEditor from "../../../components/TranscriptEditor";
 
 interface Phase { phase_name: string; score: number; score_max: number; }
 interface DescalCat { code: string; label: string; }
-interface ChecklistItem { field: string; covered: boolean; }
+interface ChecklistItem { field: string; covered?: boolean; state?: "covered" | "asked_no_answer" | "not_covered"; }
 interface RelatedCall { id: string; score_general: number | null; created_at: string; }
 
 export default function AnalisisGerentePage({ params }: { params: Promise<{ id: string }> }) {
@@ -107,7 +107,9 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
   const descalCodes = (analysis.categoria_descalificacion as string[] | null) || [];
   const isQualified = descalCodes.length === 0;
   const checklist = (analysis.checklist_results as ChecklistItem[] | null) || [];
-  const covered = checklist.filter(c => c.covered).length;
+  const isCov = (c: ChecklistItem) => c.state ? c.state === "covered" : !!c.covered;
+  const isPart = (c: ChecklistItem) => c.state === "asked_no_answer";
+  const covered = checklist.filter(isCov).length;
   const scoreColor = (analysis.score_general as number) >= 85 ? "var(--green)" : (analysis.score_general as number) >= 65 ? "var(--gold)" : (analysis.score_general as number) >= 45 ? "var(--cap)" : "var(--red)";
 
   const prospectLabel = [analysis.prospect_name, analysis.prospect_zone, analysis.property_type].filter(Boolean).join(" · ") as string;
@@ -213,12 +215,16 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
           <div className="g1-section">
             <h2 className="g1-section-title">Checklist ({covered}/{checklist.length})</h2>
             <div className="c3-checklist">
-              {checklist.map((item, i) => (
-                <div key={i} className={`c3-check-item ${item.covered ? "c3-check-yes" : "c3-check-no"}`}>
-                  <span className="c3-check-icon">{item.covered ? "\u2713" : "\u2717"}</span>
-                  <span className="c3-check-label">{item.field}</span>
-                </div>
-              ))}
+              {checklist.map((item, i) => {
+                const yes = isCov(item);
+                const maybe = isPart(item);
+                return (
+                  <div key={i} className={`c3-check-item ${yes ? "c3-check-yes" : maybe ? "c3-check-maybe" : "c3-check-no"}`}>
+                    <span className="c3-check-icon">{yes ? "\u2713" : maybe ? "~" : "\u2717"}</span>
+                    <span className="c3-check-label">{item.field}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
