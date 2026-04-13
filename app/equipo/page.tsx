@@ -243,7 +243,7 @@ export default function EquipoDashboard() {
         <div className="g1-section">
           <h2 className="g1-section-title">Ranking de la semana</h2>
           <div className="g1-traffic">
-            {captadoras.map((c, i) => (
+            {captadoras.filter(c => c.count > 0).map((c, i) => (
               <a key={c.userId} href={`/equipo/captadora/${c.userId}`} className="g1-traffic-card" style={{ textDecoration: "none", color: "inherit" }}>
                 <span className="g1-rank">#{i + 1}</span>
                 <span className="g1-traffic-status">{statusEmoji[c.status]}</span>
@@ -261,7 +261,9 @@ export default function EquipoDashboard() {
                 </div>
               </a>
             ))}
-            {captadoras.length === 0 && <p className="g1-empty">No hay captadoras registradas.</p>}
+            {captadoras.filter(c => c.count > 0).length === 0 && (
+              <p style={{ fontSize: 13, color: "var(--ink-light)", padding: "12px 0" }}>Nadie ha registrado llamadas esta semana aún.</p>
+            )}
           </div>
         </div>
 
