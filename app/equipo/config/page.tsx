@@ -212,6 +212,12 @@ function ConfigPage() {
   };
 
   // --- Lead sources ---
+  const deleteSource = async (srcId: string) => {
+    if (!confirm("¿Eliminar esta fuente? Los análisis históricos conservarán la referencia pero no podrás asignarla a nuevos leads.")) return;
+    await supabase.from("lead_sources").delete().eq("id", srcId);
+    setLeadSrcs(prev => prev.filter(s => s.id !== srcId));
+  };
+
   const toggleSource = async (srcId: string, currentActive: boolean) => {
     await supabase.from("lead_sources").update({ active: !currentActive }).eq("id", srcId);
     setLeadSrcs(prev => prev.map(s => s.id === srcId ? { ...s, active: !currentActive } : s));
@@ -497,10 +503,13 @@ function ConfigPage() {
                     </span>
                   )}
                 </div>
-                <label className="g7-toggle">
-                  <input type="checkbox" checked={s.active} onChange={() => toggleSource(s.id, s.active)} />
-                  <span className="g7-toggle-slider" />
-                </label>
+                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                  <label className="g7-toggle">
+                    <input type="checkbox" checked={s.active} onChange={() => toggleSource(s.id, s.active)} />
+                    <span className="g7-toggle-slider" />
+                  </label>
+                  <button className="adm-btn-ghost adm-btn-danger-text" style={{ fontSize: 12 }} onClick={() => deleteSource(s.id)}>Eliminar</button>
+                </div>
               </div>
             ))}
           </div>
