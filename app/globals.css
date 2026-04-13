@@ -1800,10 +1800,10 @@ body.has-nav {
 }
 .c3-card-momento .c3-card-title { color: #1d4ed8; }
 .c3-card-patron {
-  background: #fef2f2;
-  border-left-color: #ef4444;
+  background: #fffbeb;
+  border-left-color: #f59e0b;
 }
-.c3-card-patron .c3-card-title { color: #b91c1c; }
+.c3-card-patron .c3-card-title { color: #92400e; }
 
 .c3-descal-list {
   display: flex;

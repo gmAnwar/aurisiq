@@ -163,7 +163,7 @@ export default function TranscriptEditor({
       }
       const style = m.type === "momento_critico"
         ? { background: "#fef3c7", borderLeft: "2px solid #f59e0b", paddingLeft: 4, paddingRight: 4 }
-        : { background: "#fef2f2", borderLeft: "2px solid #f87171", paddingLeft: 4, paddingRight: 4 };
+        : { background: "#fffbeb", borderLeft: "2px solid #f59e0b", paddingLeft: 4, paddingRight: 4 };
       segments.push(
         <span key={i} style={style} title={m.description}>
           {text.slice(m.start, m.end)}

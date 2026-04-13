@@ -251,10 +251,10 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
         {analysis.patron_error && (
           <div className="c3-card c3-card-patron">
             <div className="c3-card-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>
             </div>
             <div>
-              <span className="c3-card-title">Patrón a corregir</span>
+              <span className="c3-card-title">Área de mejora</span>
               <p className="c3-card-body">{analysis.patron_error as string}</p>
             </div>
           </div>
