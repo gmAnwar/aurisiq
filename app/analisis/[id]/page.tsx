@@ -520,7 +520,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
       {/* 4. NEXT STEP + WHATSAPP MESSAGE */}
       {accion && (() => {
         // Parse WhatsApp message from accion text
-        const msgMatch = accion.match(/[Mm]ensaje\s*(?:sugerido)?[:\s]+([\s\S]+)/);
+        const msgMatch = accion.match(/[Mm]ensaje\s+sugerido\s*:\s*([\s\S]+)/);
         const actionPart = msgMatch ? accion.slice(0, msgMatch.index).trim() : accion;
         const whatsappMsg = msgMatch ? msgMatch[1].trim().replace(/^[""]|[""]$/g, "") : null;
         return (
@@ -625,8 +625,11 @@ function WhatsAppCard({ message, phone }: { message: string; phone?: string | nu
     } catch { /* ignore */ }
   };
 
-  const waUrl = phone
-    ? `https://wa.me/52${phone}?text=${encodeURIComponent(message)}`
+  const cleanPhone = phone
+    ? phone.replace(/[\s\-\(\)]/g, "").replace(/^(\+?52)?/, "52")
+    : null;
+  const waUrl = cleanPhone
+    ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
     : null;
 
   return (
@@ -634,11 +637,11 @@ function WhatsAppCard({ message, phone }: { message: string; phone?: string | nu
       <p className="c3-wa-msg">{message}</p>
       <div className="c3-wa-actions">
         <button className="c3-wa-copy" onClick={handleCopy}>
-          {copied ? "Copiado" : "Copiar mensaje"}
+          {copied ? "\u2713 Copiado" : "Copiar mensaje"}
         </button>
         {waUrl && (
           <a href={waUrl} target="_blank" rel="noopener noreferrer" className="c3-wa-open">
-            Abrir WhatsApp
+            Enviar por WhatsApp
           </a>
         )}
       </div>

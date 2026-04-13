@@ -219,6 +219,11 @@ export default function TrackersCRUD({ orgId, showUniversals, readOnlyUniversals
           Agregar tracker
         </button>
         {newLabel.trim() && <span style={{ fontSize: 12, color: "var(--ink-light, #737373)", marginLeft: 8 }}>Código: {toSnakeCase(newLabel)}</span>}
+        {(!newIcon.trim() || !newLabel.trim() || newDesc.trim().length < 20) && (newIcon || newLabel || newDesc) && (
+          <p style={{ fontSize: 12, color: "var(--ink-light, #a3a3a3)", marginTop: 4 }}>
+            {!newIcon.trim() ? "Falta icono (emoji)" : !newLabel.trim() ? "Falta nombre del tracker" : `Descripción: ${newDesc.trim().length}/20 caracteres mínimo`}
+          </p>
+        )}
       </div>
     </div>
   );
