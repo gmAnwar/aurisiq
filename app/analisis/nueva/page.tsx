@@ -5,6 +5,7 @@ import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
 import { computeEditPercentage } from "../../../lib/text";
 import { useRecording } from "../../contexts/RecordingContext";
+import MobileSelect from "../../components/MobileSelect";
 
 interface GuideField { field_name: string; phrases: string[]; }
 interface GuidePhase { phase_name: string; transition?: string; fields?: GuideField[]; phrases?: string[]; }
@@ -972,20 +973,14 @@ export default function NuevaLlamadaPage() {
           <label htmlFor="funnel-stage" className="input-label">
             Etapa del embudo <span style={{ fontWeight: 400, color: "var(--ink-light)" }}>(opcional — se detecta automáticamente)</span>
           </label>
-          <select
-            id="funnel-stage"
-            className="input-field c2-select"
+          <MobileSelect
             value={selectedStage}
-            onChange={(e) => { setSelectedStage(e.target.value); sessionStorage.setItem("c2_stage", e.target.value); }}
+            onChange={(v) => { setSelectedStage(v); sessionStorage.setItem("c2_stage", v); }}
+            placeholder="Detectar automáticamente"
+            label="Etapa del embudo"
             disabled={status === "analyzing"}
-          >
-            <option value="">Detectar automáticamente</option>
-            {funnelStages.map((stage) => (
-              <option key={stage.id} value={stage.id}>
-                {stage.name}
-              </option>
-            ))}
-          </select>
+            options={funnelStages.map(s => ({ value: s.id, label: s.name }))}
+          />
           {stageNoScorecard && (
             <div className="message-box message-error" style={{ marginTop: 8 }}>
               <p>Esta etapa no está completamente configurada. Pídele a tu administrador que le asigne criterios de evaluación antes de grabar.</p>
@@ -1005,20 +1000,14 @@ export default function NuevaLlamadaPage() {
           <label htmlFor="fuente-lead" className="input-label">
             Fuente del lead *
           </label>
-          <select
-            id="fuente-lead"
-            className="input-field c2-select"
+          <MobileSelect
             value={selectedSource}
-            onChange={(e) => { setSelectedSource(e.target.value); sessionStorage.setItem("c2_source", e.target.value); }}
+            onChange={(v) => { setSelectedSource(v); sessionStorage.setItem("c2_source", v); }}
+            placeholder="Selecciona de dónde vino el prospecto"
+            label="Fuente del lead"
             disabled={status === "analyzing"}
-          >
-            <option value="">Selecciona de dónde vino el prospecto</option>
-            {leadSources.map((source) => (
-              <option key={source.id} value={source.id}>
-                {source.name}
-              </option>
-            ))}
-          </select>
+            options={leadSources.map(s => ({ value: s.id, label: s.name }))}
+          />
           {leadSources.length === 0 && !errorMsg && !loading && (
             <div className="message-box message-error" style={{ marginTop: 8 }}>
               <p>Tu organización no tiene fuentes de lead configuradas. No puedes registrar llamadas hasta que tu gerente las configure en <strong>Configuración</strong>.</p>
