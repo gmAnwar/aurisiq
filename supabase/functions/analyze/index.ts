@@ -5,6 +5,7 @@ import {
   getDescalCategories,
   getOrgStages,
   getOrgVocabulary,
+  getOrgTrackers,
   checkQuota,
   createAnalysis,
   createAnalysisJob,
@@ -103,10 +104,11 @@ async function processJobAsync(jobId: string) {
     await updateUserStats(job.user_id, job.organization_id);
     await completeAnalysisJob(analysisId);
 
-    // 10. Second Claude call for highlights (non-blocking on failure)
+    // 10. Second Claude call for tracker-based highlights (non-blocking on failure)
     try {
       console.log(`[analyze] Starting highlights call for job ${jobId}`);
-      const highlights = await callClaudeForHighlights(transcription, {
+      const trackers = await getOrgTrackers(job.organization_id);
+      const highlights = await callClaudeForHighlights(transcription, trackers, {
         score_general: parsed.score_general ?? 0,
         clasificacion: parsed.clasificacion,
         patron_error: parsed.patron_error,

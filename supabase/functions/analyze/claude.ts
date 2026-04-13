@@ -176,7 +176,15 @@ export async function callClaude(systemPrompt: string, userMessage: string): Pro
   }
 }
 
-// ─── Second call: dedicated highlights ─────────────────────
+// ─── Second call: tracker-based highlights ─────────────────
+
+interface TrackerInput {
+  code: string;
+  label: string;
+  icon: string;
+  description: string;
+  speaker: string;
+}
 
 interface AnalysisContext {
   score_general: number;
@@ -185,53 +193,59 @@ interface AnalysisContext {
   objecion_principal: string | null;
 }
 
-interface HighlightResult {
-  type: string;
+export interface HighlightResult {
+  category_code: string;
   snippet: string;
+  speaker: string;
   description: string;
 }
 
 export async function callClaudeForHighlights(
   transcription: string,
+  trackers: TrackerInput[],
   ctx: AnalysisContext,
 ): Promise<HighlightResult[]> {
-  const systemPrompt = `Eres un analista experto en conversaciones de ventas. Tu ÚNICA tarea es identificar los fragmentos MÁS DECISIVOS de esta transcripción.
+  if (trackers.length === 0) return [];
 
-Un fragmento decisivo es aquel que:
-- Revela un insight clave sobre el prospecto (motivación, objeción, disposición real)
-- Muestra un momento donde el vendedor hizo algo notable (bien o mal) que cambió el rumbo de la llamada
-- Captura una objeción importante en las palabras exactas del prospecto
-- Evidencia un patrón recurrente del vendedor que debe corregirse o replicarse
+  const categoryList = trackers
+    .map(t => `- ${t.code} (${t.icon} ${t.label}) — ${t.description}. Quien habla: ${t.speaker}`)
+    .join("\n");
 
-Reglas estrictas:
-1. Devuelve ENTRE 4 y 10 highlights (no menos de 4, no más de 10)
-2. El snippet DEBE ser copiado LITERAL de la transcripción. Ni una palabra cambiada.
-3. Cada snippet entre 15 y 200 caracteres
-4. Prioriza fragmentos que tengan impacto emocional o comercial, NO los primeros que encuentres
-5. Balancea tipos: algunos momento_critico, algunos patron_error, algunos objecion si aplican
+  const systemPrompt = `Eres un analista experto en conversaciones de ventas. Tu ÚNICA tarea es identificar fragmentos específicos que caigan en estas categorías.
 
-Contexto del análisis ya generado:
-Score: ${ctx.score_general}/100
-Clasificación: ${ctx.clasificacion || "N/A"}
-Área de mejora identificada: ${ctx.patron_error || "N/A"}
-Objeción principal: ${ctx.objecion_principal || "N/A"}
+CATEGORÍAS DISPONIBLES:
 
-Usa este contexto para elegir highlights que REFUERCEN o EJEMPLIFIQUEN estos hallazgos. Si el patrón de error habla de "no indagó motivación", busca fragmentos donde se vea exactamente eso.
+${categoryList}
 
-Formato de respuesta — ÚNICAMENTE este JSON, sin prosa antes ni después:
+Para cada categoría devuelve 0 a 3 highlights. Si no hay fragmento claro para una categoría, NO rellenes — omítela.
+
+REGLAS ESTRICTAS:
+1. snippet DEBE ser copiado LITERAL de la transcripción, sin parafrasear ni resumir
+2. snippet entre 15 y 200 caracteres
+3. speaker del fragmento debe coincidir con el speaker del tracker (si tracker dice "prospect", el snippet debe venir del prospecto)
+4. Máximo 3 highlights por categoría
+5. Total máximo 30 highlights (en la práctica aparecerán 8-15)
+
+Formato JSON — SÓLO este JSON, sin prosa antes ni después:
 
 {
   "highlights": [
     {
-      "type": "momento_critico | patron_error | objecion",
-      "snippet": "texto exacto copiado de la transcripción",
-      "description": "por qué este fragmento es decisivo (máx 15 palabras)"
+      "category_code": "motivacion",
+      "snippet": "texto exacto copiado",
+      "speaker": "prospect",
+      "description": "máximo 15 palabras"
     }
   ]
-}`;
+}
+
+Contexto del análisis (para elegir highlights que refuercen hallazgos):
+Score: ${ctx.score_general}/100
+Clasificación: ${ctx.clasificacion || "N/A"}
+Área de mejora: ${ctx.patron_error || "N/A"}`;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60_000); // 60s timeout
+  const timeout = setTimeout(() => controller.abort(), 60_000);
 
   try {
     const res = await fetch(CLAUDE_API_URL, {
@@ -275,9 +289,14 @@ Formato de respuesta — ÚNICAMENTE este JSON, sin prosa antes ni después:
       return [];
     }
 
+    // Validate: only keep highlights with valid category_code
+    const validCodes = new Set(trackers.map(t => t.code));
     return parsed.highlights
-      .filter((h: HighlightResult) => h && h.type && h.snippet && typeof h.snippet === "string" && h.snippet.length >= 10)
-      .slice(0, 10);
+      .filter((h: HighlightResult) =>
+        h && h.category_code && validCodes.has(h.category_code)
+        && h.snippet && typeof h.snippet === "string" && h.snippet.length >= 10
+      )
+      .slice(0, 30);
   } catch (err) {
     console.warn(`[highlights] Error: ${err instanceof Error ? err.message : "unknown"}`);
     return [];

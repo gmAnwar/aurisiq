@@ -67,6 +67,25 @@ export async function getOrgPlan(orgId: string): Promise<string> {
   return data?.plan || "starter";
 }
 
+export interface TrackerRow {
+  code: string;
+  label: string;
+  icon: string;
+  description: string;
+  speaker: string;
+}
+
+export async function getOrgTrackers(orgId: string): Promise<TrackerRow[]> {
+  const { data } = await db()
+    .from("conversation_trackers")
+    .select("code, label, icon, description, speaker")
+    .or(`organization_id.eq.${orgId},organization_id.is.null`)
+    .eq("active", true)
+    .order("organization_id", { ascending: true, nullsFirst: true })
+    .order("sort_order");
+  return (data || []) as TrackerRow[];
+}
+
 // ─── Quota check ───────────────────────────────────────────
 
 export async function checkQuota(orgId: string): Promise<boolean> {
