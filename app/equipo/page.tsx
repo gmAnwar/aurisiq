@@ -24,6 +24,9 @@ interface RecentCall {
   clasificacion: string | null;
   categoria_descalificacion: string[] | null;
   fuente_lead_id: string | null;
+  funnel_stage_id: string | null;
+  property_type: string | null;
+  business_type: string | null;
   created_at: string;
 }
 
@@ -43,6 +46,7 @@ export default function EquipoDashboard() {
   const [activeAlerts, setActiveAlerts] = useState<{ id: string; description: string }[]>([]);
   const [descalMap, setDescalMap] = useState<Record<string, string>>({});
   const [leadSourceMap, setLeadSourceMap] = useState<Record<string, string>>({});
+  const [stageMap, setStageMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [topPatterns, setTopPatterns] = useState<{ text: string; count: number }[]>([]);
   const [weekAnalysisCount, setWeekAnalysisCount] = useState(0);
@@ -63,7 +67,7 @@ export default function EquipoDashboard() {
       const ts = getTodayStart(tz);
       const yesterdayStart = new Date(new Date(ts).getTime() - 86400000).toISOString();
 
-      const [teamRes, weekRes, prevRes, todayRes, yesterdayRes, objRes, alertsRes, descalRes, recentRes, leadSourcesRes] = await Promise.all([
+      const [teamRes, weekRes, prevRes, todayRes, yesterdayRes, objRes, alertsRes, descalRes, recentRes, leadSourcesRes, stagesRes] = await Promise.all([
         supabase.from("users").select("id, name, role").eq("organization_id", orgId).eq("active", true),
         supabase.from("analyses").select("id, user_id, score_general, categoria_descalificacion, patron_error")
           .eq("organization_id", orgId).eq("status", "completado").gte("created_at", ws),
@@ -78,9 +82,10 @@ export default function EquipoDashboard() {
         supabase.from("alerts").select("id, description")
           .eq("organization_id", orgId).eq("status", "activa").order("created_at", { ascending: false }).limit(5),
         supabase.from("descalification_categories").select("code, label").eq("organization_id", orgId),
-        supabase.from("analyses").select("id, user_id, prospect_name, score_general, clasificacion, categoria_descalificacion, fuente_lead_id, created_at")
+        supabase.from("analyses").select("id, user_id, prospect_name, score_general, clasificacion, categoria_descalificacion, fuente_lead_id, created_at, funnel_stage_id, property_type, business_type")
           .eq("organization_id", orgId).eq("status", "completado").order("created_at", { ascending: false }).limit(10),
         supabase.from("lead_sources").select("id, name").eq("organization_id", orgId),
+        supabase.from("funnel_stages").select("id, name").eq("organization_id", orgId).eq("active", true),
       ]);
 
       setActiveAlerts(alertsRes.data || []);
@@ -90,6 +95,9 @@ export default function EquipoDashboard() {
       const lsm: Record<string, string> = {};
       for (const ls of leadSourcesRes.data || []) lsm[ls.id] = ls.name;
       setLeadSourceMap(lsm);
+      const stgm: Record<string, string> = {};
+      for (const s of stagesRes.data || []) stgm[s.id] = s.name;
+      setStageMap(stgm);
 
       const caps = (teamRes.data || []).filter(u => u.role === "captadora");
       const capNames: Record<string, string> = {};
@@ -288,15 +296,16 @@ export default function EquipoDashboard() {
                 return (
                   <a key={a.id} href={`/equipo/analisis/${a.id}`} className="c4-item" style={{ textDecoration: "none", color: "inherit" }}>
                     <div className="c4-item-left">
-                      <span className="c4-item-date">{a.userName} · {a.prospect_name || "Prospecto"}</span>
+                      <span className="c4-item-date">{a.userName} · {a.prospect_name || "Sin nombre"}</span>
                       <span className="c4-item-source">
                         {day} {time}
+                        {a.funnel_stage_id && stageMap[a.funnel_stage_id] ? ` · ${stageMap[a.funnel_stage_id]}` : ""}
+                        {(a.property_type || a.business_type) ? ` · ${a.property_type || a.business_type}` : ""}
                         {" · "}{codes.length > 0 ? (
                           <span className="c1-pill-inline c1-pill-red">{descalMap[codes[0]] || codes[0]}</span>
                         ) : (
                           <span className="c1-pill-inline c1-pill-green">Calificado</span>
                         )}
-                        {" · "}<span className="g1-fuente-badge">{a.fuente_lead_id ? (leadSourceMap[a.fuente_lead_id] || "Fuente") : "Sin fuente"}</span>
                       </span>
                     </div>
                     <div className="c4-item-right">
