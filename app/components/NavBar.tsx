@@ -13,37 +13,34 @@ interface NavItem {
 }
 
 import { hasAnyRole, type UserRole } from "../../lib/auth";
+import { Sun, BarChart3, CalendarRange, MessageSquare, Users, FolderOpen, BookOpen, FileBarChart, Settings, ClipboardList, TrendingUp, UserCircle, LayoutDashboard, Building2, Bell, ShieldCheck, type LucideIcon } from "lucide-react";
 
 interface RoleNavItem extends NavItem {
   requiredRoles: UserRole[];
+  icon: LucideIcon;
 }
 
 // Unified nav items — sidebar renders items where user has any required role
 const ALL_NAV_ITEMS: RoleNavItem[] = [
-  // Captadora items
-  { href: "/analisis", label: "Mi día", requiredRoles: ["captadora", "super_admin"] },
-  { href: "/analisis/historial", label: "Mis análisis", requiredRoles: ["captadora", "super_admin"] },
-  { href: "/semana", label: "Mi semana", requiredRoles: ["captadora", "super_admin"] },
-  { href: "/speech", label: "Mi Speech", requiredRoles: ["captadora", "super_admin"] },
-  // Gerente items
-  { href: "/equipo", label: "Equipo", requiredRoles: ["gerente", "direccion", "super_admin"] },
-  { href: "/equipo/expedientes", label: "Expedientes", requiredRoles: ["gerente", "super_admin"] },
-  { href: "/equipo/biblioteca", label: "Biblioteca", requiredRoles: ["gerente", "super_admin"] },
-  { href: "/equipo/reportes", label: "Reportes", requiredRoles: ["gerente", "direccion", "super_admin"] },
-  { href: "/equipo/config", label: "Config", requiredRoles: ["gerente", "direccion", "super_admin"] },
-  // Direccion items
-  { href: "/direccion", label: "Resumen", requiredRoles: ["direccion", "super_admin"] },
-  { href: "/direccion/reportes", label: "Rep. Ejec.", requiredRoles: ["direccion", "super_admin"] },
-  { href: "/direccion/cuenta", label: "Cuenta", requiredRoles: ["direccion", "super_admin"] },
-  // Agencia items
-  { href: "/agencia", label: "Dashboard", requiredRoles: ["agencia", "super_admin"] },
-  { href: "/agencia/reportes", label: "Rep. Agencia", requiredRoles: ["agencia", "super_admin"] },
-  { href: "/agencia/alertas", label: "Alertas", requiredRoles: ["agencia", "super_admin"] },
-  // Admin
-  { href: "/admin", label: "Admin", requiredRoles: ["super_admin"] },
+  { href: "/analisis", label: "Mi día", requiredRoles: ["captadora", "super_admin"], icon: Sun },
+  { href: "/analisis/historial", label: "Mis análisis", requiredRoles: ["captadora", "super_admin"], icon: BarChart3 },
+  { href: "/semana", label: "Mi semana", requiredRoles: ["captadora", "super_admin"], icon: CalendarRange },
+  { href: "/speech", label: "Mi Speech", requiredRoles: ["captadora", "super_admin"], icon: MessageSquare },
+  { href: "/equipo", label: "Equipo", requiredRoles: ["gerente", "direccion", "super_admin"], icon: Users },
+  { href: "/equipo/expedientes", label: "Expedientes", requiredRoles: ["gerente", "super_admin"], icon: FolderOpen },
+  { href: "/equipo/biblioteca", label: "Biblioteca", requiredRoles: ["gerente", "super_admin"], icon: BookOpen },
+  { href: "/equipo/reportes", label: "Reportes", requiredRoles: ["gerente", "direccion", "super_admin"], icon: FileBarChart },
+  { href: "/equipo/config", label: "Config", requiredRoles: ["gerente", "direccion", "super_admin"], icon: Settings },
+  { href: "/direccion", label: "Resumen", requiredRoles: ["direccion", "super_admin"], icon: ClipboardList },
+  { href: "/direccion/reportes", label: "Rep. Ejec.", requiredRoles: ["direccion", "super_admin"], icon: TrendingUp },
+  { href: "/direccion/cuenta", label: "Cuenta", requiredRoles: ["direccion", "super_admin"], icon: UserCircle },
+  { href: "/agencia", label: "Dashboard", requiredRoles: ["agencia", "super_admin"], icon: LayoutDashboard },
+  { href: "/agencia/reportes", label: "Rep. Agencia", requiredRoles: ["agencia", "super_admin"], icon: Building2 },
+  { href: "/agencia/alertas", label: "Alertas", requiredRoles: ["agencia", "super_admin"], icon: Bell },
+  { href: "/admin", label: "Admin", requiredRoles: ["super_admin"], icon: ShieldCheck },
 ];
 
-function getNavForRoles(roles: string[]): NavItem[] {
+function getNavForRoles(roles: string[]): RoleNavItem[] {
   const session = { roles };
   const seen = new Set<string>();
   return ALL_NAV_ITEMS.filter(item => {
@@ -224,8 +221,10 @@ export default function NavBar({ role, roles, userName, userEmail, orgSlug, role
             key={item.href}
             href={item.href}
             className={`navbar-item ${isActive ? "navbar-active" : ""} ${!isMobileVisible ? "navbar-desktop-only" : ""}`}
+            title={collapsed ? item.label : undefined}
           >
-            {item.label}
+            <item.icon size={18} className="navbar-item-icon" />
+            <span className="navbar-item-label">{item.label}</span>
           </Link>
         );
       })}

@@ -258,14 +258,14 @@ body > * { position: relative; z-index: 1; }
     width: 64px;
     padding: 16px 4px;
   }
-  .navbar-collapsed .navbar-link-label,
+  .navbar-collapsed .navbar-item-label,
   .navbar-collapsed .navbar-menu-name,
   .navbar-collapsed .navbar-menu-role,
-  .navbar-collapsed .navbar-right,
-  .navbar-collapsed .navbar-cta { display: none; }
-  .navbar-collapsed .navbar-link { justify-content: center; padding: 10px 0; }
+  .navbar-collapsed .navbar-cta span { display: none; }
+  .navbar-collapsed .navbar-item { justify-content: center; padding: 10px 0; }
   .navbar-collapsed .navbar-brand { justify-content: center; padding: 8px 0 20px; }
   .navbar-collapsed .navbar-user-trigger { justify-content: center; }
+  .navbar-collapsed .navbar-user-name { display: none; }
 
   .navbar.navbar-sidebar .navbar-brand {
     display: flex;
@@ -288,6 +288,9 @@ body > * { position: relative; z-index: 1; }
     border-radius: 7px;
     width: 100%;
     color: rgba(255,255,255,0.65);
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
 
   .navbar.navbar-sidebar .navbar-active {
@@ -459,8 +462,8 @@ body > * { position: relative; z-index: 1; }
   margin-bottom: 6px;
 }
 
-/* Mobile / top-bar: menu opens DOWN-LEFT, inside viewport */
-@media (max-width: 519px) {
+/* Mobile: menu opens DOWN-LEFT, inside viewport */
+@media (max-width: 639px) {
   .navbar-user-menu {
     top: 100%;
     bottom: auto;
@@ -1086,6 +1089,11 @@ body.has-nav {
 @media (max-width: 639px) {
   .c1-fab { display: flex; }
 }
+
+/* Sidebar nav item icons */
+.navbar-item-icon { flex-shrink: 0; opacity: 0.7; }
+.navbar-active .navbar-item-icon { opacity: 1; }
+.navbar-item-label { white-space: nowrap; }
 
 /* Sidebar collapse button */
 .navbar-collapse-btn {
