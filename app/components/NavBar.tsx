@@ -13,7 +13,7 @@ interface NavItem {
 }
 
 import { hasAnyRole, type UserRole } from "../../lib/auth";
-import { Sun, BarChart3, CalendarRange, MessageSquare, Users, FolderOpen, BookOpen, FileBarChart, Settings, ClipboardList, TrendingUp, UserCircle, LayoutDashboard, Building2, Bell, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Sun, BarChart3, CalendarRange, MessageSquare, Users, FolderOpen, BookOpen, FileBarChart, Settings, ClipboardList, TrendingUp, UserCircle, LayoutDashboard, Building2, Bell, ShieldCheck, Mic, type LucideIcon } from "lucide-react";
 
 interface RoleNavItem extends NavItem {
   requiredRoles: UserRole[];
@@ -213,6 +213,13 @@ export default function NavBar({ role, roles, userName, userEmail, orgSlug, role
         </button>
       )}
       <div className="navbar-items">
+      {/* CTA — Nueva llamada */}
+      {isCta && (
+        <Link href="/analisis/nueva" className="navbar-item navbar-item-cta" title={collapsed ? "Nueva llamada" : undefined}>
+          <Mic size={18} className="navbar-item-icon" />
+          <span className="navbar-item-label">Nueva llamada</span>
+        </Link>
+      )}
       {allItems.map((item) => {
         const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href + "/"));
         const isMobileVisible = mobileItems.some(m => m.href === item.href);
@@ -247,12 +254,7 @@ export default function NavBar({ role, roles, userName, userEmail, orgSlug, role
 
       {/* Right section: CTA + user */}
       <div className="navbar-right">
-        {/* CTA button */}
-        {isCta && (
-          <Link href="/analisis/nueva" className="navbar-cta">
-            + Nueva llamada
-          </Link>
-        )}
+        {/* CTA moved to sidebar items */}
 
         {/* Offline indicator — captadora only */}
         {isCta && <OfflineIndicator />}
