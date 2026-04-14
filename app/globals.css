@@ -462,7 +462,7 @@ body > * { position: relative; z-index: 1; }
   margin-bottom: 6px;
 }
 
-/* Mobile: menu opens DOWN-RIGHT, inside viewport — specificity override */
+/* Mobile: menu as bottom sheet — specificity override for sidebar context */
 @media (max-width: 639px) {
   .navbar-user-menu,
   .navbar-sidebar .navbar-user-menu {
@@ -474,7 +474,7 @@ body > * { position: relative; z-index: 1; }
     margin: 0;
     max-width: 100%;
     border-radius: 16px 16px 0 0;
-    animation: msel-slide-up 0.2s ease-out;
+    transform: none;
   }
 }
 

@@ -221,7 +221,10 @@ export default function NavBar({ role, roles, userName, userEmail, orgSlug, role
         </Link>
       )}
       {allItems.map((item) => {
-        const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href + "/"));
+        // Exact match for /analisis to avoid highlighting "Mi día" on /analisis/historial etc.
+        const isActive = item.href === "/analisis"
+          ? pathname === "/analisis"
+          : pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href + "/"));
         const isMobileVisible = mobileItems.some(m => m.href === item.href);
         return (
           <Link
