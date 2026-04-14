@@ -364,6 +364,12 @@ export async function completeAnalysisJob(analysisId: string) {
 
 // ─── Background job status updates ─────────────────────────
 
+export async function writeJobDiagnostic(jobId: string, message: string) {
+  try {
+    await db().from("background_jobs").update({ error_message: message }).eq("id", jobId);
+  } catch { /* non-blocking */ }
+}
+
 export async function completeJob(jobId: string, analysisId: string) {
   await db().from("background_jobs").update({
     status: "completed",

@@ -19,6 +19,7 @@ import {
   failJob,
   failAnalysis,
   markQuotaConsumed,
+  writeJobDiagnostic,
 } from "./db.ts";
 import { buildFullPrompt, callClaude, callClaudeForHighlights } from "./claude.ts";
 import { parseClaudeOutput, matchPhaseIds } from "./parser.ts";
@@ -103,9 +104,11 @@ async function processJobAsync(jobId: string) {
     const parsed = parseClaudeOutput(rawOutput, extractionPatterns || null);
     const phasesWithIds = matchPhaseIds(parsed.phases, scorecard.phases || []);
 
-    // Diagnostic: low score with no descalification
+    // Diagnostic: low score with no descalification — write to background_jobs.error_message for visibility
     if (parsed.score_general !== null && parsed.score_general < 50 && parsed.descalificacion.length === 0) {
-      console.warn(`[analyze] LOW_SCORE_NO_DESCAL job=${jobId} score=${parsed.score_general} descal=[] descalCats_available=${descalCats.length}`);
+      const diagMsg = `LOW_SCORE_NO_DESCAL score=${parsed.score_general} descalCats_available=${descalCats.length} raw_descal_section=${(lastRawOutput || "").includes("DESCALIFICACION") ? "FOUND_IN_OUTPUT" : "NOT_IN_OUTPUT"}`;
+      console.warn(`[analyze] ${diagMsg} job=${jobId}`);
+      await writeJobDiagnostic(jobId, diagMsg);
     }
 
     // 9. Write results
