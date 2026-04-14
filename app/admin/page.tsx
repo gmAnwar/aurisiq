@@ -190,6 +190,7 @@ export default function AdminPage() {
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserRole, setNewUserRole] = useState("captadora");
+  const [newUserRoles, setNewUserRoles] = useState<string[]>(["captadora"]);
   const [newUserOrgId, setNewUserOrgId] = useState("");
   const [newUserTraining, setNewUserTraining] = useState(false);
   const [creatingUser, setCreatingUser] = useState(false);
@@ -403,8 +404,8 @@ export default function AdminPage() {
     }
   }
 
-  async function changeUserRole(id: string, role: string) {
-    await updateUser(id, { role });
+  async function changeUserRoles(id: string, roles: string[]) {
+    await updateUser(id, { roles });
   }
   async function toggleUserActive(u: UserRow) {
     await updateUser(u.id, { active: !u.active });
@@ -438,7 +439,8 @@ export default function AdminPage() {
         body: JSON.stringify({
           name: newUserName.trim(),
           email: newUserEmail.trim().toLowerCase(),
-          role: newUserRole,
+          role: newUserRoles[0] || "captadora",
+          roles: newUserRoles,
           organization_id: newUserOrgId,
           training_mode: newUserTraining,
         }),
@@ -456,6 +458,7 @@ export default function AdminPage() {
       setNewUserName("");
       setNewUserEmail("");
       setNewUserRole("captadora");
+      setNewUserRoles(["captadora"]);
       setNewUserTraining(false);
       await loadUsers();
     } catch (e) {
@@ -913,10 +916,12 @@ export default function AdminPage() {
                     <div className="adm-table-row" onClick={() => setExpandedUserId(expandedUserId === u.id ? null : u.id)}>
                       <span style={{ flex: 1.5, fontWeight: 500 }}>{u.name}</span>
                       <span style={{ flex: 2, color: "#737373" }}>{u.email}</span>
-                      <span style={{ flex: 0.8 }}>
-                        <span className="adm-role-badge" style={{ background: `${ROLE_COLOR[u.role] || "#6b7280"}18`, color: ROLE_COLOR[u.role] || "#6b7280" }}>{u.roles && u.roles.length > 0 ? u.roles.join(", ") : u.role}</span>
-                        {savingUserId === u.id && <span style={{ fontSize: 10, marginLeft: 4 }}>...</span>}
-                        {savedUserId === u.id && <span style={{ fontSize: 10, marginLeft: 4, color: "#16a34a" }}>✓</span>}
+                      <span style={{ flex: 0.8, display: "flex", gap: 3, flexWrap: "wrap", alignItems: "center" }}>
+                        {(u.roles && u.roles.length > 0 ? u.roles : [u.role]).map(r => (
+                          <span key={r} className="adm-role-badge" style={{ background: `${ROLE_COLOR[r] || "#6b7280"}18`, color: ROLE_COLOR[r] || "#6b7280", fontSize: 11 }}>{r}</span>
+                        ))}
+                        {savingUserId === u.id && <span style={{ fontSize: 10 }}>...</span>}
+                        {savedUserId === u.id && <span style={{ fontSize: 10, color: "#16a34a" }}>✓</span>}
                       </span>
                       <span style={{ flex: 1, color: "#737373", fontSize: 13 }}>{orgName(u.organization_id)}</span>
                       <span style={{ flex: 0.5 }}>
@@ -935,11 +940,29 @@ export default function AdminPage() {
                     {expandedUserId === u.id && (
                       <div className="adm-row-expand">
                         <div style={{ display: "flex", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
-                          <div className="input-group" style={{ margin: 0, minWidth: 120 }}>
-                            <label className="input-label" style={{ fontSize: 11 }}>Rol</label>
-                            <select className="input-field" value={u.role} onChange={e => changeUserRole(u.id, e.target.value)} style={{ padding: "5px 8px", fontSize: 13 }}>
-                              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                            </select>
+                          <div className="input-group" style={{ margin: 0, minWidth: 200 }}>
+                            <label className="input-label" style={{ fontSize: 11 }}>Roles</label>
+                            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                              {(u.roles && u.roles.length > 0 ? u.roles : [u.role]).map(r => (
+                                <span key={r} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 6, fontSize: 12, background: `${ROLE_COLOR[r] || "#6b7280"}18`, color: ROLE_COLOR[r] || "#6b7280" }}>
+                                  {r}
+                                  {(u.roles || [u.role]).length > 1 && (
+                                    <button style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 14, lineHeight: 1, padding: 0 }} onClick={() => changeUserRoles(u.id, (u.roles || [u.role]).filter(x => x !== r))} title="Quitar rol">&times;</button>
+                                  )}
+                                </span>
+                              ))}
+                              {(() => {
+                                const currentRoles = u.roles && u.roles.length > 0 ? u.roles : [u.role];
+                                const available = ROLES.filter(r => !currentRoles.includes(r));
+                                if (available.length === 0) return null;
+                                return (
+                                  <select style={{ padding: "3px 6px", fontSize: 11, border: "1px solid #d1d5db", borderRadius: 4, background: "#fff", cursor: "pointer" }} value="" onChange={e => { if (e.target.value) changeUserRoles(u.id, [...currentRoles, e.target.value]); }}>
+                                    <option value="">+ rol</option>
+                                    {available.map(r => <option key={r} value={r}>{r}</option>)}
+                                  </select>
+                                );
+                              })()}
+                            </div>
                           </div>
                           <div className="input-group" style={{ margin: 0 }}>
                             <label className="input-label" style={{ fontSize: 11 }}>Training</label>
@@ -1400,7 +1423,29 @@ export default function AdminPage() {
               )}
               <div className="input-group"><label className="input-label">Nombre</label><input className="input-field" value={newUserName} onChange={e => { setNewUserName(e.target.value); if (newUserErrors.name) setNewUserErrors({ ...newUserErrors, name: undefined }); }} placeholder="Elizabeth R." />{newUserErrors.name && <p className="adm-field-err">{newUserErrors.name}</p>}</div>
               <div className="input-group"><label className="input-label">Email</label><input className="input-field" type="email" value={newUserEmail} onChange={e => { setNewUserEmail(e.target.value); if (newUserErrors.email) setNewUserErrors({ ...newUserErrors, email: undefined }); }} placeholder="usuario@empresa.com" />{newUserErrors.email && <p className="adm-field-err">{newUserErrors.email}</p>}</div>
-              <div className="input-group"><label className="input-label">Rol</label><select className="input-field" value={newUserRole} onChange={e => setNewUserRole(e.target.value)}><option value="captadora">Captadora</option><option value="gerente">Gerente</option><option value="direccion">Dirección</option><option value="agencia">Agencia</option><option value="super_admin">Super Admin</option></select></div>
+              <div className="input-group">
+                <label className="input-label">Roles</label>
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                  {newUserRoles.map(r => (
+                    <span key={r} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 6, fontSize: 12, background: `${ROLE_COLOR[r] || "#6b7280"}18`, color: ROLE_COLOR[r] || "#6b7280" }}>
+                      {r}
+                      {newUserRoles.length > 1 && (
+                        <button type="button" style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 14, lineHeight: 1, padding: 0 }} onClick={() => setNewUserRoles(newUserRoles.filter(x => x !== r))}>&times;</button>
+                      )}
+                    </span>
+                  ))}
+                  {(() => {
+                    const available = ROLES.filter(r => !newUserRoles.includes(r));
+                    if (available.length === 0) return null;
+                    return (
+                      <select style={{ padding: "3px 6px", fontSize: 11, border: "1px solid #d1d5db", borderRadius: 4, background: "#fff" }} value="" onChange={e => { if (e.target.value) setNewUserRoles([...newUserRoles, e.target.value]); }}>
+                        <option value="">+ rol</option>
+                        {available.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    );
+                  })()}
+                </div>
+              </div>
               <div className="input-group"><label className="input-label">Organización</label><select className="input-field" value={newUserOrgId} onChange={e => { setNewUserOrgId(e.target.value); if (newUserErrors.org) setNewUserErrors({ ...newUserErrors, org: undefined }); }}><option value="">Selecciona org</option>{orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}</select>{newUserErrors.org && <p className="adm-field-err">{newUserErrors.org}</p>}</div>
               <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", margin: "12px 0" }}><input type="checkbox" checked={newUserTraining} onChange={e => setNewUserTraining(e.target.checked)} /><span style={{ fontSize: 13 }}>Modo capacitación</span></label>
               <button className="adm-btn-primary" style={{ width: "100%" }} onClick={handleCreateUser} disabled={creatingUser || !newUserName || !newUserEmail || !newUserOrgId}>{creatingUser ? "Creando..." : "Crear y enviar invitación"}</button>

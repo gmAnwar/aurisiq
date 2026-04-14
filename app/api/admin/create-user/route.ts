@@ -54,19 +54,23 @@ export async function POST(req: Request) {
     const name = String(body.name || "").trim();
     const email = String(body.email || "").trim().toLowerCase();
     const role = body.role as string | undefined;
+    const roles: string[] = Array.isArray(body.roles) && body.roles.length > 0
+      ? [...new Set(body.roles as string[])]
+      : role ? [role] : [];
     const organizationId = body.organization_id as string | undefined;
     const trainingMode = !!body.training_mode;
 
-    if (!name || !email || !role || !organizationId) {
-      errLog("missing fields", { name, email, role, organizationId });
+    if (!name || !email || roles.length === 0 || !organizationId) {
+      errLog("missing fields", { name, email, roles, organizationId });
       return NextResponse.json(
-        { error: "name, email, role y organization_id son requeridos", received: { name, email, role, organizationId } },
+        { error: "name, email, roles y organization_id son requeridos", received: { name, email, roles, organizationId } },
         { status: 400 }
       );
     }
-    if (!VALID_ROLES.includes(role)) {
-      errLog("invalid role", role);
-      return NextResponse.json({ error: `Rol inválido: ${role}` }, { status: 400 });
+    const invalidRoles = roles.filter(r => !VALID_ROLES.includes(r));
+    if (invalidRoles.length > 0) {
+      errLog("invalid roles", invalidRoles);
+      return NextResponse.json({ error: `Roles inválidos: ${invalidRoles.join(", ")}` }, { status: 400 });
     }
 
     // Verify org exists
@@ -121,8 +125,8 @@ export async function POST(req: Request) {
       organization_id: organizationId,
       email,
       name,
-      role,
-      roles: [role],
+      role: roles[0],
+      roles,
       training_mode: trainingMode,
       active: true,
     });
