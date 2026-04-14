@@ -891,6 +891,37 @@ export default function NuevaLlamadaPage() {
           </div>
         )}
 
+        {/* Checklist during recording */}
+        {(rec.recMode === "recording" || rec.recMode === "paused") && checklistFields.length > 0 && (
+          <details style={{ width: "100%", maxWidth: 400, marginTop: 12, border: "1px solid var(--border, #e5e5e5)", borderRadius: 8, overflow: "hidden" }}>
+            <summary style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, cursor: "pointer", listStyle: "none", display: "flex", justifyContent: "space-between" }}>
+              Checklist <span style={{ color: "var(--ink-light)", fontWeight: 400 }}>{checkedItems.size}/{checklistFields.length}</span>
+            </summary>
+            <div style={{ padding: "8px 14px 12px", fontSize: 13 }}>
+              {(() => {
+                const toggle = (slug: string) => {
+                  const next = new Set(checkedItems);
+                  if (next.has(slug)) next.delete(slug); else next.add(slug);
+                  setCheckedItems(next);
+                  sessionStorage.setItem("c2_checked_items", JSON.stringify([...next]));
+                };
+                return (
+                  <div style={{ columns: 2, columnGap: 16 }}>
+                    {checklistFields.map((f) => (
+                      <label key={f.slug} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, cursor: "pointer" }}>
+                        <input type="checkbox" checked={checkedItems.has(f.slug)} onChange={() => toggle(f.slug)} style={{ accentColor: "var(--accent)", flexShrink: 0 }} />
+                        <span style={{ color: checkedItems.has(f.slug) ? "var(--ink-light)" : "var(--ink)", textDecoration: checkedItems.has(f.slug) ? "line-through" : "none" }}>
+                          {f.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          </details>
+        )}
+
         {/* Speech visible during recording — collapsible phases */}
         {(rec.recMode === "recording" || rec.recMode === "paused") && guidePhases.length > 0 && (
           <div style={{ width: "100%", maxWidth: 400, marginTop: 12, border: "1px solid var(--border, #e5e5e5)", borderRadius: 8, overflow: "hidden" }}>
