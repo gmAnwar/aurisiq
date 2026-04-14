@@ -900,13 +900,19 @@ export default function AdminPage() {
             </div>
           ) : (
             <div className="adm-table">
+              {(() => {
+                const showOrgsCol = filteredUsers.some(u => {
+                  const r = u.roles && u.roles.length > 0 ? u.roles : [u.role];
+                  return r.includes("agencia") || r.includes("super_admin");
+                });
+                return (<>
               <div className="adm-table-head">
                 <span style={{ flex: 1.5 }}>Nombre</span>
                 <span style={{ flex: 2 }}>Email</span>
                 <span style={{ flex: 0.8 }}>Rol</span>
                 <span style={{ flex: 1 }}>Org</span>
                 <span style={{ flex: 0.5 }}>Estado</span>
-                <span style={{ flex: 0.5 }}>Orgs</span>
+                {showOrgsCol && <span style={{ flex: 0.5 }}>Orgs</span>}
                 <span style={{ flex: 0.3 }} />
               </div>
               {filteredUsers.map(u => {
@@ -927,7 +933,7 @@ export default function AdminPage() {
                       <span style={{ flex: 0.5 }}>
                         <span className={`adm-status-dot ${u.active ? "adm-dot-green" : "adm-dot-gray"}`} />
                       </span>
-                      <span style={{ flex: 0.5, fontSize: 13, color: "#737373" }}>{memberships.length}</span>
+                      {showOrgsCol && <span style={{ flex: 0.5, fontSize: 13, color: "#737373" }}>{(() => { const r = u.roles && u.roles.length > 0 ? u.roles : [u.role]; return r.includes("agencia") || r.includes("super_admin") ? memberships.length : "—"; })()}</span>}
                       <span className="adm-row-actions" style={{ flex: 0.3 }}>
                         <button className="adm-icon-btn" onClick={e => { e.stopPropagation(); resendInvite(u); }} title="Reenviar invitación">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
@@ -973,6 +979,7 @@ export default function AdminPage() {
                             <button className="adm-btn-ghost" style={{ padding: "5px 10px", fontSize: 13 }} onClick={() => toggleUserActive(u)}>{u.active ? "Sí" : "No"}</button>
                           </div>
                         </div>
+                        {(() => { const ur = u.roles && u.roles.length > 0 ? u.roles : [u.role]; return ur.includes("agencia") || ur.includes("super_admin"); })() && (
                         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                           <span style={{ fontSize: 12, color: "#737373", fontWeight: 500 }}>Orgs:</span>
                           {memberships.map(m => (
@@ -997,11 +1004,13 @@ export default function AdminPage() {
                             <button className="adm-btn-ghost" style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => { setAddOrgUserId(u.id); setAddOrgId(""); setAddOrgRole(u.role); }}>+</button>
                           )}
                         </div>
+                        )}
                       </div>
                     )}
                   </div>
                 );
               })}
+              </>); })()}
             </div>
           )}
         </div>
