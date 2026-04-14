@@ -15,9 +15,10 @@ interface Props {
   placeholder?: string;
   label?: string;
   disabled?: boolean;
+  error?: boolean;
 }
 
-export default function MobileSelect({ value, onChange, options, placeholder, label, disabled }: Props) {
+export default function MobileSelect({ value, onChange, options, placeholder, label, disabled, error }: Props) {
   const [open, setOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -41,7 +42,7 @@ export default function MobileSelect({ value, onChange, options, placeholder, la
   if (!isMobile) {
     return (
       <select
-        className="input-field c2-select"
+        className={`input-field c2-select${error ? " input-field--error" : ""}`}
         value={value}
         onChange={e => onChange(e.target.value)}
         disabled={disabled}
@@ -59,7 +60,7 @@ export default function MobileSelect({ value, onChange, options, placeholder, la
     <>
       <button
         type="button"
-        className="input-field c2-select"
+        className={`input-field c2-select${error ? " input-field--error" : ""}`}
         onClick={() => !disabled && setOpen(true)}
         disabled={disabled}
         style={{ textAlign: "left", cursor: disabled ? "not-allowed" : "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}

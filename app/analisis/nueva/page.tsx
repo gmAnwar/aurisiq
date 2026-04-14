@@ -74,6 +74,7 @@ export default function NuevaLlamadaPage() {
   const [missedFields, setMissedFields] = useState<string[]>([]);
   const [dailyTarget, setDailyTarget] = useState<number | null>(null);
   const [dailyDone, setDailyDone] = useState(0);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   const animFrameRef = useRef<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -771,6 +772,7 @@ export default function NuevaLlamadaPage() {
 
   // ─── Main submit handler ─────────────────────────────────
   const handleSubmit = async () => {
+    setSubmitAttempted(true);
     if (!canSubmit || !userId || !orgId) return;
 
     setStatus("analyzing");
@@ -1006,8 +1008,12 @@ export default function NuevaLlamadaPage() {
             placeholder="Selecciona de dónde vino el prospecto"
             label="Fuente del lead"
             disabled={status === "analyzing"}
+            error={submitAttempted && selectedSource === ""}
             options={leadSources.map(s => ({ value: s.id, label: s.name }))}
           />
+          {submitAttempted && selectedSource === "" && (
+            <p className="input-hint-error">Selecciona la fuente del lead para continuar</p>
+          )}
           {leadSources.length === 0 && !errorMsg && !loading && (
             <div className="message-box message-error" style={{ marginTop: 8 }}>
               <p>Tu organización no tiene fuentes de lead configuradas. No puedes registrar llamadas hasta que tu gerente las configure en <strong>Configuración</strong>.</p>
@@ -1128,30 +1134,26 @@ export default function NuevaLlamadaPage() {
 
         {/* Collapsible reference panels */}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {/* 1. Mi Speech — each phase colapsable */}
+          {/* 1. Mi Speech — only shown when phases are loaded */}
+          {guidePhases.length > 0 && (
           <div className="c2-collapse" style={{ border: "1px solid var(--border, #e5e5e5)", borderRadius: 8, overflow: "hidden" }}>
             <div className="c2-collapse-summary" style={{ padding: "10px 14px", fontWeight: 600, fontSize: 14 }}>Mi Speech</div>
-            {guidePhases.length === 0 ? (
-              <div className="c2-collapse-body">
-                <p className="c2-hint">{selectedStage ? "No hay speech publicado para esta etapa." : "Selecciona una etapa para ver tu speech."}</p>
-              </div>
-            ) : (
-              guidePhases.map((phase, i) => (
-                <details key={i} open={i === 0} className="c2-speech-phase">
-                  <summary className="c2-speech-phase-summary">{phase.phase_name}</summary>
-                  <div className="c2-speech-phase-body">
-                    {phase.transition && <p className="c2-hint" style={{ margin: "0 0 6px" }}>{phase.transition}</p>}
-                    {phase.phrases && phase.phrases.length > 0 && (
-                      <SpeechPhraseSingle phrases={phase.phrases} storageKey={`${selectedStage}_${i}`} />
-                    )}
-                    {phase.fields && phase.fields.length > 0 && phase.fields.map((f, k) => (
-                      <SpeechFieldSingle key={k} field={f} storageKey={`${selectedStage}_${i}`} />
-                    ))}
-                  </div>
-                </details>
-              ))
-            )}
+            {guidePhases.map((phase, i) => (
+              <details key={i} open={i === 0} className="c2-speech-phase">
+                <summary className="c2-speech-phase-summary">{phase.phase_name}</summary>
+                <div className="c2-speech-phase-body">
+                  {phase.transition && <p className="c2-hint" style={{ margin: "0 0 6px" }}>{phase.transition}</p>}
+                  {phase.phrases && phase.phrases.length > 0 && (
+                    <SpeechPhraseSingle phrases={phase.phrases} storageKey={`${selectedStage}_${i}`} />
+                  )}
+                  {phase.fields && phase.fields.length > 0 && phase.fields.map((f, k) => (
+                    <SpeechFieldSingle key={k} field={f} storageKey={`${selectedStage}_${i}`} />
+                  ))}
+                </div>
+              </details>
+            ))}
           </div>
+          )}
 
           {/* 2. Checklist — full list with missed-field highlights */}
           <details className="c2-collapse">

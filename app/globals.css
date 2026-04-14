@@ -736,6 +736,17 @@ body.has-nav {
   outline: none;
 }
 
+.input-field--error {
+  border-color: var(--error) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--error) 20%, transparent);
+}
+
+.input-hint-error {
+  font-size: 12px;
+  color: var(--error);
+  margin-top: 4px;
+}
+
 .input-field:focus {
   border-color: var(--accent);
   background-color: #FFFFFF;
