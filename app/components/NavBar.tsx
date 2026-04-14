@@ -63,9 +63,9 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
   super_admin: getNavForRoles(["super_admin"]),
 };
 
-// Sidebar layout if user has any management role
-function useSidebar(roles: string[]): boolean {
-  return hasAnyRole({ roles }, ["gerente", "direccion", "agencia"] as UserRole[]);
+// Sidebar for ALL roles (unified layout)
+function useSidebarLayout(): boolean {
+  return true;
 }
 
 // CTA "+ Nueva llamada" if user has captadora or super_admin
@@ -120,6 +120,26 @@ export default function NavBar({ role, roles, userName, userEmail, orgSlug, role
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
+  // SSR-safe localStorage read for collapse preference
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("aurisiq:sidebar:collapsed");
+      if (saved === "true") {
+        setCollapsed(true);
+        document.body.classList.add("sidebar-collapsed");
+      }
+    } catch { /* SSR or no localStorage */ }
+  }, []);
+
+  const toggleCollapse = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    try { localStorage.setItem("aurisiq:sidebar:collapsed", String(next)); } catch {}
+    if (next) document.body.classList.add("sidebar-collapsed");
+    else document.body.classList.remove("sidebar-collapsed");
+  };
 
   // Escape key + scroll lock for mobile menu
   useEffect(() => {
@@ -167,7 +187,7 @@ export default function NavBar({ role, roles, userName, userEmail, orgSlug, role
   const effectiveRoles = roles && roles.length > 0 ? roles : [role];
   const allItems = getNavForRoles(effectiveRoles);
   const mobileItems = (MOBILE_NAV[role] || allItems).slice(0, 5);
-  const isSidebar = useSidebar(effectiveRoles);
+  const isSidebar = useSidebarLayout();
   const isCta = showCta(effectiveRoles);
   const initial = userName.charAt(0).toUpperCase() || "?";
   const roleLabel = getRoleLabel(role, { slug: orgSlug, role_label_vendedor: roleLabelVendedor });
@@ -178,7 +198,7 @@ export default function NavBar({ role, roles, userName, userEmail, orgSlug, role
   };
 
   return (
-    <nav className={`navbar ${isSidebar ? "navbar-sidebar" : ""}`}>
+    <nav className={`navbar ${isSidebar ? "navbar-sidebar" : ""} ${isSidebar && collapsed ? "navbar-collapsed" : ""}`} role="navigation">
       <span className="navbar-brand">
         <svg className="navbar-sonar" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="16" cy="12" r="3" fill="#00C2E0" />
@@ -186,8 +206,15 @@ export default function NavBar({ role, roles, userName, userEmail, orgSlug, role
           <path d="M7 4C3.4 6.2 1.5 8.8 1.5 12s1.9 5.8 5.5 8" stroke="#00C2E0" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.5" />
           <path d="M13 8.5C12 9.3 11.2 10.5 11.2 12s.8 2.7 1.8 3.5" stroke="#00C2E0" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.9" />
         </svg>
-        <span style={{ color: "#00C2E0" }}>auris</span><span style={{ color: "#FFFFFF" }}>IQ</span>
+        {!collapsed && <><span style={{ color: "#00C2E0" }}>auris</span><span style={{ color: "#FFFFFF" }}>IQ</span></>}
       </span>
+      {isSidebar && (
+        <button className="navbar-collapse-btn" onClick={toggleCollapse} aria-label={collapsed ? "Expandir sidebar" : "Colapsar sidebar"} title={collapsed ? "Expandir" : "Colapsar"}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            {collapsed ? <polyline points="9 18 15 12 9 6" /> : <polyline points="15 18 9 12 15 6" />}
+          </svg>
+        </button>
+      )}
       <div className="navbar-items">
       {allItems.map((item) => {
         const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href + "/"));

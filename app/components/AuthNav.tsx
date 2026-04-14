@@ -132,9 +132,7 @@ export default function AuthNav() {
       }
 
       document.body.classList.add("has-nav");
-      if (roles.some(rl => SIDEBAR_ROLES.includes(rl)) || SIDEBAR_ROLES.includes(r)) {
-        document.body.classList.add("has-sidebar");
-      }
+      document.body.classList.add("has-sidebar"); // unified sidebar for all roles
     }
 
     loadRole();
