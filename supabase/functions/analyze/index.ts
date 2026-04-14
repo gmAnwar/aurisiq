@@ -103,6 +103,11 @@ async function processJobAsync(jobId: string) {
     const parsed = parseClaudeOutput(rawOutput, extractionPatterns || null);
     const phasesWithIds = matchPhaseIds(parsed.phases, scorecard.phases || []);
 
+    // Diagnostic: low score with no descalification
+    if (parsed.score_general !== null && parsed.score_general < 50 && parsed.descalificacion.length === 0) {
+      console.warn(`[analyze] LOW_SCORE_NO_DESCAL job=${jobId} score=${parsed.score_general} descal=[] descalCats_available=${descalCats.length}`);
+    }
+
     // 9. Write results
     await writeAnalysisResults(analysisId, parsed, job, descalCats, orgStages);
     await writeAnalysisPhases(analysisId, phasesWithIds, job.organization_id, job.user_id);

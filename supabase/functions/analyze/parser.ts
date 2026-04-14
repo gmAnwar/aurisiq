@@ -123,15 +123,19 @@ export function parseClaudeOutput(
     try { result.checklist_results = JSON.parse(checklistMatch[1]); } catch { /* ignore */ }
   }
 
-  // Descalification
-  const descalMatch = rawText.match(/DESCALIFICACION:\s*(\[.*?\])/i);
+  // Descalification — multiline-safe regex
+  const descalMatch = rawText.match(/DESCALIFICACION:\s*(\[[\s\S]*?\])/i);
   if (descalMatch) {
     try {
       const arr = JSON.parse(descalMatch[1]);
       if (Array.isArray(arr)) {
         result.descalificacion = arr.map((s: unknown) => String(s).trim()).filter(Boolean).slice(0, 3);
       }
-    } catch { /* ignore */ }
+    } catch (e) {
+      console.warn(`[parser] DESCALIFICACION JSON.parse failed: ${(e as Error).message} | raw=${descalMatch[1].slice(0, 200)}`);
+    }
+  } else if (/DESCALIFICACION/i.test(rawText)) {
+    console.warn(`[parser] DESCALIFICACION keyword found in output but regex failed to extract array`);
   }
 
   // Highlights: parsed in dedicated second Claude call, not from main output
