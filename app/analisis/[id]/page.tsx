@@ -246,7 +246,6 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
     );
   }
 
-  const isQualified = !analysis.categoria_descalificacion || analysis.categoria_descalificacion.length === 0;
   const momento = stripJson(analysis.momento_critico) || null;
   const mejora = stripJson(analysis.patron_error) || null;
   const accion = stripJson(analysis.siguiente_accion) || null;
@@ -413,9 +412,10 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
 
       {/* Descalification pills */}
       <div className="c3-section">
-        {isQualified ? (
-          <span className="c3-pill c3-pill-green">Lead calificado</span>
-        ) : (
+        {analysis.lead_estado === "descartado" && <span className="c3-pill c3-pill-red">Lead descartado</span>}
+        {analysis.lead_estado === "calificado" && <span className="c3-pill c3-pill-green">Lead calificado</span>}
+        {(analysis.lead_estado === "pendiente" || !analysis.lead_estado) && <span className="c3-pill c3-pill-yellow">Lead pendiente</span>}
+        {analysis.lead_estado === "descartado" && (analysis.categoria_descalificacion || []).length > 0 && (
           <div className="c3-pill-list">
             {(analysis.categoria_descalificacion || []).map((code, i) => (
               <span key={i} className={`c3-pill ${i === 0 ? "c3-pill-primary" : "c3-pill-secondary"}`}>
