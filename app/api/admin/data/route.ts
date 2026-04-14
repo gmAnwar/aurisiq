@@ -15,7 +15,7 @@ export async function GET(req: Request) {
         .order("created_at", { ascending: false }),
       admin
         .from("users")
-        .select("id, name, email, role, organization_id, active, training_mode, created_at")
+        .select("id, name, email, role, roles, organization_id, active, training_mode, created_at")
         .order("created_at", { ascending: false }),
       admin
         .from("analyses")

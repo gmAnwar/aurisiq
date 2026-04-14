@@ -39,7 +39,7 @@ export default function HistorialPage() {
     async function load() {
       const session = await requireAuth(["captadora", "super_admin"]);
       if (!session) return;
-      setIsSuperAdmin(session.realRole === "super_admin");
+      setIsSuperAdmin(session.realRoles.includes("super_admin"));
 
       const [analysesRes, stagesRes] = await Promise.all([
         supabase.from("analyses")

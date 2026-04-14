@@ -72,7 +72,7 @@ export default function MiDiaPage() {
       // super_admin may switch active org; users.current_streak is a
       // single cached value that doesn't know about orgs. Recompute
       // from analyses rows scoped to the active org.
-      if (session.realRole === "super_admin") {
+      if (session.realRoles.includes("super_admin")) {
         const { data: dayRows } = await supabase
           .from("analyses")
           .select("created_at")
@@ -102,7 +102,7 @@ export default function MiDiaPage() {
       // users.current_focus_phase is tied to the *profile* org's history
       // and shows stale data. Always recompute focus_phase for super_admin
       // from analysis_phases scoped to the active org.
-      if (session.realRole === "super_admin") {
+      if (session.realRoles.includes("super_admin")) {
         const { data: phRows } = await supabase
           .from("analysis_phases")
           .select("analysis_id, phase_id, phase_name, score, score_max")

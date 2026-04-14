@@ -23,6 +23,7 @@ interface UserRow {
   name: string;
   email: string;
   role: string;
+  roles?: string[] | null;
   organization_id: string;
   active: boolean | null;
   training_mode: boolean | null;
@@ -913,7 +914,7 @@ export default function AdminPage() {
                       <span style={{ flex: 1.5, fontWeight: 500 }}>{u.name}</span>
                       <span style={{ flex: 2, color: "#737373" }}>{u.email}</span>
                       <span style={{ flex: 0.8 }}>
-                        <span className="adm-role-badge" style={{ background: `${ROLE_COLOR[u.role] || "#6b7280"}18`, color: ROLE_COLOR[u.role] || "#6b7280" }}>{u.role}</span>
+                        <span className="adm-role-badge" style={{ background: `${ROLE_COLOR[u.role] || "#6b7280"}18`, color: ROLE_COLOR[u.role] || "#6b7280" }}>{u.roles && u.roles.length > 0 ? u.roles.join(", ") : u.role}</span>
                         {savingUserId === u.id && <span style={{ fontSize: 10, marginLeft: 4 }}>...</span>}
                         {savedUserId === u.id && <span style={{ fontSize: 10, marginLeft: 4, color: "#16a34a" }}>✓</span>}
                       </span>

@@ -12,54 +12,66 @@ interface NavItem {
   label: string;
 }
 
+import { hasAnyRole, type UserRole } from "../../lib/auth";
+
+interface RoleNavItem extends NavItem {
+  requiredRoles: UserRole[];
+}
+
+// Unified nav items — sidebar renders items where user has any required role
+const ALL_NAV_ITEMS: RoleNavItem[] = [
+  // Captadora items
+  { href: "/analisis", label: "Mi día", requiredRoles: ["captadora", "super_admin"] },
+  { href: "/analisis/historial", label: "Mis análisis", requiredRoles: ["captadora", "super_admin"] },
+  { href: "/semana", label: "Mi semana", requiredRoles: ["captadora", "super_admin"] },
+  { href: "/speech", label: "Mi Speech", requiredRoles: ["captadora", "super_admin"] },
+  // Gerente items
+  { href: "/equipo", label: "Equipo", requiredRoles: ["gerente", "direccion", "super_admin"] },
+  { href: "/equipo/expedientes", label: "Expedientes", requiredRoles: ["gerente", "super_admin"] },
+  { href: "/equipo/biblioteca", label: "Biblioteca", requiredRoles: ["gerente", "super_admin"] },
+  { href: "/equipo/reportes", label: "Reportes", requiredRoles: ["gerente", "direccion", "super_admin"] },
+  { href: "/equipo/config", label: "Config", requiredRoles: ["gerente", "direccion", "super_admin"] },
+  // Direccion items
+  { href: "/direccion", label: "Resumen", requiredRoles: ["direccion", "super_admin"] },
+  { href: "/direccion/reportes", label: "Rep. Ejec.", requiredRoles: ["direccion", "super_admin"] },
+  { href: "/direccion/cuenta", label: "Cuenta", requiredRoles: ["direccion", "super_admin"] },
+  // Agencia items
+  { href: "/agencia", label: "Dashboard", requiredRoles: ["agencia", "super_admin"] },
+  { href: "/agencia/reportes", label: "Rep. Agencia", requiredRoles: ["agencia", "super_admin"] },
+  { href: "/agencia/alertas", label: "Alertas", requiredRoles: ["agencia", "super_admin"] },
+  // Admin
+  { href: "/admin", label: "Admin", requiredRoles: ["super_admin"] },
+];
+
+function getNavForRoles(roles: string[]): NavItem[] {
+  const session = { roles };
+  const seen = new Set<string>();
+  return ALL_NAV_ITEMS.filter(item => {
+    if (seen.has(item.href)) return false;
+    if (!hasAnyRole(session, item.requiredRoles)) return false;
+    seen.add(item.href);
+    return true;
+  });
+}
+
+// Legacy compat — NAV_BY_ROLE still used by MOBILE_NAV
 const NAV_BY_ROLE: Record<string, NavItem[]> = {
-  captadora: [
-    { href: "/analisis", label: "Mi d\u00eda" },
-    { href: "/analisis/historial", label: "Mis an\u00e1lisis" },
-    { href: "/semana", label: "Mi semana" },
-    { href: "/speech", label: "Mi Speech" },
-  ],
-  gerente: [
-    { href: "/equipo", label: "Equipo" },
-    { href: "/equipo/expedientes", label: "Expedientes" },
-    { href: "/equipo/biblioteca", label: "Biblioteca" },
-    { href: "/equipo/reportes", label: "Reportes" },
-    { href: "/equipo/config", label: "Config" },
-  ],
-  direccion: [
-    { href: "/equipo", label: "Equipo" },
-    { href: "/equipo/reportes", label: "Reportes" },
-    { href: "/equipo/config", label: "Config" },
-    { href: "/direccion", label: "Resumen" },
-    { href: "/direccion/reportes", label: "Rep. Ejec." },
-    { href: "/direccion/cuenta", label: "Cuenta" },
-  ],
-  agencia: [
-    { href: "/agencia", label: "Dashboard" },
-    { href: "/agencia/reportes", label: "Reportes" },
-    { href: "/agencia/alertas", label: "Alertas" },
-  ],
-  super_admin: [
-    { href: "/analisis", label: "Mi d\u00eda" },
-    { href: "/analisis/historial", label: "Mis an\u00e1lisis" },
-    { href: "/semana", label: "Mi semana" },
-    { href: "/speech", label: "Mi Speech" },
-    { href: "/equipo", label: "Equipo" },
-    { href: "/equipo/reportes", label: "Reportes" },
-    { href: "/equipo/config", label: "Config" },
-    { href: "/direccion", label: "Resumen" },
-    { href: "/direccion/cuenta", label: "Cuenta" },
-    { href: "/agencia", label: "Calidad" },
-    { href: "/admin", label: "Admin" },
-  ],
+  captadora: getNavForRoles(["captadora"]),
+  gerente: getNavForRoles(["gerente"]),
+  direccion: getNavForRoles(["direccion"]),
+  agencia: getNavForRoles(["agencia"]),
+  super_admin: getNavForRoles(["super_admin"]),
 };
 
-// Roles that use sidebar layout (gerente, direccion, agencia)
-// captadora and super_admin use horizontal top bar
-const SIDEBAR_ROLES = ["gerente", "direccion", "agencia"];
+// Sidebar layout if user has any management role
+function useSidebar(roles: string[]): boolean {
+  return hasAnyRole({ roles }, ["gerente", "direccion", "agencia"] as UserRole[]);
+}
 
-// Roles that show the "+ Nueva llamada" CTA button
-const CTA_ROLES = ["captadora", "super_admin"];
+// CTA "+ Nueva llamada" if user has captadora or super_admin
+function showCta(roles: string[]): boolean {
+  return hasAnyRole({ roles }, ["captadora", "super_admin"] as UserRole[]);
+}
 
 const MOBILE_NAV: Record<string, NavItem[]> = {
   captadora: NAV_BY_ROLE.captadora,
@@ -86,6 +98,7 @@ const MOBILE_NAV: Record<string, NavItem[]> = {
 
 interface NavBarProps {
   role: string;
+  roles?: string[];
   userName: string;
   userEmail: string;
   orgSlug?: string | null;
@@ -103,7 +116,7 @@ const TRAINING_ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: "direccion", label: "Dirección" },
 ];
 
-export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVendedor, trainingMode, onTrainingRoleChange, orgOptions, activeOrgId, onActiveOrgChange }: NavBarProps) {
+export default function NavBar({ role, roles, userName, userEmail, orgSlug, roleLabelVendedor, trainingMode, onTrainingRoleChange, orgOptions, activeOrgId, onActiveOrgChange }: NavBarProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -151,10 +164,11 @@ export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVe
       setMenuOpen(false);
     }, 1500);
   };
-  const allItems = NAV_BY_ROLE[role] || NAV_BY_ROLE.captadora;
-  const mobileItems = MOBILE_NAV[role] || allItems.slice(0, 4);
-  const useSidebar = SIDEBAR_ROLES.includes(role);
-  const showCta = CTA_ROLES.includes(role);
+  const effectiveRoles = roles && roles.length > 0 ? roles : [role];
+  const allItems = getNavForRoles(effectiveRoles);
+  const mobileItems = (MOBILE_NAV[role] || allItems).slice(0, 5);
+  const isSidebar = useSidebar(effectiveRoles);
+  const isCta = showCta(effectiveRoles);
   const initial = userName.charAt(0).toUpperCase() || "?";
   const roleLabel = getRoleLabel(role, { slug: orgSlug, role_label_vendedor: roleLabelVendedor });
 
@@ -164,7 +178,7 @@ export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVe
   };
 
   return (
-    <nav className={`navbar ${useSidebar ? "navbar-sidebar" : ""}`}>
+    <nav className={`navbar ${isSidebar ? "navbar-sidebar" : ""}`}>
       <span className="navbar-brand">
         <svg className="navbar-sonar" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="16" cy="12" r="3" fill="#00C2E0" />
@@ -208,14 +222,14 @@ export default function NavBar({ role, userName, userEmail, orgSlug, roleLabelVe
       {/* Right section: CTA + user */}
       <div className="navbar-right">
         {/* CTA button */}
-        {showCta && (
+        {isCta && (
           <Link href="/analisis/nueva" className="navbar-cta">
             + Nueva llamada
           </Link>
         )}
 
         {/* Offline indicator — captadora only */}
-        {showCta && <OfflineIndicator />}
+        {isCta && <OfflineIndicator />}
 
         {/* Org selector — hidden on mobile, shown in hamburger menu instead */}
         {orgOptions && orgOptions.length > 1 && (

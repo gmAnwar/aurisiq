@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { getSession, getHomeForRole } from "../lib/auth";
+import { getSession, getHomeForRoles } from "../lib/auth";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -27,7 +27,7 @@ export default function LoginPage() {
     async function redirectByRole() {
       const user = await getSession();
       if (user) {
-        window.location.href = getHomeForRole(user.role);
+        window.location.href = getHomeForRoles(user.roles);
         return true;
       }
       return false;

@@ -29,11 +29,16 @@ export async function GET(request: Request) {
     if (data?.session?.user?.id) {
       const { data: userData } = await supabase
         .from("users")
-        .select("role")
+        .select("role, roles")
         .eq("id", data.session.user.id)
         .single();
 
-      const home = ROLE_HOME[userData?.role || ""] || "/analisis";
+      const userRoles: string[] = Array.isArray(userData?.roles) && userData.roles.length > 0
+        ? userData.roles : userData?.role ? [userData.role] : [];
+      // Priority: super_admin > direccion > agencia > gerente > captadora
+      const PRIORITY = ["super_admin", "direccion", "agencia", "gerente", "captadora"];
+      const topRole = PRIORITY.find(r => userRoles.includes(r)) || "";
+      const home = ROLE_HOME[topRole] || "/analisis";
       return NextResponse.redirect(`${origin}${home}`);
     }
 

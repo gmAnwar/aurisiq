@@ -68,7 +68,7 @@ export default function EquipoDashboard() {
       const yesterdayStart = new Date(new Date(ts).getTime() - 86400000).toISOString();
 
       const [teamRes, weekRes, prevRes, todayRes, yesterdayRes, objRes, alertsRes, descalRes, recentRes, leadSourcesRes, stagesRes] = await Promise.all([
-        supabase.from("users").select("id, name, role").eq("organization_id", orgId).eq("active", true),
+        supabase.from("users").select("id, name, role, roles").eq("organization_id", orgId).eq("active", true),
         supabase.from("analyses").select("id, user_id, score_general, categoria_descalificacion, patron_error")
           .eq("organization_id", orgId).eq("status", "completado").gte("created_at", ws),
         supabase.from("analyses").select("user_id, score_general")
@@ -99,7 +99,7 @@ export default function EquipoDashboard() {
       for (const s of stagesRes.data || []) stgm[s.id] = s.name;
       setStageMap(stgm);
 
-      const caps = (teamRes.data || []).filter(u => u.role === "captadora");
+      const caps = (teamRes.data || []).filter(u => (u.roles as string[] | null)?.includes("captadora") ?? u.role === "captadora");
       const capNames: Record<string, string> = {};
       for (const u of teamRes.data || []) capNames[u.id] = u.name;
 

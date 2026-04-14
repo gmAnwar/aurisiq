@@ -82,7 +82,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
       // super_admin may be viewing an analysis from an org different
       // from their profile org (admin_active_org_id). RLS would hide
       // it, so route through the service-role endpoint instead.
-      if (session.realRole === "super_admin") {
+      if (session.realRoles.includes("super_admin")) {
         try {
           const { data: { session: s } } = await supabase.auth.getSession();
           const token = s?.access_token;

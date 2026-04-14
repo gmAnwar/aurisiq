@@ -103,18 +103,37 @@ const ROUTE_ROLES: Record<string, string[]> = {
   "/admin": ["super_admin"],
 };
 
+// Priority: super_admin > direccion > agencia > gerente > captadora
+const ROLE_PRIORITY: UserRole[] = ["super_admin", "direccion", "agencia", "gerente", "captadora"];
+
+export function getHomeForRoles(roles: string[]): string {
+  for (const r of ROLE_PRIORITY) {
+    if (roles.includes(r)) return ROLE_HOME[r] || "/analisis";
+  }
+  return "/analisis";
+}
+
+// Legacy compat — calls getHomeForRoles
 export function getHomeForRole(role: string): string {
-  return ROLE_HOME[role] || "/analisis";
+  return getHomeForRoles([role]);
 }
 
 export function isRoleAllowed(pathname: string, role: string): boolean {
-  // Find the matching route prefix
+  // Find the matching route prefix — checks any of user's roles
   for (const [routePrefix, allowedRoles] of Object.entries(ROUTE_ROLES)) {
     if (pathname === routePrefix || pathname.startsWith(routePrefix + "/")) {
       return allowedRoles.includes(role);
     }
   }
-  // Routes not in the map (like /) are accessible to all
+  return true;
+}
+
+export function isRolesAllowed(pathname: string, roles: string[]): boolean {
+  for (const [routePrefix, allowedRoles] of Object.entries(ROUTE_ROLES)) {
+    if (pathname === routePrefix || pathname.startsWith(routePrefix + "/")) {
+      return roles.some(r => allowedRoles.includes(r));
+    }
+  }
   return true;
 }
 
@@ -217,7 +236,7 @@ export async function requireAuth(allowedRoles: string[]): Promise<UserSession |
   }
 
   if (!hasAnyRole(session, allowedRoles as UserRole[])) {
-    window.location.href = getHomeForRole(session.role);
+    window.location.href = getHomeForRoles(session.roles);
     return null;
   }
 

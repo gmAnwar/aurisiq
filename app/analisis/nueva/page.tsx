@@ -232,7 +232,7 @@ export default function NuevaLlamadaPage() {
       const effectiveOrgId = session.organizationId;
       setUserId(session.userId);
       setOrgId(effectiveOrgId);
-      setIsSuperAdmin(session.realRole === "super_admin");
+      setIsSuperAdmin(session.realRoles.includes("super_admin"));
 
       // Unconditional fetch. RLS handles org scoping — no frontend
       // role gate. Drop `active` filter so inactive-but-not-deleted

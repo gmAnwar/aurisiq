@@ -15,6 +15,7 @@ const SIDEBAR_ROLES = ["gerente", "direccion", "agencia"];
 
 export default function AuthNav() {
   const [role, setRole] = useState<string | null>(null);
+  const [roles, setRoles] = useState<string[]>([]);
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [orgSlug, setOrgSlug] = useState<string | null>(null);
@@ -35,6 +36,7 @@ export default function AuthNav() {
       if (SKIP_AUTH) {
         r = "super_admin";
         setRole(r);
+        setRoles(["super_admin"]);
         setUserName("Elizabeth R.");
         setUserEmail("elizabeth@inmobili.demo");
         setOrgSlug("immobili");
@@ -45,27 +47,29 @@ export default function AuthNav() {
 
         let userRes = await supabase
           .from("users")
-          .select("role, name, email, organization_id, training_mode")
+          .select("role, roles, name, email, organization_id, training_mode")
           .eq("id", session.user.id)
           .single();
         if (userRes.error && userRes.error.message?.includes("training_mode")) {
           userRes = await supabase
             .from("users")
-            .select("role, name, email, organization_id")
+            .select("role, roles, name, email, organization_id")
             .eq("id", session.user.id)
             .single();
         }
         const data = userRes.data as
-          | { role: string; name: string; email: string; organization_id: string; training_mode?: boolean | null }
+          | { role: string; roles?: string[] | null; name: string; email: string; organization_id: string; training_mode?: boolean | null }
           | null;
 
         if (!data) return;
         const realRole = data.role;
+        const realRoles = Array.isArray(data.roles) && data.roles.length > 0 ? data.roles : [realRole];
         const tMode = !!data.training_mode;
         setTrainingMode(tMode);
         const trainingRole = tMode ? getTrainingRole() : null;
         r = trainingRole || realRole;
         setRole(r);
+        setRoles(trainingRole ? [trainingRole] : realRoles);
         setUserName(data.name || "");
         setUserEmail(data.email || session.user.email || "");
 
@@ -128,7 +132,7 @@ export default function AuthNav() {
       }
 
       document.body.classList.add("has-nav");
-      if (SIDEBAR_ROLES.includes(r)) {
+      if (roles.some(rl => SIDEBAR_ROLES.includes(rl)) || SIDEBAR_ROLES.includes(r)) {
         document.body.classList.add("has-sidebar");
       }
     }
@@ -153,6 +157,7 @@ export default function AuthNav() {
   return (
     <NavBar
       role={role}
+      roles={roles}
       userName={userName}
       userEmail={userEmail}
       orgSlug={orgSlug}

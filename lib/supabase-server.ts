@@ -86,11 +86,12 @@ export async function requireSuperAdmin(req: Request): Promise<{ userId: string 
 
   const { data: row, error: rowErr } = await admin
     .from("users")
-    .select("role")
+    .select("role, roles")
     .eq("id", userId)
     .single();
-  if (rowErr || row?.role !== "super_admin") {
-    return new Response(JSON.stringify({ error: "Forbidden — super_admin only", detail: rowErr?.message || `role=${row?.role ?? "null"}` }), {
+  const userRoles: string[] = Array.isArray(row?.roles) && row.roles.length > 0 ? row.roles : row?.role ? [row.role] : [];
+  if (rowErr || !userRoles.includes("super_admin")) {
+    return new Response(JSON.stringify({ error: "Forbidden — super_admin only", detail: rowErr?.message || `roles=${JSON.stringify(userRoles)}` }), {
       status: 403,
       headers: { "Content-Type": "application/json" },
     });

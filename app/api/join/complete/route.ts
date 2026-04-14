@@ -62,6 +62,7 @@ export async function POST(req: Request) {
       email: user.email,
       name,
       role,
+      roles: [role],
       active: true,
     };
     if (city) row.city = city;

@@ -6,7 +6,7 @@ import { requireAuth } from "../../../lib/auth";
 import { getOrgTimezone, monthStart as getMonthStart } from "../../../lib/dates";
 import { getRoleLabel } from "../../../lib/roleLabel";
 
-interface User { id: string; name: string; email: string; role: string; last_sign_in_at: string | null; active: boolean; }
+interface User { id: string; name: string; email: string; role: string; roles?: string[] | null; last_sign_in_at: string | null; active: boolean; }
 
 export default function CuentaPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -36,7 +36,7 @@ export default function CuentaPage() {
       const ms = getMonthStart(tz);
 
       const [usersRes, orgRes, countRes] = await Promise.all([
-        supabase.from("users").select("id, name, email, role, last_sign_in_at, active")
+        supabase.from("users").select("id, name, email, role, roles, last_sign_in_at, active")
           .eq("organization_id", me.organization_id).order("name"),
         supabase.from("organizations").select("name, plan, access_status")
           .eq("id", me.organization_id).single(),
@@ -111,7 +111,7 @@ export default function CuentaPage() {
               <div key={u.id} className={`d4-user-row ${!u.active ? "d4-inactive" : ""}`}>
                 <span className="g1-rank-name">{u.name}</span>
                 <span className="d4-email">{u.email}</span>
-                <span className="d4-role">{getRoleLabel(u.role, orgCtx)}</span>
+                <span className="d4-role">{u.roles && u.roles.length > 0 ? u.roles.map(r => getRoleLabel(r, orgCtx)).join(", ") : getRoleLabel(u.role, orgCtx)}</span>
                 <span className="d4-last-access">
                   {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString("es-MX", { day: "numeric", month: "short" }) : "Nunca"}
                 </span>

@@ -54,7 +54,7 @@ export default function ReportesPage() {
           .select("id, user_id, score_general, avanzo_a_siguiente_etapa")
           .eq("organization_id", me.organization_id).eq("status", "completado")
           .gte("created_at", ws),
-        supabase.from("users").select("id, name, role")
+        supabase.from("users").select("id, name, role, roles")
           .eq("organization_id", me.organization_id).eq("active", true),
       ]);
 
@@ -63,7 +63,7 @@ export default function ReportesPage() {
       setAgencyReports(all.filter(r => ["agencia", "todos"].includes(r.destinatario_tipo)));
 
       // Conversion by captadora
-      const caps = (teamRes.data || []).filter(u => u.role === "captadora");
+      const caps = (teamRes.data || []).filter(u => (u.roles as string[] | null)?.includes("captadora") ?? u.role === "captadora");
       const week = weekRes.data || [];
       const convData: CaptadoraConv[] = caps.map(c => {
         const mine = week.filter(a => a.user_id === c.id);

@@ -122,6 +122,7 @@ export async function POST(req: Request) {
       email,
       name,
       role,
+      roles: [role],
       training_mode: trainingMode,
       active: true,
     });
