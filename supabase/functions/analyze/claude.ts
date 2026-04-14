@@ -107,6 +107,9 @@ export function buildFullPrompt(
   }
   prompt += TONE_BLOCK;
 
+  // Momento crítico — always included regardless of output_blocks in scorecard
+  prompt += `\n\n---\nMOMENTO CRÍTICO\nIdentifica el momento más decisivo de la conversación: el punto donde se definió si la oportunidad avanza o se pierde. Puede ser una objeción no manejada, una revelación del prospecto, un error del vendedor, o un momento de conexión. Describe en 2-3 oraciones qué pasó y por qué fue decisivo. Empieza con "MOMENTO CRÍTICO" como encabezado.`;
+
   // Resolve prospect fields
   const vertical = scorecard.vertical || "inmobiliario";
   const dbProspectFields = Array.isArray(structure.prospect_fields) && structure.prospect_fields.length > 0

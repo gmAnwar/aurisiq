@@ -43,8 +43,8 @@ export function parseClaudeOutput(
     else result.clasificacion = "deficiente";
   }
 
-  // Phases
-  const phaseRegex = /([A-ZÁÉÍÓÚa-záéíóúñÑü][A-ZÁÉÍÓÚa-záéíóúñÑü ]{2,50}?)\s*\((\d+)\/(\d+)\)\s*:/g;
+  // Phases — case-insensitive
+  const phaseRegex = /([A-ZÁÉÍÓÚa-záéíóúñÑü][A-ZÁÉÍÓÚa-záéíóúñÑü ]{2,50}?)\s*\((\d+)\/(\d+)\)\s*:/gi;
   let match;
   while ((match = phaseRegex.exec(rawText)) !== null) {
     result.phases.push({
@@ -58,16 +58,16 @@ export function parseClaudeOutput(
   const patronMatch = rawText.match(/PATR[OÓ]N DE ERROR PRINCIPAL\s*\n+([\s\S]*?)(?:\n---|\n*$)/i);
   if (patronMatch) result.patron_error = patronMatch[1].trim();
 
-  // Objecion principal
-  const objecionMatch = rawText.match(/Objeci[oó]n(?:\s+principal)?:\s*(.+?)(?:\n|$)/i);
+  // Objecion principal — multiline capture
+  const objecionMatch = rawText.match(/Objeci[oó]n(?:\s+principal)?:\s*([\s\S]+?)(?:\n\n|\n---|\n[A-Z])/i);
   if (objecionMatch) result.objecion_principal = objecionMatch[1].trim();
 
-  // Siguiente accion
-  const accionMatch = rawText.match(/(?:Acci[oó]n concreta|Siguiente acci[oó]n|Recomendaci[oó]n):\s*(.+?)(?:\n|$)/i);
+  // Siguiente accion — multiline capture
+  const accionMatch = rawText.match(/(?:Acci[oó]n concreta|Siguiente acci[oó]n|Recomendaci[oó]n):\s*([\s\S]+?)(?:\n\n|\n---|\n[A-Z])/i);
   if (accionMatch) result.siguiente_accion = accionMatch[1].trim();
 
-  // Momento critico
-  const momentoMatch = rawText.match(/(?:MOMENTO DE QUIEBRE|MOMENTO CR[IÍ]TICO)\s*\n+([\s\S]*?)(?:\n---|\n*$)/i);
+  // Momento critico — supports both "HEADER\ntext" and "HEADER: text" formats
+  const momentoMatch = rawText.match(/(?:MOMENTO DE QUIEBRE|MOMENTO CR[IÍ]TICO)(?:\s*\n+|:\s*)([\s\S]*?)(?:\n\n|\n---|\n[A-Z]|$)/i);
   if (momentoMatch) result.momento_critico = momentoMatch[1].trim();
 
   // Lead status
