@@ -278,7 +278,8 @@ body > * { position: relative; z-index: 1; }
 
   .navbar.navbar-sidebar .navbar-items {
     flex-direction: column;
-    overflow: visible;
+    overflow-y: auto;
+    min-height: 0;
     gap: 2px;
   }
 
