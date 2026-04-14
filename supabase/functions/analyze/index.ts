@@ -106,7 +106,8 @@ async function processJobAsync(jobId: string) {
 
     // Diagnostic: low score with no descalification — write to background_jobs.error_message for visibility
     if (parsed.score_general !== null && parsed.score_general < 50 && parsed.descalificacion.length === 0) {
-      const diagMsg = `LOW_SCORE_NO_DESCAL score=${parsed.score_general} descalCats_available=${descalCats.length} raw_descal_section=${(lastRawOutput || "").includes("DESCALIFICACION") ? "FOUND_IN_OUTPUT" : "NOT_IN_OUTPUT"}`;
+      const rawTail = (lastRawOutput || "").slice(-2500).replace(/\s+/g, " ");
+      const diagMsg = `LOW_SCORE_NO_DESCAL score=${parsed.score_general} descalCats_available=${descalCats.length} raw_descal_section=${(lastRawOutput || "").includes("DESCALIFICACION") ? "FOUND_IN_OUTPUT" : "NOT_IN_OUTPUT"} | RAW_TAIL: ${rawTail}`;
       console.warn(`[analyze] ${diagMsg} job=${jobId}`);
       await writeJobDiagnostic(jobId, diagMsg);
     }
