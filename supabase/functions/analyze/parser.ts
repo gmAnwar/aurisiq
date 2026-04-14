@@ -1,5 +1,16 @@
 import type { ParsedOutput, MatchedPhase, ScorecardPhase } from "./types.ts";
 
+// Helper: builds regex fragment that tolerates markdown bold (**) around a keyword
+// e.g. h("SCORE GENERAL") matches: SCORE GENERAL, **SCORE GENERAL**, **SCORE GENERAL**:, etc.
+function h(keyword: string): string {
+  return `\\*{0,2}\\s*${keyword}\\s*\\*{0,2}`;
+}
+
+// Same as h() but for "keyword:" patterns — colon can be inside or outside the bold
+function hc(keyword: string): string {
+  return `\\*{0,2}\\s*${keyword}\\s*:?\\s*\\*{0,2}\\s*:?\\s*`;
+}
+
 // ─── Parse Claude output ───────────────────────────────────
 
 export function parseClaudeOutput(
@@ -28,12 +39,12 @@ export function parseClaudeOutput(
     phases: [],
   };
 
-  // Score
-  const scoreMatch = rawText.match(/SCORE GENERAL:\s*(\d+)/i);
+  // Score — tolerates **SCORE GENERAL:** 85
+  const scoreMatch = rawText.match(new RegExp(`${hc("SCORE GENERAL")}(\\d+)`, "i"));
   if (scoreMatch) result.score_general = parseInt(scoreMatch[1], 10);
 
-  // Clasificacion
-  const clasMatch = rawText.match(/Clasificaci[oó]n:\s*(excelente|buena|regular|deficiente)/i);
+  // Clasificacion — tolerates **Clasificación:** excelente
+  const clasMatch = rawText.match(new RegExp(`${hc("Clasificaci[oó]n")}(excelente|buena|regular|deficiente)`, "i"));
   if (clasMatch) {
     result.clasificacion = clasMatch[1].toLowerCase();
   } else if (result.score_general !== null) {
@@ -43,8 +54,8 @@ export function parseClaudeOutput(
     else result.clasificacion = "deficiente";
   }
 
-  // Phases — case-insensitive
-  const phaseRegex = /([A-ZÁÉÍÓÚa-záéíóúñÑü][A-ZÁÉÍÓÚa-záéíóúñÑü ]{2,50}?)\s*\((\d+)\/(\d+)\)\s*:/gi;
+  // Phases — case-insensitive, tolerates **Phase Name** (5/10):
+  const phaseRegex = /\*{0,2}\s*([A-ZÁÉÍÓÚa-záéíóúñÑü][A-ZÁÉÍÓÚa-záéíóúñÑü ]{2,50}?)\s*\*{0,2}\s*\((\d+)\/(\d+)\)\s*:?/gi;
   let match;
   while ((match = phaseRegex.exec(rawText)) !== null) {
     result.phases.push({
@@ -54,30 +65,30 @@ export function parseClaudeOutput(
     });
   }
 
-  // Patron error
-  const patronMatch = rawText.match(/PATR[OÓ]N DE ERROR PRINCIPAL\s*\n+([\s\S]*?)(?:\n---|\n*$)/i);
+  // Patron error — tolerates **PATRÓN DE ERROR PRINCIPAL**\n
+  const patronMatch = rawText.match(new RegExp(`${h("PATR[OÓ]N DE ERROR PRINCIPAL")}\\s*\\n+([\\s\\S]*?)(?:\\n---|\\n*$)`, "i"));
   if (patronMatch) result.patron_error = patronMatch[1].trim();
 
-  // Objecion principal — multiline capture
-  const objecionMatch = rawText.match(/Objeci[oó]n(?:\s+principal)?:\s*([\s\S]+?)(?:\n\n|\n---|\n[A-Z])/i);
+  // Objecion principal — multiline capture, tolerates **Objeción principal:**
+  const objecionMatch = rawText.match(new RegExp(`${hc("Objeci[oó]n(?:\\s+principal)?")}([\\s\\S]+?)(?:\\n\\n|\\n---|\\n[A-Z])`, "i"));
   if (objecionMatch) result.objecion_principal = objecionMatch[1].trim();
 
-  // Siguiente accion — multiline capture
-  const accionMatch = rawText.match(/(?:Acci[oó]n concreta|Siguiente acci[oó]n|Recomendaci[oó]n):\s*([\s\S]+?)(?:\n\n|\n---|\n[A-Z])/i);
+  // Siguiente accion — multiline capture, tolerates **Acción concreta:**
+  const accionMatch = rawText.match(new RegExp(`${hc("(?:Acci[oó]n concreta[^:]*|Siguiente acci[oó]n|Recomendaci[oó]n)")}([\\s\\S]+?)(?:\\n\\n|\\n---|\\n[A-Z])`, "i"));
   if (accionMatch) result.siguiente_accion = accionMatch[1].trim();
 
-  // Momento critico — supports both "HEADER\ntext" and "HEADER: text" formats
-  const momentoMatch = rawText.match(/(?:MOMENTO DE QUIEBRE|MOMENTO CR[IÍ]TICO)(?:\s*\n+|:\s*)([\s\S]*?)(?:\n\n|\n---|\n[A-Z]|$)/i);
+  // Momento critico — supports "HEADER\ntext", "HEADER: text", "**HEADER**\ntext"
+  const momentoMatch = rawText.match(new RegExp(`${h("(?:MOMENTO DE QUIEBRE|MOMENTO CR[IÍ]TICO)")}(?:\\s*\\n+|:\\s*)([\\s\\S]*?)(?:\\n\\n|\\n---|\\n[A-Z]|$)`, "i"));
   if (momentoMatch) result.momento_critico = momentoMatch[1].trim();
 
-  // Lead status
-  const leadMatch = rawText.match(/Estado del lead:\s*(converted|lost_captadora|lost_external|pending)/i);
+  // Lead status — tolerates **Estado del lead:** pending
+  const leadMatch = rawText.match(new RegExp(`${hc("Estado del lead")}(converted|lost_captadora|lost_external|pending)`, "i"));
   if (leadMatch) result.lead_status = leadMatch[1].toLowerCase();
 
   // Prospect extraction — DB-driven or legacy
   if (Array.isArray(extractionPatterns) && extractionPatterns.length > 0) {
     for (const pat of extractionPatterns) {
-      const re = new RegExp(`${pat.key}:\\s*(.+?)(?:\\n|$)`, "i");
+      const re = new RegExp(`${hc(pat.key)}(.+?)(?:\\n|$)`, "i");
       const m = rawText.match(re);
       if (m) {
         const val = m[1].trim();
@@ -90,41 +101,41 @@ export function parseClaudeOutput(
       }
     }
   } else {
-    // Legacy hardcoded extraction
-    const nameMatch = rawText.match(/PROSPECTO_NOMBRE:\s*(.+?)(?:\n|$)/i);
+    // Legacy hardcoded extraction — tolerates **KEY:** value
+    const nameMatch = rawText.match(new RegExp(`${hc("PROSPECTO_NOMBRE")}(.+?)(?:\\n|$)`, "i"));
     if (nameMatch) result.prospect_name = nameMatch[1].trim();
-    const zoneMatch = rawText.match(/PROSPECTO_ZONA:\s*(.+?)(?:\n|$)/i);
+    const zoneMatch = rawText.match(new RegExp(`${hc("PROSPECTO_ZONA")}(.+?)(?:\\n|$)`, "i"));
     if (zoneMatch) result.prospect_zone = zoneMatch[1].trim();
-    const typeMatch = rawText.match(/TIPO_PROPIEDAD:\s*(.+?)(?:\n|$)/i);
+    const typeMatch = rawText.match(new RegExp(`${hc("TIPO_PROPIEDAD")}(.+?)(?:\\n|$)`, "i"));
     if (typeMatch) result.property_type = typeMatch[1].trim();
-    const negocioMatch = rawText.match(/TIPO_NEGOCIO:\s*(.+?)(?:\n|$)/i);
+    const negocioMatch = rawText.match(new RegExp(`${hc("TIPO_NEGOCIO")}(.+?)(?:\\n|$)`, "i"));
     if (negocioMatch) result.business_type = negocioMatch[1].trim();
-    const equipoMatch = rawText.match(/TIPO_EQUIPO:\s*(.+?)(?:\n|$)/i);
+    const equipoMatch = rawText.match(new RegExp(`${hc("TIPO_EQUIPO")}(.+?)(?:\\n|$)`, "i"));
     if (equipoMatch) result.equipment_type = equipoMatch[1].trim();
-    const reasonMatch = rawText.match(/MOTIVO_VENTA:\s*(.+?)(?:\n|$)/i);
+    const reasonMatch = rawText.match(new RegExp(`${hc("MOTIVO_VENTA")}(.+?)(?:\\n|$)`, "i"));
     if (reasonMatch) result.sale_reason = reasonMatch[1].trim();
-    const phoneMatch = rawText.match(/PROSPECTO_TELEFONO:\s*(.+?)(?:\n|$)/i);
+    const phoneMatch = rawText.match(new RegExp(`${hc("PROSPECTO_TELEFONO")}(.+?)(?:\\n|$)`, "i"));
     if (phoneMatch) {
       const digits = phoneMatch[1].replace(/\D/g, "");
       if (digits.length >= 10) result.prospect_phone = digits.slice(-10);
     }
   }
 
-  // Stage detection
-  const stageMatch = rawText.match(/ETAPA_DETECTADA:\s*(.+?)(?:\n|$)/i);
+  // Stage detection — tolerates **ETAPA_DETECTADA:** value
+  const stageMatch = rawText.match(new RegExp(`${hc("ETAPA_DETECTADA")}(.+?)(?:\\n|$)`, "i"));
   if (stageMatch) {
     const val = stageMatch[1].trim();
     if (val && !/^null$|^no\s/i.test(val)) result.detected_stage_name = val;
   }
 
-  // Checklist
-  const checklistMatch = rawText.match(/CHECKLIST:\s*(\[[\s\S]*?\])/i);
+  // Checklist — tolerates **CHECKLIST:** [...]
+  const checklistMatch = rawText.match(new RegExp(`${hc("CHECKLIST")}(\\[[\\s\\S]*?\\])`, "i"));
   if (checklistMatch) {
     try { result.checklist_results = JSON.parse(checklistMatch[1]); } catch { /* ignore */ }
   }
 
-  // Descalification — multiline-safe regex
-  const descalMatch = rawText.match(/DESCALIFICACION:\s*(\[[\s\S]*?\])/i);
+  // Descalification — multiline-safe, tolerates **DESCALIFICACION:** [...]
+  const descalMatch = rawText.match(new RegExp(`${hc("DESCALIFICACION")}(\\[[\\s\\S]*?\\])`, "i"));
   if (descalMatch) {
     try {
       const arr = JSON.parse(descalMatch[1]);
