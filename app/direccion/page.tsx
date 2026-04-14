@@ -36,7 +36,7 @@ export default function DashboardEjecutivoPage() {
       const threeMonthsAgo = new Date(thisMonthDate.getFullYear(), thisMonthDate.getMonth() - 3, 1).toISOString();
 
       const [thisMonthRes, lastMonthRes, objRes, stagesRes, descalCatsRes, usersRes] = await Promise.all([
-        supabase.from("analyses").select("id, user_id, avanzo_a_siguiente_etapa, funnel_stage_id, score_general, categoria_descalificacion")
+        supabase.from("analyses").select("id, user_id, avanzo_a_siguiente_etapa, funnel_stage_id, score_general, categoria_descalificacion, lead_estado")
           .eq("organization_id", me.organization_id).eq("status", "completado").gte("created_at", thisMonthStart),
         supabase.from("analyses").select("id, avanzo_a_siguiente_etapa")
           .eq("organization_id", me.organization_id).eq("status", "completado").gte("created_at", lastMonthStart).lt("created_at", thisMonthStart),
@@ -126,8 +126,8 @@ export default function DashboardEjecutivoPage() {
         pct: descalCount > 0 ? Math.round((count / descalCount) * 100) : 0,
       })));
 
-      // % leads calificados
-      const calificados = thisMonth.length - descalCount;
+      // % leads calificados (only confirmed calificado, not pendiente)
+      const calificados = thisMonth.filter(a => (a as { lead_estado?: string }).lead_estado === "calificado").length;
       setPctCalificados(thisMonth.length > 0 ? Math.round((calificados / thisMonth.length) * 100) : null);
 
       // 3-month comparison

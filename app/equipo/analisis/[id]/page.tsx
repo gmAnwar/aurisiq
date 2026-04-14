@@ -40,7 +40,7 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
       setUserId(session.userId);
 
       const { data: a } = await supabase.from("analyses")
-        .select("id, user_id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, created_at, organization_id, manager_note, prospect_name, prospect_zone, property_type, sale_reason, prospect_phone, checklist_results, legacy_note, highlights")
+        .select("id, user_id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, lead_estado, created_at, organization_id, manager_note, prospect_name, prospect_zone, property_type, sale_reason, prospect_phone, checklist_results, legacy_note, highlights")
         .eq("id", id).single();
 
       if (!a) { setError("Análisis no encontrado."); setLoading(false); return; }
@@ -105,7 +105,7 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
 
   const date = new Date(analysis.created_at as string);
   const descalCodes = (analysis.categoria_descalificacion as string[] | null) || [];
-  const isQualified = descalCodes.length === 0;
+  const leadEstado = (analysis.lead_estado as string | null) || "pendiente";
   const checklist = (analysis.checklist_results as ChecklistItem[] | null) || [];
   const isCov = (c: ChecklistItem) => c.state ? c.state === "covered" : !!c.covered;
   const isPart = (c: ChecklistItem) => c.state === "asked_no_answer";
@@ -163,23 +163,30 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
 
         {/* Lead estado badge */}
         <div style={{ marginBottom: 14 }}>
-          {isQualified ? (
-            <div className="c3-lead-badge c3-lead-calificado">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              Lead calificado
-            </div>
-          ) : (
+          {leadEstado === "descartado" ? (
             <>
               <div className="c3-lead-badge c3-lead-descartado">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                 Lead descartado
               </div>
-              <div className="c3-descal-reasons">
-                {descalCodes.map((code, i) => (
-                  <span key={i} className="c3-descal-pill">{descalMap[code] || code}</span>
-                ))}
-              </div>
+              {descalCodes.length > 0 && (
+                <div className="c3-descal-reasons">
+                  {descalCodes.map((code, i) => (
+                    <span key={i} className="c3-descal-pill">{descalMap[code] || code}</span>
+                  ))}
+                </div>
+              )}
             </>
+          ) : leadEstado === "calificado" ? (
+            <div className="c3-lead-badge c3-lead-calificado">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Lead calificado
+            </div>
+          ) : (
+            <div className="c3-lead-badge c3-lead-pendiente">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Lead pendiente
+            </div>
           )}
         </div>
 

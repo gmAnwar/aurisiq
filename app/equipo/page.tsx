@@ -73,7 +73,7 @@ export default function EquipoDashboard() {
           .eq("organization_id", orgId).eq("status", "completado").gte("created_at", ws),
         supabase.from("analyses").select("user_id, score_general")
           .eq("organization_id", orgId).eq("status", "completado").gte("created_at", pws).lt("created_at", ws),
-        supabase.from("analyses").select("user_id, score_general, categoria_descalificacion")
+        supabase.from("analyses").select("user_id, score_general, categoria_descalificacion, lead_estado")
           .eq("organization_id", orgId).eq("status", "completado").gte("created_at", ts),
         supabase.from("analyses").select("id")
           .eq("organization_id", orgId).eq("status", "completado").gte("created_at", yesterdayStart).lt("created_at", ts),
@@ -82,7 +82,7 @@ export default function EquipoDashboard() {
         supabase.from("alerts").select("id, description")
           .eq("organization_id", orgId).eq("status", "activa").order("created_at", { ascending: false }).limit(5),
         supabase.from("descalification_categories").select("code, label").eq("organization_id", orgId),
-        supabase.from("analyses").select("id, user_id, prospect_name, score_general, clasificacion, categoria_descalificacion, fuente_lead_id, created_at, funnel_stage_id, property_type, business_type")
+        supabase.from("analyses").select("id, user_id, prospect_name, score_general, clasificacion, categoria_descalificacion, lead_estado, fuente_lead_id, created_at, funnel_stage_id, property_type, business_type")
           .eq("organization_id", orgId).eq("status", "completado").order("created_at", { ascending: false }).limit(10),
         supabase.from("lead_sources").select("id, name").eq("organization_id", orgId),
         supabase.from("funnel_stages").select("id, name").eq("organization_id", orgId).eq("active", true),
@@ -112,7 +112,7 @@ export default function EquipoDashboard() {
       setYesterdayCount(yesterdayRes.data?.length || 0);
       const todayScores = today.filter(a => a.score_general !== null).map(a => a.score_general!);
       setTodayAvg(todayScores.length > 0 ? Math.round(todayScores.reduce((a, b) => a + b, 0) / todayScores.length) : null);
-      setTodayQualified(today.filter(a => !a.categoria_descalificacion || a.categoria_descalificacion.length === 0).length);
+      setTodayQualified(today.filter(a => (a as { lead_estado?: string }).lead_estado === "calificado").length);
 
       // Top patterns from this week's analyses
       setWeekAnalysisCount(week.length);
@@ -303,10 +303,12 @@ export default function EquipoDashboard() {
                         {day} {time}
                         {a.funnel_stage_id && stageMap[a.funnel_stage_id] ? ` · ${stageMap[a.funnel_stage_id]}` : ""}
                         {(a.property_type || a.business_type) ? ` · ${a.property_type || a.business_type}` : ""}
-                        {" · "}{codes.length > 0 ? (
-                          <span className="c1-pill-inline c1-pill-red">{descalMap[codes[0]] || codes[0]}</span>
-                        ) : (
+                        {" · "}{(a as { lead_estado?: string }).lead_estado === "descartado" ? (
+                          <span className="c1-pill-inline c1-pill-red">{codes.length > 0 ? (descalMap[codes[0]] || codes[0]) : "Descartado"}</span>
+                        ) : (a as { lead_estado?: string }).lead_estado === "calificado" ? (
                           <span className="c1-pill-inline c1-pill-green">Calificado</span>
+                        ) : (
+                          <span className="c1-pill-inline c1-pill-yellow">Pendiente</span>
                         )}
                       </span>
                     </div>

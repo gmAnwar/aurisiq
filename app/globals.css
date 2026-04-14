@@ -1571,6 +1571,10 @@ body.has-nav {
   color: #166534;
   background: #DCFCE7;
 }
+.c1-pill-yellow {
+  color: #854d0e;
+  background: #fef9c3;
+}
 
 .c1-pill-more {
   font-size: 10px;
@@ -1854,6 +1858,11 @@ body.has-nav {
   background: #fee2e2;
   color: #991b1b;
   border-color: #fca5a5;
+}
+.c3-lead-pendiente {
+  background: #fef9c3;
+  color: #854d0e;
+  border-color: #fde047;
 }
 .c3-descal-reasons {
   display: flex;
