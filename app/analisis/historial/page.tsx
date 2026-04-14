@@ -13,6 +13,7 @@ interface Analysis {
   created_at: string;
   funnel_stage_id: string | null;
   categoria_descalificacion: string[] | null;
+  lead_estado: string | null;
   prospect_name: string | null;
   prospect_zone: string | null;
 }
@@ -43,7 +44,7 @@ export default function HistorialPage() {
 
       const [analysesRes, stagesRes] = await Promise.all([
         supabase.from("analyses")
-          .select("id, score_general, clasificacion, created_at, funnel_stage_id, categoria_descalificacion, prospect_name, prospect_zone")
+          .select("id, score_general, clasificacion, created_at, funnel_stage_id, categoria_descalificacion, lead_estado, prospect_name, prospect_zone")
           .eq("user_id", session.userId).eq("organization_id", session.organizationId).eq("status", "completado")
           .order("created_at", { ascending: false }),
         supabase.from("funnel_stages").select("id, name")
@@ -199,8 +200,6 @@ export default function HistorialPage() {
               const date = new Date(a.created_at);
               const dateStr = date.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
               const timeStr = date.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
-              const codes = a.categoria_descalificacion || [];
-              const qualified = codes.length === 0;
               const stageName = a.funnel_stage_id ? stages[a.funnel_stage_id] : null;
               return (
                 <div key={a.id}>
@@ -216,11 +215,9 @@ export default function HistorialPage() {
                           {dateStr} · {timeStr}
                           {stageName && <> · {stageName}</>}
                           {" · "}
-                          {qualified ? (
-                            <span className="c1-pill-inline c1-pill-green">Calificado</span>
-                          ) : (
-                            <span className="c1-pill-inline c1-pill-red">No calificado</span>
-                          )}
+                          {a.lead_estado === "descartado" && <span className="c1-pill-inline c1-pill-red">Descartado</span>}
+                          {a.lead_estado === "calificado" && <span className="c1-pill-inline c1-pill-green">Calificado</span>}
+                          {(a.lead_estado === "pendiente" || !a.lead_estado) && <span className="c1-pill-inline c1-pill-yellow">Pendiente</span>}
                         </span>
                       </div>
                       <div className="c4-item-right">
