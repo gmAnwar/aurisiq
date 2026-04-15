@@ -25,6 +25,8 @@ export function parseClaudeOutput(
     objecion_principal: null,
     siguiente_accion: null,
     lead_status: null,
+    lead_quality: null,
+    lead_outcome: null,
     descalificacion: [],
     prospect_name: null,
     prospect_zone: null,
@@ -101,6 +103,24 @@ export function parseClaudeOutput(
   // Lead status — tolerates **Estado del lead:** pending
   const leadMatch = rawText.match(new RegExp(`${hc("Estado del lead")}(converted|lost_captadora|lost_external|pending)`, "i"));
   if (leadMatch) result.lead_status = leadMatch[1].toLowerCase();
+
+  // Lead quality + outcome — top-level block "ESTADO DEL LEAD" between --- separators
+  const QUALITY_ENUM = ["calificado", "descalificado", "indeterminado"];
+  const OUTCOME_ENUM = ["cerrado_completo", "cerrado_parcial", "pospuesto_con_agenda", "pospuesto_sin_agenda", "descalificado", "perdido"];
+  const estadoBlock = rawText.match(/\n---\n+\*{0,2}\s*ESTADO\s+DEL\s+LEAD\s*\*{0,2}\s*\n+([\s\S]+?)(?:\n---|\n\*{0,2}(?:SCORE|DIAGN|PATR[OÓ]N|MOMENTO|OBJECI|SIGUIENTE|ACCI[OÓ]N|DESCALIF|ETAPA|CHECKLIST|PROSPECTO))/i);
+  if (estadoBlock) {
+    const block = estadoBlock[1];
+    const qualityMatch = block.match(/Calidad\s+del\s+lead\s*:\s*(\S+)/i);
+    if (qualityMatch) {
+      const val = qualityMatch[1].toLowerCase().replace(/[^a-záéíóú_]/g, "");
+      if (QUALITY_ENUM.includes(val)) result.lead_quality = val;
+    }
+    const outcomeMatch = block.match(/Resultado\s+de\s+esta\s+conversaci[oó]n\s*:\s*(\S+)/i);
+    if (outcomeMatch) {
+      const val = outcomeMatch[1].toLowerCase().replace(/[^a-záéíóú_]/g, "");
+      if (OUTCOME_ENUM.includes(val)) result.lead_outcome = val;
+    }
+  }
 
   // Prospect extraction — DB-driven or legacy
   if (Array.isArray(extractionPatterns) && extractionPatterns.length > 0) {
