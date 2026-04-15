@@ -13,7 +13,7 @@ interface NavItem {
 }
 
 import { hasAnyRole, type UserRole } from "../../lib/auth";
-import { Sun, BarChart3, CalendarRange, MessageSquare, Users, FolderOpen, BookOpen, FileBarChart, Settings, ClipboardList, TrendingUp, UserCircle, LayoutDashboard, Building2, Bell, ShieldCheck, Mic, type LucideIcon } from "lucide-react";
+import { Sun, BarChart3, CalendarRange, MessageSquare, Users, FolderOpen, BookOpen, FileBarChart, Settings, ClipboardList, TrendingUp, UserCircle, LayoutDashboard, Building2, Bell, ShieldCheck, Mic, ListChecks, type LucideIcon } from "lucide-react";
 
 interface RoleNavItem extends NavItem {
   requiredRoles: UserRole[];
@@ -22,6 +22,8 @@ interface RoleNavItem extends NavItem {
 
 // Unified nav items — sidebar renders items where user has any required role
 const ALL_NAV_ITEMS: RoleNavItem[] = [
+  { href: "/grabar", label: "Grabar", requiredRoles: ["captadora", "super_admin"], icon: Mic },
+  { href: "/grabaciones-pendientes", label: "Pendientes", requiredRoles: ["captadora", "super_admin"], icon: ListChecks },
   { href: "/analisis", label: "Mi día", requiredRoles: ["captadora", "super_admin"], icon: Sun },
   { href: "/analisis/historial", label: "Mis análisis", requiredRoles: ["captadora", "super_admin"], icon: BarChart3 },
   { href: "/semana", label: "Mi semana", requiredRoles: ["captadora", "super_admin"], icon: CalendarRange },
