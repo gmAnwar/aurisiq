@@ -7,22 +7,30 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getSession } from "../../lib/auth";
 
-const ALWAYS_HIDE = ["/analisis/nueva", "/admin", "/login", "/auth", "/direccion"];
+const ALWAYS_HIDE_PREFIX = ["/admin", "/login", "/auth", "/direccion", "/join", "/signup", "/forgot-password", "/reset-password"];
+const ALWAYS_HIDE_EXACT = ["/analisis/nueva"];
 
 function MobileFAB() {
   const pathname = usePathname();
   const [hasCaptadora, setHasCaptadora] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
 
   useEffect(() => {
     getSession().then(s => {
-      if (s) setHasCaptadora(s.roles.includes("captadora"));
+      if (s) {
+        setHasSession(true);
+        setHasCaptadora(s.roles.includes("captadora"));
+      }
     });
   }, []);
 
   if (!pathname) return null;
 
+  // No session = no FAB (pre-auth pages)
+  if (!hasSession) return null;
+
   // Always hide on these routes
-  if (pathname === "/analisis/nueva" || ALWAYS_HIDE.some(p => p !== "/analisis/nueva" && pathname.startsWith(p))) {
+  if (ALWAYS_HIDE_EXACT.includes(pathname) || ALWAYS_HIDE_PREFIX.some(p => pathname.startsWith(p))) {
     return null;
   }
 
