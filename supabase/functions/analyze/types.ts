@@ -27,6 +27,7 @@ export interface JobPayload {
   prospect_phone?: string | null;
   call_notes?: string | null;
   has_audio?: boolean;
+  audio_storage_path?: string | null;
   pause_count?: number;
   total_paused_seconds?: number;
 }

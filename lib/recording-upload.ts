@@ -21,7 +21,7 @@ export async function uploadRecording(rec: PendingRecording): Promise<void> {
 
   try {
     const ext = rec.mime_type.includes("mp4") ? "mp4" : "webm";
-    const path = `${rec.organization_id}/${rec.id}.${ext}`;
+    const path = `${rec.organization_id}/${rec.user_id}/${rec.id}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from("recordings")

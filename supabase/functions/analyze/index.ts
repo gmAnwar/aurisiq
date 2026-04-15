@@ -1,4 +1,4 @@
-// v22 — extract lead_quality + lead_outcome from ESTADO DEL LEAD block
+// v23 — handle audio_storage_path: download from Storage + transcribe via AssemblyAI
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import {
   getJob,
@@ -24,6 +24,7 @@ import {
 } from "./db.ts";
 import { buildFullPrompt, callClaude, callClaudeForHighlights } from "./claude.ts";
 import { parseClaudeOutput, matchPhaseIds } from "./parser.ts";
+import { ASSEMBLYAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from "../_shared/env.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -94,9 +95,16 @@ async function processJobAsync(jobId: string) {
       checklistItems,
     );
 
-    // 7. Call Claude
-    const transcription = payload.transcription_edited || payload.transcription_original || payload.transcription_text;
-    console.log(`[analyze] Calling Claude for job ${jobId}, transcription length: ${transcription.length}`);
+    // 7. Resolve transcription — either from payload or by transcribing audio from Storage
+    let transcription: string;
+    if (payload.audio_storage_path && !payload.transcription_text) {
+      console.log(`[analyze v23] Transcribing audio from Storage: ${payload.audio_storage_path}`);
+      transcription = await transcribeFromStorage(payload.audio_storage_path);
+      console.log(`[analyze v23] Transcription complete: ${transcription.length} chars`);
+    } else {
+      transcription = payload.transcription_edited || payload.transcription_original || payload.transcription_text;
+    }
+    console.log(`[analyze v23] Calling Claude for job ${jobId}, transcription length: ${transcription.length}`);
     const rawOutput = await callClaude(systemPrompt, transcription);
     lastRawOutput = rawOutput;
     console.log(`[analyze] Claude response length: ${rawOutput.length}`);
@@ -104,7 +112,7 @@ async function processJobAsync(jobId: string) {
     // 8. Parse
     const parsed = parseClaudeOutput(rawOutput, extractionPatterns || null);
     const phasesWithIds = matchPhaseIds(parsed.phases, scorecard.phases || []);
-    console.log(`[analyze v22] Parsed ${parsed.phases.length} phases, matched ${phasesWithIds.length}, phase_ids: ${JSON.stringify(phasesWithIds.map(p => p.phase_id))}`);
+    console.log(`[analyze v23] Parsed ${parsed.phases.length} phases, matched ${phasesWithIds.length}, phase_ids: ${JSON.stringify(phasesWithIds.map(p => p.phase_id))}`);
 
     // Diagnostic: low score with no descalification — write to background_jobs.error_message for visibility
     if (parsed.score_general !== null && parsed.score_general < 50 && parsed.descalificacion.length === 0) {
@@ -159,6 +167,73 @@ async function processJobAsync(jobId: string) {
       await failJob(jobId, msg, job.retry_count, job.max_retries);
     } catch { /* can't even read job */ }
   }
+}
+
+// ─── Transcribe audio from Supabase Storage via AssemblyAI ──
+
+async function transcribeFromStorage(storagePath: string): Promise<string> {
+  // 1. Download audio from Supabase Storage using service role
+  const storageUrl = `${SUPABASE_URL}/storage/v1/object/recordings/${storagePath}`;
+  const downloadRes = await fetch(storageUrl, {
+    headers: { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+  });
+  if (!downloadRes.ok) {
+    throw new Error(`Failed to download audio from Storage: ${downloadRes.status}`);
+  }
+  const audioBytes = new Uint8Array(await downloadRes.arrayBuffer());
+  console.log(`[transcribe] Downloaded ${audioBytes.length} bytes from Storage`);
+
+  if (!ASSEMBLYAI_API_KEY) {
+    throw new Error("ASSEMBLYAI_API_KEY not configured");
+  }
+
+  // 2. Upload to AssemblyAI
+  const uploadRes = await fetch("https://api.assemblyai.com/v2/upload", {
+    method: "POST",
+    headers: {
+      authorization: ASSEMBLYAI_API_KEY,
+      "content-type": "application/octet-stream",
+    },
+    body: audioBytes,
+  });
+  if (!uploadRes.ok) {
+    throw new Error(`AssemblyAI upload failed: ${uploadRes.status}`);
+  }
+  const { upload_url } = await uploadRes.json();
+
+  // 3. Start transcription
+  const transcriptRes = await fetch("https://api.assemblyai.com/v2/transcript", {
+    method: "POST",
+    headers: {
+      authorization: ASSEMBLYAI_API_KEY,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ audio_url: upload_url, language_code: "es", speech_models: ["universal-3-pro"] }),
+  });
+  if (!transcriptRes.ok) {
+    throw new Error(`AssemblyAI transcript request failed: ${transcriptRes.status}`);
+  }
+  const { id: transcriptId } = await transcriptRes.json();
+
+  // 4. Poll for completion (max 180 seconds for long recordings)
+  const maxPolls = 60;
+  for (let i = 0; i < maxPolls; i++) {
+    await new Promise((r) => setTimeout(r, 3000));
+    const pollRes = await fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, {
+      headers: { authorization: ASSEMBLYAI_API_KEY },
+    });
+    const pollData = await pollRes.json();
+    if (pollData.status === "completed") {
+      if (!pollData.text || pollData.text.trim().length === 0) {
+        throw new Error("No se detectó audio hablado en la grabación");
+      }
+      return pollData.text;
+    }
+    if (pollData.status === "error") {
+      throw new Error(`AssemblyAI error: ${pollData.error || "unknown"}`);
+    }
+  }
+  throw new Error("AssemblyAI transcription timed out (180s)");
 }
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
