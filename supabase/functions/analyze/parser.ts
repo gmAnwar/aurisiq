@@ -69,23 +69,30 @@ export function parseClaudeOutput(
   const patronMatch = rawText.match(new RegExp(`${h("PATR[OÓ]N DE ERROR PRINCIPAL")}\\s*:?\\s*\\n+([\\s\\S]*?)(?:\\n---|\\n*$)`, "i"));
   if (patronMatch) result.patron_error = patronMatch[1].trim();
 
-  // Objecion principal — look for header then capture until next section
-  const objecionMatch = rawText.match(new RegExp(
-    `${h("Objeci[oó]n(?:\\s+principal)?")}\\s*:?\\s*\\n?` +
-    `([\\s\\S]+?)` +
-    `(?:\\n\\n|\\n---|\\n\\*{0,2}(?:ACCI[OÓ]N|SIGUIENTE|PATR[OÓ]N|MOMENTO|SCORE|DESCALIF|ETAPA|CHECKLIST|PROSPECTO|Estado del lead|[A-Z][A-Za-z]{3,}[^a-z]))`,
-    "i"
-  ));
-  if (objecionMatch) result.objecion_principal = objecionMatch[1].trim();
+  // Objecion principal — MUST be a top-level block (preceded by --- or start of section)
+  // Matches: "---\nOBJECIONES DETECTADAS\n...\nObjeción: content"
+  // Does NOT match: "Manejo de Objeciones (25/35):" inside phase diagnostics
+  const objecionMatch = rawText.match(
+    /\n---\n+\*{0,2}\s*OBJECIONES?\s*(?:DETECTADAS?)?\s*\*{0,2}\s*\n+([\s\S]+?)(?:\n---|\n\*{0,2}(?:SIGUIENTE|PATR[OÓ]N|MOMENTO|SCORE|ACCI[OÓ]N|DESCALIF|ETAPA|CHECKLIST|PROSPECTO))/i
+  );
+  if (objecionMatch) {
+    // Extract the actual objection text — may contain "Objeción: X" sub-headers
+    const block = objecionMatch[1].trim();
+    // If block has "Objeción:" sub-header, extract just the content after it
+    const subMatch = block.match(/Objeci[oó]n(?:\s+principal)?:\s*([\s\S]+)/i);
+    result.objecion_principal = subMatch ? subMatch[1].trim() : block;
+  }
 
-  // Siguiente accion — look for header then capture until next section
-  const accionMatch = rawText.match(new RegExp(
-    `${h("(?:Acci[oó]n concreta[^\\n]*|Siguiente acci[oó]n[^\\n]*|Siguiente paso[^\\n]*|Recomendaci[oó]n[^\\n]*)")}\\s*:?\\s*\\n?` +
-    `([\\s\\S]+?)` +
-    `(?:\\n\\n|\\n---|\\n\\*{0,2}(?:OBJECI[OÓ]N|PATR[OÓ]N|MOMENTO|SCORE|DESCALIF|ETAPA|CHECKLIST|PROSPECTO|Estado del lead|[A-Z][A-Za-z]{3,}[^a-z]))`,
-    "i"
-  ));
-  if (accionMatch) result.siguiente_accion = accionMatch[1].trim();
+  // Siguiente accion — MUST be a top-level block (preceded by ---)
+  const accionMatch = rawText.match(
+    /\n---\n+\*{0,2}\s*(?:SIGUIENTE\s+PASO|ACCI[OÓ]N\s+CONCRETA|SIGUIENTE\s+ACCI[OÓ]N|RECOMENDACI[OÓ]N)[^\n]*\s*\*{0,2}\s*\n+([\s\S]+?)(?:\n---|\n\*{0,2}(?:OBJECION|PATR[OÓ]N|MOMENTO|SCORE|DESCALIF|ETAPA|CHECKLIST|PROSPECTO))/i
+  );
+  if (accionMatch) {
+    const block = accionMatch[1].trim();
+    // If block has "Acción concreta:" or "Siguiente acción:" sub-header, extract content
+    const subMatch = block.match(/(?:Acci[oó]n\s+concreta[^:]*|Siguiente\s+acci[oó]n|Recomendaci[oó]n):\s*([\s\S]+)/i);
+    result.siguiente_accion = subMatch ? subMatch[1].trim() : block;
+  }
 
   // Momento critico — supports "HEADER\ntext", "HEADER: text", "**HEADER**\ntext"
   const momentoMatch = rawText.match(new RegExp(`${h("(?:MOMENTO DE QUIEBRE|MOMENTO CR[IÍ]TICO)")}\\s*:?\\s*(?:\\n+|:\\s*)([\\s\\S]*?)(?:\\n\\n|\\n---|\\n\\*{0,2}[A-Z]|$)`, "i"));
