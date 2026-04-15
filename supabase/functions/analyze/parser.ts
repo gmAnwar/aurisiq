@@ -65,20 +65,20 @@ export function parseClaudeOutput(
     });
   }
 
-  // Patron error — tolerates **PATRÓN DE ERROR PRINCIPAL**\n
-  const patronMatch = rawText.match(new RegExp(`${h("PATR[OÓ]N DE ERROR PRINCIPAL")}\\s*\\n+([\\s\\S]*?)(?:\\n---|\\n*$)`, "i"));
+  // Patron error — tolerates **PATRÓN DE ERROR PRINCIPAL**\n or **PATRÓN DE ERROR PRINCIPAL:**\n
+  const patronMatch = rawText.match(new RegExp(`${h("PATR[OÓ]N DE ERROR PRINCIPAL")}\\s*:?\\s*\\n+([\\s\\S]*?)(?:\\n---|\\n*$)`, "i"));
   if (patronMatch) result.patron_error = patronMatch[1].trim();
 
-  // Objecion principal — multiline capture, tolerates **Objeción principal:**
-  const objecionMatch = rawText.match(new RegExp(`${hc("Objeci[oó]n(?:\\s+principal)?")}([\\s\\S]+?)(?:\\n\\n|\\n---|\\n[A-Z])`, "i"));
+  // Objecion principal — multiline capture, tolerates **Objeción principal:** or **Objeción:**
+  const objecionMatch = rawText.match(new RegExp(`${hc("Objeci[oó]n(?:\\s+principal)?")}\\n?([\\s\\S]+?)(?:\\n\\n|\\n---|\\n\\*{0,2}[A-Z])`, "i"));
   if (objecionMatch) result.objecion_principal = objecionMatch[1].trim();
 
-  // Siguiente accion — multiline capture, tolerates **Acción concreta:**
-  const accionMatch = rawText.match(new RegExp(`${hc("(?:Acci[oó]n concreta[^:]*|Siguiente acci[oó]n|Recomendaci[oó]n)")}([\\s\\S]+?)(?:\\n\\n|\\n---|\\n[A-Z])`, "i"));
+  // Siguiente accion — multiline capture, tolerates **Acción concreta 24-48h:** etc.
+  const accionMatch = rawText.match(new RegExp(`${hc("(?:Acci[oó]n concreta[^\\n:]*|Siguiente acci[oó]n|Siguiente paso[^\\n:]*|Recomendaci[oó]n)")}\\n?([\\s\\S]+?)(?:\\n\\n|\\n---|\\n\\*{0,2}[A-Z])`, "i"));
   if (accionMatch) result.siguiente_accion = accionMatch[1].trim();
 
   // Momento critico — supports "HEADER\ntext", "HEADER: text", "**HEADER**\ntext"
-  const momentoMatch = rawText.match(new RegExp(`${h("(?:MOMENTO DE QUIEBRE|MOMENTO CR[IÍ]TICO)")}(?:\\s*\\n+|:\\s*)([\\s\\S]*?)(?:\\n\\n|\\n---|\\n[A-Z]|$)`, "i"));
+  const momentoMatch = rawText.match(new RegExp(`${h("(?:MOMENTO DE QUIEBRE|MOMENTO CR[IÍ]TICO)")}\\s*:?\\s*(?:\\n+|:\\s*)([\\s\\S]*?)(?:\\n\\n|\\n---|\\n\\*{0,2}[A-Z]|$)`, "i"));
   if (momentoMatch) result.momento_critico = momentoMatch[1].trim();
 
   // Lead status — tolerates **Estado del lead:** pending
@@ -172,6 +172,16 @@ export function parseClaudeOutput(
 
 // ─── Match parsed phase names to scorecard phase IDs ───────
 
+// Generate deterministic slug from phase name (fallback when no phase_id match)
+function slugify(name: string): string {
+  return (name || "unknown")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "")
+    .slice(0, 60) || "phase";
+}
+
 export function matchPhaseIds(
   parsedPhases: ParsedOutput["phases"],
   scorecardPhases: ScorecardPhase[],
@@ -183,7 +193,7 @@ export function matchPhaseIds(
     const normalizedParsed = normalize(parsed.phase_name);
     const match = scorecardPhases.find(sp => sp.phase_name && normalize(sp.phase_name) === normalizedParsed);
     return {
-      phase_id: match?.phase_id || null,
+      phase_id: match?.phase_id || slugify(parsed.phase_name),
       phase_name: parsed.phase_name,
       score: parsed.score,
       score_max: parsed.score_max,
