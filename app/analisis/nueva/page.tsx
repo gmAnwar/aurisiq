@@ -1013,7 +1013,7 @@ export default function NuevaLlamadaPage() {
         <h1 className="c2-title">Nueva llamada</h1>
         <p className="c2-subtitle">Graba en vivo, sube un audio o pega la transcripción, aurisIQ se encarga del resto.</p>
         {isPresencial && (
-          <p className="c2-hint" style={{ textAlign: "center", marginTop: 4 }}>Modo consulta — solo graba y analiza</p>
+          <p className="c2-subtitle" style={{ fontSize: 13, marginTop: 2 }}>Modo consulta — solo graba y analiza</p>
         )}
       </div>
 
@@ -1090,24 +1090,6 @@ export default function NuevaLlamadaPage() {
         </>
         )}
 
-        {/* Action buttons — above textarea for mobile visibility */}
-        <div className="c2-file-row" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
-          <button
-            className="btn-submit"
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "12px 20px", fontSize: 15, fontWeight: 600 }}
-            onClick={() => orgId && rec.startRecording(orgId)}
-            disabled={status === "analyzing" || isTranscribing || transcription.length > 0}
-            type="button"
-          >
-            🎙️ Grabar llamada
-          </button>
-          <label className="c2-file-btn">
-            Buscar archivo
-            <input type="file" accept=".txt,.doc,.docx,.mp3,.m4a,.wav,.ogg,.opus,.webm,.mp4,audio/ogg,audio/opus" onChange={handleFileInput} hidden disabled={status === "analyzing" || isTranscribing} />
-          </label>
-          {fileMsg && <span className="c2-file-msg">{fileMsg}</span>}
-        </div>
-
         <div className="input-group">
           <label htmlFor="transcription" className="input-label">
             Transcripción de la llamada *
@@ -1138,21 +1120,6 @@ export default function NuevaLlamadaPage() {
           {editPct > 40 && (
             <p className="c2-edit-warning">Has editado una parte importante del texto ({editPct}%) — el análisis refleja tu versión.</p>
           )}
-          <button
-            className="c2-guide-link"
-            onClick={openGuide}
-            disabled={!selectedStage}
-            type="button"
-          >
-            {selectedStage ? "Ver mi guía antes de llamar" : "Selecciona una etapa para ver tu guía"}
-          </button>
-          {/* Buttons moved above textarea — see c2-file-row above */}
-          <p className="c2-rec-hint">
-            {mobile
-              ? "Pon tu llamada en altavoz y presiona grabar."
-              : "Selecciona la pestaña de tu llamada cuando se abra el selector."}
-          </p>
-          {rec.recError && <p className="c2-rec-error">{rec.recError}</p>}
           {isTranscribing && (
             <div className="c2-transcribing">
               <span className="c2-transcribing-spinner" />
@@ -1165,6 +1132,40 @@ export default function NuevaLlamadaPage() {
             </span>
           </div>
         </div>
+
+        {/* Secondary input: record or upload */}
+        <div className="c2-file-row" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            className="btn-submit"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 16px", fontSize: 14, fontWeight: 500 }}
+            onClick={() => orgId && rec.startRecording(orgId)}
+            disabled={status === "analyzing" || isTranscribing || transcription.length > 0}
+            type="button"
+          >
+            🎙️ Grabar llamada
+          </button>
+          <label className="c2-file-btn">
+            Buscar archivo
+            <input type="file" accept=".txt,.doc,.docx,.mp3,.m4a,.wav,.ogg,.opus,.webm,.mp4,audio/ogg,audio/opus" onChange={handleFileInput} hidden disabled={status === "analyzing" || isTranscribing} />
+          </label>
+          {fileMsg && <span className="c2-file-msg">{fileMsg}</span>}
+          {rec.recError && <p className="c2-rec-error">{rec.recError}</p>}
+        </div>
+        <p className="c2-rec-hint" style={{ marginTop: 4 }}>
+          {mobile
+            ? "Pon tu llamada en altavoz y presiona grabar."
+            : "Selecciona la pestaña de tu llamada cuando se abra el selector."}
+        </p>
+        {!isPresencial && (
+          <button
+            className="c2-guide-link"
+            onClick={openGuide}
+            disabled={!selectedStage}
+            type="button"
+          >
+            {selectedStage ? "Ver mi guía antes de llamar" : "Selecciona una etapa para ver tu guía"}
+          </button>
+        )}
 
         {!isPresencial && (
         <div className="input-group">
