@@ -879,6 +879,35 @@ body.has-nav {
   line-height: 1.5;
 }
 
+.c2-scorecard-toggle {
+  display: flex;
+  gap: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.c2-toggle-pill {
+  flex: 1;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  border: none;
+  background: var(--card-bg, #fff);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  text-align: center;
+}
+.c2-toggle-pill:not(:last-child) { border-right: 1px solid var(--border); }
+.c2-toggle-pill--active {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.c2-toggle-pill:disabled { opacity: 0.5; cursor: not-allowed; }
+
 .c2-form {
   display: flex;
   flex-direction: column;

@@ -214,7 +214,18 @@ export default function NuevaLlamadaPage() {
   const missingConfig = leadSources.length === 0 && !loading;
   const PRESENCIAL_VERTICALS = ['body_spa', 'dentistas', 'quiropractico'];
   const isPresencial = orgVertical !== "" && PRESENCIAL_VERTICALS.includes(orgVertical);
-  const canSubmit = (isPresencial || (selectedSource !== "" && !missingConfig)) && wordCount >= MIN_WORDS && status === "idle" && !isTranscribing && !stageNoScorecard;
+
+  // Unique scorecards from funnel stages (for multi-scorecard presencial toggle)
+  const uniqueScorecards = funnelStages
+    .filter(s => s.scorecard_id)
+    .reduce<{ id: string; name: string; stageId: string }[]>((acc, s) => {
+      if (!acc.some(x => x.id === s.scorecard_id)) acc.push({ id: s.scorecard_id!, name: s.name, stageId: s.id });
+      return acc;
+    }, []);
+  const isMultiScorecard = isPresencial && uniqueScorecards.length >= 2;
+  const needsStageChoice = isMultiScorecard && !selectedStage;
+
+  const canSubmit = (isPresencial ? !needsStageChoice : (selectedSource !== "" && !missingConfig)) && wordCount >= MIN_WORDS && status === "idle" && !isTranscribing && !stageNoScorecard;
   const charCount = transcription.length;
   const CHAR_LIMIT = 15000;
 
@@ -559,12 +570,15 @@ export default function NuevaLlamadaPage() {
   useEffect(() => {
     if (!isPresencial) return;
     setSelectedSource("");
-    setSelectedStage("");
     setProspectPhone("");
     sessionStorage.removeItem("c2_source");
-    sessionStorage.removeItem("c2_stage");
     sessionStorage.removeItem("c2_phone");
-  }, [isPresencial]);
+    // Only clear stage if single-scorecard (multi-scorecard needs user choice)
+    if (uniqueScorecards.length < 2) {
+      setSelectedStage("");
+      sessionStorage.removeItem("c2_stage");
+    }
+  }, [isPresencial, uniqueScorecards.length]);
 
   // ─── Submit ────────────────────────────────────────────────
 
@@ -577,7 +591,12 @@ export default function NuevaLlamadaPage() {
       if (stage?.scorecard_id) return stage.scorecard_id;
     }
 
-    // 2. Fallback: no stage selected — pick the org's active scorecard
+    // 2. Multi-scorecard org without stage = hard error (never guess)
+    if (uniqueScorecards.length >= 2) {
+      throw new Error("Selecciona una etapa antes de analizar");
+    }
+
+    // 3. Fallback: single-scorecard org, no stage — pick the org's active scorecard
     if (isSuperAdmin) {
       const { data: { session: s } } = await supabase.auth.getSession();
       const token = s?.access_token;
@@ -1024,6 +1043,23 @@ export default function NuevaLlamadaPage() {
           <p className="c2-subtitle" style={{ fontSize: 13, marginTop: 2 }}>Modo consulta — solo graba y analiza</p>
         )}
       </div>
+
+      {/* Scorecard toggle for multi-scorecard presencial orgs */}
+      {isMultiScorecard && (
+        <div className="c2-scorecard-toggle">
+          {uniqueScorecards.map(sc => (
+            <button
+              key={sc.id}
+              type="button"
+              className={`c2-toggle-pill${selectedStage === sc.stageId ? " c2-toggle-pill--active" : ""}`}
+              onClick={() => { setSelectedStage(sc.stageId); sessionStorage.setItem("c2_stage", sc.stageId); }}
+              disabled={status === "analyzing"}
+            >
+              {sc.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="c2-form">
         {!isPresencial && (
