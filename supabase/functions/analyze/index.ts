@@ -1,4 +1,4 @@
-// v19 — force cold start + debug phase_id logging
+// v20 — fix objecion/siguiente_accion regex offset
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import {
   getJob,
@@ -104,7 +104,7 @@ async function processJobAsync(jobId: string) {
     // 8. Parse
     const parsed = parseClaudeOutput(rawOutput, extractionPatterns || null);
     const phasesWithIds = matchPhaseIds(parsed.phases, scorecard.phases || []);
-    console.log(`[analyze v19] Parsed ${parsed.phases.length} phases, matched ${phasesWithIds.length}, phase_ids: ${JSON.stringify(phasesWithIds.map(p => p.phase_id))}`);
+    console.log(`[analyze v20] Parsed ${parsed.phases.length} phases, matched ${phasesWithIds.length}, phase_ids: ${JSON.stringify(phasesWithIds.map(p => p.phase_id))}`);
 
     // Diagnostic: low score with no descalification — write to background_jobs.error_message for visibility
     if (parsed.score_general !== null && parsed.score_general < 50 && parsed.descalificacion.length === 0) {

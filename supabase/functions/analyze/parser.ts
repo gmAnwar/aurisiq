@@ -69,12 +69,22 @@ export function parseClaudeOutput(
   const patronMatch = rawText.match(new RegExp(`${h("PATR[OÓ]N DE ERROR PRINCIPAL")}\\s*:?\\s*\\n+([\\s\\S]*?)(?:\\n---|\\n*$)`, "i"));
   if (patronMatch) result.patron_error = patronMatch[1].trim();
 
-  // Objecion principal — multiline capture, tolerates **Objeción principal:** or **Objeción:**
-  const objecionMatch = rawText.match(new RegExp(`${hc("Objeci[oó]n(?:\\s+principal)?")}\\n?([\\s\\S]+?)(?:\\n\\n|\\n---|\\n\\*{0,2}[A-Z])`, "i"));
+  // Objecion principal — look for header then capture until next section
+  const objecionMatch = rawText.match(new RegExp(
+    `${h("Objeci[oó]n(?:\\s+principal)?")}\\s*:?\\s*\\n?` +
+    `([\\s\\S]+?)` +
+    `(?:\\n\\n|\\n---|\\n\\*{0,2}(?:ACCI[OÓ]N|SIGUIENTE|PATR[OÓ]N|MOMENTO|SCORE|DESCALIF|ETAPA|CHECKLIST|PROSPECTO|Estado del lead|[A-Z][A-Za-z]{3,}[^a-z]))`,
+    "i"
+  ));
   if (objecionMatch) result.objecion_principal = objecionMatch[1].trim();
 
-  // Siguiente accion — multiline capture, tolerates **Acción concreta 24-48h:** etc.
-  const accionMatch = rawText.match(new RegExp(`${hc("(?:Acci[oó]n concreta[^\\n:]*|Siguiente acci[oó]n|Siguiente paso[^\\n:]*|Recomendaci[oó]n)")}\\n?([\\s\\S]+?)(?:\\n\\n|\\n---|\\n\\*{0,2}[A-Z])`, "i"));
+  // Siguiente accion — look for header then capture until next section
+  const accionMatch = rawText.match(new RegExp(
+    `${h("(?:Acci[oó]n concreta[^\\n]*|Siguiente acci[oó]n[^\\n]*|Siguiente paso[^\\n]*|Recomendaci[oó]n[^\\n]*)")}\\s*:?\\s*\\n?` +
+    `([\\s\\S]+?)` +
+    `(?:\\n\\n|\\n---|\\n\\*{0,2}(?:OBJECI[OÓ]N|PATR[OÓ]N|MOMENTO|SCORE|DESCALIF|ETAPA|CHECKLIST|PROSPECTO|Estado del lead|[A-Z][A-Za-z]{3,}[^a-z]))`,
+    "i"
+  ));
   if (accionMatch) result.siguiente_accion = accionMatch[1].trim();
 
   // Momento critico — supports "HEADER\ntext", "HEADER: text", "**HEADER**\ntext"
