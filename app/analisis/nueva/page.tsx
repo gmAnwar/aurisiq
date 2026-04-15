@@ -1152,9 +1152,11 @@ export default function NuevaLlamadaPage() {
           {rec.recError && <p className="c2-rec-error">{rec.recError}</p>}
         </div>
         <p className="c2-rec-hint" style={{ marginTop: 4 }}>
-          {mobile
-            ? "Pon tu llamada en altavoz y presiona grabar."
-            : "Selecciona la pestaña de tu llamada cuando se abra el selector."}
+          {isPresencial
+            ? "Coloca el celular sobre la mesa o cerca y presiona grabar."
+            : mobile
+              ? "Pon tu llamada en altavoz y presiona grabar."
+              : "Selecciona la pestaña de tu llamada cuando se abra el selector."}
         </p>
         {!isPresencial && (
           <button
@@ -1209,7 +1211,8 @@ export default function NuevaLlamadaPage() {
           </div>
           )}
 
-          {/* 2. Checklist — full list with missed-field highlights */}
+          {/* 2. Checklist — full list with missed-field highlights (hidden in presencial pre-recording) */}
+          {!isPresencial && (
           <details className="c2-collapse">
             <summary className="c2-collapse-summary">Checklist de referencia{checklistFields.length > 0 ? ` (${checklistFields.length} campos)` : ""}</summary>
             <div className="c2-collapse-body">
@@ -1247,8 +1250,10 @@ export default function NuevaLlamadaPage() {
               })()}
             </div>
           </details>
+          )}
 
-          {/* 3. Notas de llamada */}
+          {/* 3. Notas de llamada (hidden in presencial pre-recording — available during recording) */}
+          {!isPresencial && (
           <details className="c2-collapse">
             <summary className="c2-collapse-summary">Notas de llamada</summary>
             <div className="c2-collapse-body">
@@ -1264,6 +1269,7 @@ export default function NuevaLlamadaPage() {
               <p className="c2-hint">Estas notas se guardan con el análisis y son visibles en los resultados.</p>
             </div>
           </details>
+          )}
         </div>
 
         {status === "analyzing" && (
