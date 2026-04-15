@@ -44,6 +44,8 @@ interface Analysis {
   manager_note: string | null;
   notes: string | null;
   lead_estado: string | null;
+  lead_quality: string | null;
+  lead_outcome: string | null;
   related_analysis_id: string | null;
   legacy_note: string | null;
   highlights: { category_code: string; snippet: string; speaker: string; description: string }[] | null;
@@ -138,7 +140,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
 
       const { data: a, error: aErr } = await supabase
         .from("analyses")
-        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, notes, lead_estado, related_analysis_id, created_at, scorecard_id, legacy_note, highlights")
+        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, notes, lead_estado, lead_quality, lead_outcome, related_analysis_id, created_at, scorecard_id, legacy_note, highlights")
         .eq("id", id)
         .single();
 
@@ -351,6 +353,20 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
             {(analysis.categoria_descalificacion || []).map((code, i) => (
               <span key={i} className="c3-descal-pill">{descalLabels[code] || code}</span>
             ))}
+          </div>
+        )}
+        {/* Lead quality + outcome badges (new v22 fields) */}
+        {(analysis.lead_quality || analysis.lead_outcome) && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+            {analysis.lead_quality === "calificado" && <span className="c3-lead-badge c3-lead-calificado" style={{ fontSize: 12, padding: "3px 10px" }}>Lead calificado</span>}
+            {analysis.lead_quality === "indeterminado" && <span className="c3-lead-badge c3-lead-pendiente" style={{ fontSize: 12, padding: "3px 10px" }}>Calidad indeterminada</span>}
+            {analysis.lead_quality === "descalificado" && <span className="c3-lead-badge c3-lead-descartado" style={{ fontSize: 12, padding: "3px 10px" }}>Lead descalificado</span>}
+            {analysis.lead_outcome === "cerrado_completo" && <span className="c3-lead-badge c3-lead-calificado" style={{ fontSize: 12, padding: "3px 10px" }}>Cerrado completo</span>}
+            {analysis.lead_outcome === "cerrado_parcial" && <span className="c3-lead-badge c3-lead-calificado" style={{ fontSize: 12, padding: "3px 10px", background: "#d1fae5", borderColor: "#6ee7b7" }}>Cerrado parcial</span>}
+            {analysis.lead_outcome === "pospuesto_con_agenda" && <span className="c3-lead-badge" style={{ fontSize: 12, padding: "3px 10px", background: "#dbeafe", color: "#1e40af", borderColor: "#93c5fd" }}>Pospuesto con agenda</span>}
+            {analysis.lead_outcome === "pospuesto_sin_agenda" && <span className="c3-lead-badge c3-lead-pendiente" style={{ fontSize: 12, padding: "3px 10px" }}>Pospuesto sin agenda</span>}
+            {analysis.lead_outcome === "descalificado" && <span className="c3-lead-badge" style={{ fontSize: 12, padding: "3px 10px", background: "#f3f4f6", color: "#6b7280", borderColor: "#d1d5db" }}>Descalificado</span>}
+            {analysis.lead_outcome === "perdido" && <span className="c3-lead-badge c3-lead-descartado" style={{ fontSize: 12, padding: "3px 10px" }}>Perdido</span>}
           </div>
         )}
         {vertical !== "financiero" && vertical !== "automotriz" && analysis.sale_reason && analysis.sale_reason !== "No mencionado" && (

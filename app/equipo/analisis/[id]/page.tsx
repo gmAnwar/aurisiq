@@ -40,7 +40,7 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
       setUserId(session.userId);
 
       const { data: a } = await supabase.from("analyses")
-        .select("id, user_id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, lead_estado, created_at, organization_id, manager_note, prospect_name, prospect_zone, property_type, sale_reason, prospect_phone, checklist_results, legacy_note, highlights")
+        .select("id, user_id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, lead_estado, lead_quality, lead_outcome, created_at, organization_id, manager_note, prospect_name, prospect_zone, property_type, sale_reason, prospect_phone, checklist_results, legacy_note, highlights")
         .eq("id", id).single();
 
       if (!a) { setError("Análisis no encontrado."); setLoading(false); return; }
@@ -186,6 +186,20 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
             <div className="c3-lead-badge c3-lead-pendiente">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               Lead pendiente
+            </div>
+          )}
+          {/* Lead quality + outcome badges */}
+          {((analysis.lead_quality as string | null) || (analysis.lead_outcome as string | null)) && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+              {(analysis.lead_quality as string | null) === "calificado" && <span className="c3-lead-badge c3-lead-calificado" style={{ fontSize: 12, padding: "3px 10px" }}>Lead calificado</span>}
+              {(analysis.lead_quality as string | null) === "indeterminado" && <span className="c3-lead-badge c3-lead-pendiente" style={{ fontSize: 12, padding: "3px 10px" }}>Calidad indeterminada</span>}
+              {(analysis.lead_quality as string | null) === "descalificado" && <span className="c3-lead-badge c3-lead-descartado" style={{ fontSize: 12, padding: "3px 10px" }}>Lead descalificado</span>}
+              {(analysis.lead_outcome as string | null) === "cerrado_completo" && <span className="c3-lead-badge c3-lead-calificado" style={{ fontSize: 12, padding: "3px 10px" }}>Cerrado completo</span>}
+              {(analysis.lead_outcome as string | null) === "cerrado_parcial" && <span className="c3-lead-badge c3-lead-calificado" style={{ fontSize: 12, padding: "3px 10px", background: "#d1fae5", borderColor: "#6ee7b7" }}>Cerrado parcial</span>}
+              {(analysis.lead_outcome as string | null) === "pospuesto_con_agenda" && <span className="c3-lead-badge" style={{ fontSize: 12, padding: "3px 10px", background: "#dbeafe", color: "#1e40af", borderColor: "#93c5fd" }}>Pospuesto con agenda</span>}
+              {(analysis.lead_outcome as string | null) === "pospuesto_sin_agenda" && <span className="c3-lead-badge c3-lead-pendiente" style={{ fontSize: 12, padding: "3px 10px" }}>Pospuesto sin agenda</span>}
+              {(analysis.lead_outcome as string | null) === "descalificado" && <span className="c3-lead-badge" style={{ fontSize: 12, padding: "3px 10px", background: "#f3f4f6", color: "#6b7280", borderColor: "#d1d5db" }}>Descalificado</span>}
+              {(analysis.lead_outcome as string | null) === "perdido" && <span className="c3-lead-badge c3-lead-descartado" style={{ fontSize: 12, padding: "3px 10px" }}>Perdido</span>}
             </div>
           )}
         </div>
