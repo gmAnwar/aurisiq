@@ -9,6 +9,8 @@ import {
   putRecording,
   countPending,
   checkStorageAvailable,
+  getIncompleteRecordings,
+  deleteRecording,
   RecordingLock,
   type PendingRecording,
 } from "../../lib/recordings-queue";
@@ -37,6 +39,10 @@ export default function GrabarPage() {
   const [pageState, setPageState] = useState<PageState>("idle");
   const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState("");
+  const [recoveryRec, setRecoveryRec] = useState<PendingRecording | null>(null);
+
+  // Auto-save ref
+  const autoSaveIdRef = useRef<string | null>(null);
 
   // Multi-tab lock
   const lockRef = useRef<RecordingLock | null>(null);
@@ -73,6 +79,20 @@ export default function GrabarPage() {
       setFunnelStages(stagesRes.data || []);
       setPendingCount(count);
       if (!storage.available) setStorageWarning(true);
+
+      // Check for incomplete recordings (crash recovery)
+      const incomplete = await getIncompleteRecordings(session.userId);
+      if (incomplete.length > 0) {
+        const newest = incomplete[0];
+        const ageMin = (Date.now() - new Date(newest.created_at).getTime()) / 60000;
+        if (ageMin > 5) {
+          setRecoveryRec(newest);
+        } else {
+          // Recent incomplete — silently delete (probably just finished)
+          for (const r of incomplete) await deleteRecording(r.id);
+        }
+      }
+
       setLoading(false);
     }
     init();
@@ -83,6 +103,48 @@ export default function GrabarPage() {
     lock.onChange(setLockedByOther);
     return () => lock.destroy();
   }, []);
+
+  // Auto-save metadata every 30s during recording (crash recovery marker)
+  useEffect(() => {
+    if (rec.recMode !== "recording" && rec.recMode !== "paused") {
+      // Recording stopped — clean up incomplete marker
+      if (autoSaveIdRef.current) {
+        deleteRecording(autoSaveIdRef.current).catch(() => {});
+        autoSaveIdRef.current = null;
+      }
+      return;
+    }
+    if (!userId || !orgId) return;
+
+    const saveId = autoSaveIdRef.current || crypto.randomUUID();
+    autoSaveIdRef.current = saveId;
+
+    const save = () => {
+      putRecording({
+        id: saveId,
+        audio_blob: new Blob([]), // placeholder — actual audio not available until stop
+        duration_seconds: rec.recElapsed,
+        created_at: new Date().toISOString(),
+        organization_id: orgId,
+        user_id: userId,
+        scorecard_id: null,
+        funnel_stage_id: null,
+        prospect_name: null,
+        notes: callNotes || null,
+        status: "pending",
+        attempt_count: 0,
+        last_error: null,
+        uploaded_audio_url: null,
+        analysis_id: null,
+        incomplete: true,
+        mime_type: "audio/webm",
+      }).catch(() => {});
+    };
+
+    save(); // Save immediately on start
+    const interval = setInterval(save, 30000);
+    return () => clearInterval(interval);
+  }, [rec.recMode, userId, orgId]);
 
   // Track recording state changes
   useEffect(() => {
@@ -430,6 +492,30 @@ export default function GrabarPage() {
   // ─── Idle state — Hero button ─────────────────────────────
   return (
     <div className="grabar-container">
+      {/* Recovery modal for incomplete recordings */}
+      {recoveryRec && (
+        <div style={{ width: "100%", maxWidth: 400, padding: 16, background: "#fef9c3", border: "1px solid #fde047", borderRadius: 10, marginBottom: 16 }}>
+          <p style={{ fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
+            Grabacion incompleta encontrada
+          </p>
+          <p style={{ fontSize: 13, color: "#854d0e", marginBottom: 12 }}>
+            {Math.round((Date.now() - new Date(recoveryRec.created_at).getTime()) / 60000)} min ago · {Math.round(recoveryRec.duration_seconds / 60)} min grabados
+          </p>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              className="btn-submit"
+              style={{ fontSize: 13, padding: "8px 14px" }}
+              onClick={() => {
+                // Can't recover actual audio (wasn't saved), just acknowledge
+                deleteRecording(recoveryRec.id);
+                setRecoveryRec(null);
+              }}
+            >
+              Descartar
+            </button>
+          </div>
+        </div>
+      )}
       <div className="grabar-hero">
         {storageWarning && (
           <p style={{ fontSize: 12, color: "#854d0e", background: "#fef9c3", padding: "6px 12px", borderRadius: 6, textAlign: "center" }}>
