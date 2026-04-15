@@ -36,7 +36,7 @@ export default function NuevaLlamadaPage() {
 
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [funnelStages, setFunnelStages] = useState<FunnelStage[]>([]);
-  const [orgVertical, setOrgVertical] = useState<string>("inmobiliario");
+  const [orgVertical, setOrgVertical] = useState<string>("");
   const [checklistFields, setChecklistFields] = useState<ChecklistField[]>([]);
   const [selectedSource, setSelectedSource] = useState("");
   const [selectedStage, setSelectedStage] = useState("");
@@ -212,7 +212,9 @@ export default function NuevaLlamadaPage() {
   // Stage is optional: Claude auto-detects it from the transcription
   // when the user leaves it blank. User can still choose a stage manually.
   const missingConfig = leadSources.length === 0 && !loading;
-  const canSubmit = selectedSource !== "" && wordCount >= MIN_WORDS && status === "idle" && !isTranscribing && !missingConfig && !stageNoScorecard;
+  const PRESENCIAL_VERTICALS = ['body_spa', 'dentistas', 'quiropractico'];
+  const isPresencial = orgVertical !== "" && PRESENCIAL_VERTICALS.includes(orgVertical);
+  const canSubmit = (isPresencial || (selectedSource !== "" && !missingConfig)) && wordCount >= MIN_WORDS && status === "idle" && !isTranscribing && !stageNoScorecard;
   const charCount = transcription.length;
   const CHAR_LIMIT = 15000;
 
@@ -552,6 +554,17 @@ export default function NuevaLlamadaPage() {
       setMissedFields(sorted);
     })();
   }, [selectedStage, userId]);
+
+  // Clear irrelevant fields for presencial verticals
+  useEffect(() => {
+    if (!isPresencial) return;
+    setSelectedSource("");
+    setSelectedStage("");
+    setProspectPhone("");
+    sessionStorage.removeItem("c2_source");
+    sessionStorage.removeItem("c2_stage");
+    sessionStorage.removeItem("c2_phone");
+  }, [isPresencial]);
 
   // ─── Submit ────────────────────────────────────────────────
 
@@ -999,9 +1012,14 @@ export default function NuevaLlamadaPage() {
         )}
         <h1 className="c2-title">Nueva llamada</h1>
         <p className="c2-subtitle">Graba en vivo, sube un audio o pega la transcripción, aurisIQ se encarga del resto.</p>
+        {isPresencial && (
+          <p className="c2-hint" style={{ textAlign: "center", marginTop: 4 }}>Modo consulta — solo graba y analiza</p>
+        )}
       </div>
 
       <div className="c2-form">
+        {!isPresencial && (
+        <>
         <div className="input-group">
           <label htmlFor="funnel-stage" className="input-label">
             Etapa del embudo <span style={{ fontWeight: 400, color: "var(--ink-light)" }}>(opcional — se detecta automáticamente)</span>
@@ -1069,6 +1087,8 @@ export default function NuevaLlamadaPage() {
           />
           <p className="c2-hint">Si lo dejas vacío, lo detectamos automáticamente de la transcripción.</p>
         </div>
+        </>
+        )}
 
         {/* Action buttons — above textarea for mobile visibility */}
         <div className="c2-file-row" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
@@ -1146,6 +1166,7 @@ export default function NuevaLlamadaPage() {
           </div>
         </div>
 
+        {!isPresencial && (
         <div className="input-group">
           <label htmlFor="notes" className="input-label">
             Notas de contexto (opcional)
@@ -1162,6 +1183,7 @@ export default function NuevaLlamadaPage() {
           />
           <p className="c2-hint">Contexto adicional que ayude a interpretar mejor esta llamada.</p>
         </div>
+        )}
 
         {/* Collapsible reference panels */}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
