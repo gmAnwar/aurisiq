@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { RecordingProvider } from "../contexts/RecordingContext";
 import RecordingBar from "./RecordingBar";
+import RecordingsBanner from "./RecordingsBanner";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getSession } from "../../lib/auth";
 
 const ALWAYS_HIDE_PREFIX = ["/admin", "/login", "/auth", "/direccion", "/join", "/signup", "/forgot-password", "/reset-password"];
-const ALWAYS_HIDE_EXACT = ["/analisis/nueva"];
+const ALWAYS_HIDE_EXACT = ["/analisis/nueva", "/grabar"];
 
 function MobileFAB() {
   const pathname = usePathname();
@@ -50,6 +51,7 @@ export default function RecordingShell({ children }: { children: React.ReactNode
   return (
     <RecordingProvider>
       <RecordingBar />
+      <RecordingsBanner />
       {children}
       <MobileFAB />
     </RecordingProvider>
