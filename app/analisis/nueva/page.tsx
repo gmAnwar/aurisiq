@@ -569,7 +569,15 @@ export default function NuevaLlamadaPage() {
   // ─── Submit ────────────────────────────────────────────────
 
   // ─── Shared: resolve scorecard before submit ──────────────
+  // Rule: 1 funnel_stage = 1 scorecard. Always derive from stage first.
   const resolveScorecard = async (submitOrgId: string): Promise<string> => {
+    // 1. If a stage is selected, use its mapped scorecard_id (canonical path)
+    if (selectedStage) {
+      const stage = funnelStages.find(s => s.id === selectedStage);
+      if (stage?.scorecard_id) return stage.scorecard_id;
+    }
+
+    // 2. Fallback: no stage selected — pick the org's active scorecard
     if (isSuperAdmin) {
       const { data: { session: s } } = await supabase.auth.getSession();
       const token = s?.access_token;
