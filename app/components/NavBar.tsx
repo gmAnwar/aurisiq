@@ -13,6 +13,7 @@ interface NavItem {
 }
 
 import { hasAnyRole, type UserRole } from "../../lib/auth";
+import { isPresencial as isPresencialVertical } from "../../lib/verticals";
 import { Sun, BarChart3, CalendarRange, MessageSquare, Users, FolderOpen, BookOpen, FileBarChart, Settings, ClipboardList, TrendingUp, UserCircle, LayoutDashboard, Building2, Bell, ShieldCheck, Mic, ListChecks, type LucideIcon } from "lucide-react";
 
 interface RoleNavItem extends NavItem {
@@ -194,7 +195,7 @@ export default function NavBar({ role, roles, userName, userEmail, orgSlug, role
       if (data?.vertical) setOrgVertical(data.vertical);
     })();
   }, [activeOrgId]);
-  const isPresencial = orgVertical !== "" && orgVertical !== "financiero";
+  const isPresencial = isPresencialVertical(orgVertical);
 
   // In presencial orgs, CTA routes to /grabar and the standalone "Grabar"
   // sidebar item is redundant — hide it.

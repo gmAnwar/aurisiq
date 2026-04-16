@@ -15,6 +15,7 @@ import {
   type PendingRecording,
 } from "../../lib/recordings-queue";
 import { uploadWithRetry } from "../../lib/recording-upload";
+import { isPresencial as isPresencialVertical } from "../../lib/verticals";
 
 interface FunnelStage {
   id: string;
@@ -58,7 +59,7 @@ export default function GrabarPage() {
   const animFrameRef = useRef<number | null>(null);
 
   // Recording limits — everything is presencial except financiero
-  const isPresencial = orgVertical !== "" && orgVertical !== "financiero";
+  const isPresencial = isPresencialVertical(orgVertical);
   const maxRecordingMin = isPresencial ? 50 : 25;
   const maxRecordingSec = maxRecordingMin * 60;
 

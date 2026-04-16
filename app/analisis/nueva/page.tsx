@@ -7,6 +7,7 @@ import { computeEditPercentage } from "../../../lib/text";
 import { useRecording } from "../../contexts/RecordingContext";
 import MobileSelect from "../../components/MobileSelect";
 import { WORKER_URL } from "../../../lib/config";
+import { isPresencial as isPresencialVertical } from "../../../lib/verticals";
 
 interface GuideField { field_name: string; phrases: string[]; }
 interface GuidePhase { phase_name: string; transition?: string; fields?: GuideField[]; phrases?: string[]; }
@@ -227,7 +228,7 @@ export default function NuevaLlamadaPage() {
   // when the user leaves it blank. User can still choose a stage manually.
   const missingConfig = leadSources.length === 0 && !loading;
   // Everything is presencial except financiero
-  const isPresencial = orgVertical !== "" && orgVertical !== "financiero";
+  const isPresencial = isPresencialVertical(orgVertical);
 
   // Unique scorecards from funnel stages (for multi-scorecard presencial toggle)
   const uniqueScorecards = funnelStages

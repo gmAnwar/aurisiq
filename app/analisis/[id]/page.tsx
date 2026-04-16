@@ -8,6 +8,7 @@ import { requireAuth } from "../../../lib/auth";
 import { stripJson } from "../../../lib/text";
 import EditableField from "../../components/EditableName";
 import TranscriptEditor from "../../components/TranscriptEditor";
+import { isFinanciero } from "../../../lib/verticals";
 
 interface Phase {
   phase_name: string;
@@ -283,7 +284,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
           <EditableField analysisId={analysis.id} field="prospect_name" currentValue={analysis.prospect_name} placeholder="Sin nombre" onSave={(v) => handleFieldSave("prospect_name", v)} />
           <span style={{ fontWeight: 400, fontSize: 14, color: "var(--ink-light)" }}>
             {" · "}<EditableField analysisId={analysis.id} field="prospect_zone" currentValue={analysis.prospect_zone} placeholder="Zona" onSave={(v) => handleFieldSave("prospect_zone", v)} />
-            {vertical === "financiero" ? (
+            {isFinanciero(vertical) ? (
               <>
                 {" · "}<EditableField
                   analysisId={analysis.id}
