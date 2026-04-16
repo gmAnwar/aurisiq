@@ -39,7 +39,7 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
 
       const [analysesRes, phasesRes, descalRes, teamPhasesRes, objRes, todayRes, stagesRes] = await Promise.all([
-        supabase.from("analyses").select("id, score_general, clasificacion, created_at, categoria_descalificacion, lead_estado, patron_error, siguiente_accion, prospect_name, funnel_stage_id, property_type, business_type")
+        supabase.from("analyses").select("id, score_general, clasificacion, created_at, categoria_descalificacion, lead_quality, patron_error, siguiente_accion, prospect_name, funnel_stage_id, property_type, business_type")
           .eq("user_id", id).eq("organization_id", me.organization_id).eq("status", "completado").order("created_at", { ascending: false }).limit(100),
         supabase.from("analysis_phases").select("phase_name, score, score_max, analysis_id")
           .eq("user_id", id).eq("organization_id", me.organization_id).order("created_at", { ascending: false }).limit(500),
@@ -186,12 +186,12 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
                           {new Date(a.created_at).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
                           {a.funnel_stage_id && stageMap[a.funnel_stage_id] ? ` · ${stageMap[a.funnel_stage_id]}` : ""}
                           {(a.property_type || a.business_type) ? ` · ${a.property_type || a.business_type}` : ""}
-                          {" · "}{(a as { lead_estado?: string }).lead_estado === "descartado" ? (
-                            <span className="c1-pill-inline c1-pill-red">{codes.length > 0 ? (descalMap[codes[0]] || codes[0]) : "Descartado"}</span>
-                          ) : (a as { lead_estado?: string }).lead_estado === "calificado" ? (
+                          {" · "}{(a as { lead_quality?: string }).lead_quality === "descalificado" ? (
+                            <span className="c1-pill-inline c1-pill-red">{codes.length > 0 ? (descalMap[codes[0]] || codes[0]) : "Descalificado"}</span>
+                          ) : (a as { lead_quality?: string }).lead_quality === "calificado" ? (
                             <span className="c1-pill-inline c1-pill-green">Calificado</span>
                           ) : (
-                            <span className="c1-pill-inline c1-pill-yellow">Pendiente</span>
+                            <span className="c1-pill-inline c1-pill-yellow">Indeterminado</span>
                           )}
                         </span>
                       </div>

@@ -45,7 +45,6 @@ interface Analysis {
   checklist_results: ChecklistItem[] | null;
   manager_note: string | null;
   notes: string | null;
-  lead_estado: string | null;
   lead_quality: string | null;
   lead_outcome: string | null;
   related_analysis_id: string | null;
@@ -142,7 +141,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
 
       const { data: a, error: aErr } = await supabase
         .from("analyses")
-        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, notes, lead_estado, lead_quality, lead_outcome, related_analysis_id, created_at, scorecard_id, legacy_note, highlights")
+        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, notes, lead_quality, lead_outcome, related_analysis_id, created_at, scorecard_id, legacy_note, highlights")
         .eq("id", id)
         .single();
 
@@ -333,24 +332,9 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
           </span>
         </h1>
         <p className="c3-prospect-meta">{dateStr} · {timeStr}</p>
-        {/* Lead estado badge — separate from score */}
-        {analysis.lead_estado === "descartado" ? (
-          <div className="c3-lead-badge c3-lead-descartado">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-            Lead descartado
-          </div>
-        ) : analysis.lead_estado === "calificado" ? (
-          <div className="c3-lead-badge c3-lead-calificado">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-            Lead calificado
-          </div>
-        ) : (
-          <div className="c3-lead-badge c3-lead-pendiente">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            Lead pendiente
-          </div>
-        )}
-        {analysis.lead_estado === "descartado" && (analysis.categoria_descalificacion || []).length > 0 && (
+        {/* Lead quality badge */}
+        <LeadBadge quality={analysis.lead_quality} />
+        {(analysis.lead_quality === "descalificado" || (analysis.categoria_descalificacion && analysis.categoria_descalificacion.length > 0)) && (analysis.categoria_descalificacion || []).length > 0 && (
           <div className="c3-descal-reasons">
             {(analysis.categoria_descalificacion || []).map((code, i) => (
               <span key={i} className="c3-descal-pill">{descalLabels[code] || code}</span>
@@ -425,22 +409,6 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
           </div>
         </div>
       )}
-
-      {/* Descalification pills */}
-      <div className="c3-section">
-        {analysis.lead_estado === "descartado" && <span className="c3-pill c3-pill-red">Lead descartado</span>}
-        {analysis.lead_estado === "calificado" && <span className="c3-pill c3-pill-green">Lead calificado</span>}
-        {(analysis.lead_estado === "pendiente" || !analysis.lead_estado) && <span className="c3-pill c3-pill-yellow">Lead pendiente</span>}
-        {analysis.lead_estado === "descartado" && (analysis.categoria_descalificacion || []).length > 0 && (
-          <div className="c3-pill-list">
-            {(analysis.categoria_descalificacion || []).map((code, i) => (
-              <span key={i} className={`c3-pill ${i === 0 ? "c3-pill-primary" : "c3-pill-secondary"}`}>
-                {descalLabels[code] || code}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
 
       {/* Legacy analysis banner */}
       {analysis.legacy_note && (

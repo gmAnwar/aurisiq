@@ -214,7 +214,6 @@ export async function writeAnalysisResults(
     objecion_principal: parsed.objecion_principal,
     siguiente_accion: parsed.siguiente_accion,
     conversion_discrepancy: discrepancy,
-    llm_lead_status: parsed.lead_status,
     lead_quality: parsed.lead_quality,
     lead_outcome: parsed.lead_outcome,
     categoria_descalificacion: validDescal.length > 0 ? validDescal : [],

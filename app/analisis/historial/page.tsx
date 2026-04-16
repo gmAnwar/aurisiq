@@ -23,7 +23,6 @@ interface Analysis {
   created_at: string;
   funnel_stage_id: string | null;
   categoria_descalificacion: string[] | null;
-  lead_estado: string | null;
   lead_quality: string | null;
   lead_outcome: string | null;
   prospect_name: string | null;
@@ -114,7 +113,7 @@ function HistorialPage() {
 
       const [analysesRes, stagesRes] = await Promise.all([
         supabase.from("analyses")
-          .select("id, score_general, clasificacion, created_at, funnel_stage_id, categoria_descalificacion, lead_estado, lead_quality, lead_outcome, prospect_name, prospect_zone")
+          .select("id, score_general, clasificacion, created_at, funnel_stage_id, categoria_descalificacion, lead_quality, lead_outcome, prospect_name, prospect_zone")
           .eq("user_id", session.userId).eq("organization_id", session.organizationId).eq("status", "completado")
           .order("created_at", { ascending: false }),
         supabase.from("funnel_stages").select("id, name")
@@ -368,11 +367,11 @@ function HistorialPage() {
                           {" · "}
                           {outcomeBadge
                             ? <span className={`c1-pill-inline ${outcomeBadge.cls}`}>{outcomeBadge.label}</span>
-                            : a.lead_estado === "descartado"
-                              ? <span className="c1-pill-inline c1-pill-red">Descartado</span>
-                              : a.lead_estado === "calificado"
+                            : a.lead_quality === "descalificado"
+                              ? <span className="c1-pill-inline c1-pill-red">Descalificado</span>
+                              : a.lead_quality === "calificado"
                                 ? <span className="c1-pill-inline c1-pill-green">Calificado</span>
-                                : <span className="c1-pill-inline c1-pill-yellow">Pendiente</span>
+                                : <span className="c1-pill-inline c1-pill-yellow">Indeterminado</span>
                           }
                         </span>
                       </div>
