@@ -205,7 +205,7 @@ export default function GrabarPage() {
       }
     };
     draw();
-  }, [rec.analyserNode]);
+  }, [rec.analyserNode, rec.recMode]);
 
   useEffect(() => {
     if (rec.recMode === "recording" && rec.analyserNode && canvasRef.current) {
