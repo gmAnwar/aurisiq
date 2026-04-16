@@ -264,6 +264,7 @@ export default function GrabarPage() {
 
   // ─── Save to queue (analyze later) ────────────────────────
   const handleSaveToQueue = async () => {
+    if (submitting) return; // Guard against poll re-entry on error
     if (!userId || !orgId || !savedTranscription) return;
     setSubmitting(true);
     setSubmitMsg("Guardando...");
@@ -303,6 +304,7 @@ export default function GrabarPage() {
 
   // ─── Analyze now (inline) ─────────────────────────────────
   const handleAnalyzeNow = async () => {
+    if (submitting) return; // Guard against double-click / re-entry
     if (!userId || !orgId || !savedTranscription) return;
 
     const stageId = selectedStage || (uniqueScorecards.length === 1 ? uniqueScorecards[0].stageId : "");

@@ -68,6 +68,8 @@ export default function NuevaLlamadaPage() {
   const [analysisPct, setAnalysisPct] = useState(0);
   const [analysisPhase, setAnalysisPhase] = useState("");
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guidePhases, setGuidePhases] = useState<GuidePhase[]>([]);
   const [guideLoading, setGuideLoading] = useState(false);
@@ -690,7 +692,8 @@ export default function NuevaLlamadaPage() {
 
     const analysisId = data.analysis_id;
 
-    const pollInterval = setInterval(async () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
       try {
         const statusRes = await fetch(WORKER_URL, {
           method: "POST",
@@ -700,11 +703,11 @@ export default function NuevaLlamadaPage() {
         const statusData = await statusRes.json();
 
         if (statusData.status === "completado") {
-          clearInterval(pollInterval);
+          if (pollRef.current) clearInterval(pollRef.current);
           if (progressRef.current) clearInterval(progressRef.current);
           await redirectToResult(analysisId);
         } else if (statusData.status === "error") {
-          clearInterval(pollInterval);
+          if (pollRef.current) clearInterval(pollRef.current);
           if (progressRef.current) clearInterval(progressRef.current);
           setStatus("error");
           setErrorMsg(statusData.error_message || (isPresencial ? "Hubo un problema al analizar tu consulta. Intenta de nuevo." : "Hubo un problema al analizar tu llamada. Intenta de nuevo."));
@@ -714,8 +717,8 @@ export default function NuevaLlamadaPage() {
       }
     }, 3000);
 
-    setTimeout(() => {
-      clearInterval(pollInterval);
+    const timeoutId1 = setTimeout(() => {
+      if (pollRef.current) clearInterval(pollRef.current);
       setStatus((current) => {
         if (current === "analyzing") {
           setErrorMsg("El análisis está tomando más tiempo de lo esperado. Intenta de nuevo en unos minutos.");
@@ -724,6 +727,7 @@ export default function NuevaLlamadaPage() {
         return current;
       });
     }, 120000);
+    timeoutRefs.current.push(timeoutId1);
   };
 
   // ─── Path B: Supabase Edge Function (flag=true) ──────────
@@ -764,7 +768,8 @@ export default function NuevaLlamadaPage() {
     const jobId = job.id;
     let softWarningShown = false;
 
-    const pollInterval = setInterval(async () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
       try {
         const { data } = await supabase
           .from("background_jobs")
@@ -773,7 +778,7 @@ export default function NuevaLlamadaPage() {
           .single();
 
         if (data?.status === "completed") {
-          clearInterval(pollInterval);
+          if (pollRef.current) clearInterval(pollRef.current);
           if (progressRef.current) clearInterval(progressRef.current);
           const analysisId = (data.result as { analysis_id: string })?.analysis_id;
           if (analysisId) {
@@ -783,7 +788,7 @@ export default function NuevaLlamadaPage() {
             setErrorMsg("Análisis completado pero no se encontró el resultado. Revisa tu historial.");
           }
         } else if (data?.status === "error" || data?.status === "cancelled") {
-          clearInterval(pollInterval);
+          if (pollRef.current) clearInterval(pollRef.current);
           if (progressRef.current) clearInterval(progressRef.current);
           setStatus("error");
           setErrorMsg(data.error_message || (isPresencial ? "Hubo un problema al analizar tu consulta. Intenta de nuevo." : "Hubo un problema al analizar tu llamada. Intenta de nuevo."));
@@ -794,16 +799,17 @@ export default function NuevaLlamadaPage() {
     }, 3000);
 
     // Soft warning at 90s — don't kill anything
-    setTimeout(() => {
+    const softTimeoutId = setTimeout(() => {
       if (!softWarningShown) {
         softWarningShown = true;
         setAnalysisPhase("El análisis está tardando más de lo esperado. Puedes cerrar esta pantalla y revisar tu historial en unos minutos.");
       }
     }, 90000);
+    timeoutRefs.current.push(softTimeoutId);
 
     // Hard timeout at 180s — stop polling, show error
-    setTimeout(() => {
-      clearInterval(pollInterval);
+    const hardTimeoutId = setTimeout(() => {
+      if (pollRef.current) clearInterval(pollRef.current);
       setStatus((current) => {
         if (current === "analyzing") {
           if (progressRef.current) clearInterval(progressRef.current);
@@ -813,7 +819,18 @@ export default function NuevaLlamadaPage() {
         return current;
       });
     }, 180000);
+    timeoutRefs.current.push(hardTimeoutId);
   };
+
+  // ─── Global cleanup on unmount ────────────────────────────
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (progressRef.current) clearInterval(progressRef.current);
+      timeoutRefs.current.forEach(clearTimeout);
+      timeoutRefs.current = [];
+    };
+  }, []);
 
   // ─── Main submit handler ─────────────────────────────────
   const handleSubmit = async () => {

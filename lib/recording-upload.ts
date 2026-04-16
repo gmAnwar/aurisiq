@@ -32,11 +32,10 @@ export async function uploadRecording(rec: PendingRecording): Promise<void> {
 
     if (uploadError) throw new Error(`Storage upload failed: ${uploadError.message}`);
 
-    // Get public URL for the uploaded file
-    const { data: urlData } = supabase.storage.from("recordings").getPublicUrl(path);
-
+    // Store relative path only (Edge Function concatenates with SUPABASE_URL + /storage/v1/object/recordings/)
+    // NEVER store the full publicUrl — it would result in duplicated URLs
     await updateRecordingStatus(rec.id, "uploaded", {
-      uploaded_audio_url: urlData?.publicUrl || path,
+      uploaded_audio_url: path,
       attempt_count: rec.attempt_count + 1,
       last_error: null,
     });
