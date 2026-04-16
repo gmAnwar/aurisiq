@@ -198,7 +198,7 @@ export default function GrabarPage() {
         const barHeight = Math.max(2, value * h * 0.85);
         const x = i * (barWidth + 2);
         const y = (h - barHeight) / 2;
-        ctx.fillStyle = value > 0.4 ? "#c87840" : "rgba(200,120,64,0.3)";
+        ctx.fillStyle = value > 0.4 ? "#06b6d4" : "rgba(6,182,212,0.3)";
         ctx.beginPath();
         ctx.roundRect(x, y, barWidth, barHeight, 2);
         ctx.fill();
