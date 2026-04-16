@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
 import {
   getAllRecordings,
@@ -10,7 +12,7 @@ import {
   downloadRecordingBlob,
   type PendingRecording,
 } from "../../lib/recordings-queue";
-import { uploadRecording, submitForAnalysis, checkAnalysisStatus } from "../../lib/recording-upload";
+import { uploadRecording, submitForAnalysis } from "../../lib/recording-upload";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pendiente",
@@ -31,17 +33,59 @@ const STATUS_CLASS: Record<string, string> = {
 };
 
 export default function GrabacionesPendientesPage() {
+  const router = useRouter();
   const [recordings, setRecordings] = useState<PendingRecording[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [justCompleted, setJustCompleted] = useState<string | null>(null); // track transition
 
   const refresh = async (uid?: string) => {
     const id = uid || userId;
     if (!id) return;
     const all = await getAllRecordings(id);
-    setRecordings(all.filter(r => !r.incomplete));
+
+    // Resolve real analysis_id for recordings stuck in "analyzing" or
+    // "completed" where analysis_id actually stores background_job.id.
+    // The background_jobs.result->>'analysis_id' is the real analyses.id.
+    for (const rec of all) {
+      if (!rec.analysis_id) continue;
+      if (rec.status !== "analyzing" && rec.status !== "completed") continue;
+
+      const { data: job } = await supabase
+        .from("background_jobs")
+        .select("status, result")
+        .eq("id", rec.analysis_id) // currently stores job.id
+        .maybeSingle();
+
+      if (!job) continue;
+
+      const realAnalysisId = (job.result as { analysis_id?: string })?.analysis_id;
+
+      if (job.status === "completed" && realAnalysisId) {
+        // Only update if we haven't fixed it yet (analysis_id still points to job.id)
+        if (rec.analysis_id !== realAnalysisId || rec.status !== "completed") {
+          await updateRecordingStatus(rec.id, "completed", { analysis_id: realAnalysisId });
+          // Auto-navigate if this recording just completed (was analyzing before)
+          if (rec.status === "analyzing") {
+            setJustCompleted(realAnalysisId);
+          }
+        }
+      } else if (job.status === "error") {
+        await updateRecordingStatus(rec.id, "error", { last_error: "Analisis fallo" });
+      }
+    }
+
+    const updated = await getAllRecordings(id);
+    setRecordings(updated.filter(r => !r.incomplete));
   };
+
+  // Auto-navigate when a recording just completed
+  useEffect(() => {
+    if (justCompleted) {
+      router.push(`/analisis/${justCompleted}`);
+    }
+  }, [justCompleted, router]);
 
   useEffect(() => {
     async function init() {
