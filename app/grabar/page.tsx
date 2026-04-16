@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
@@ -16,6 +16,7 @@ import {
 } from "../../lib/recordings-queue";
 import { uploadWithRetry } from "../../lib/recording-upload";
 import { isPresencial as isPresencialVertical } from "../../lib/verticals";
+import WaveformCanvas from "../components/WaveformCanvas";
 
 interface FunnelStage {
   id: string;
@@ -54,9 +55,7 @@ export default function GrabarPage() {
   const lockRef = useRef<RecordingLock | null>(null);
   const [lockedByOther, setLockedByOther] = useState(false);
 
-  // Waveform
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const animFrameRef = useRef<number | null>(null);
+  // Waveform handled by <WaveformCanvas /> component
 
   // Recording limits — everything is presencial except financiero
   const isPresencial = isPresencialVertical(orgVertical);
@@ -176,46 +175,7 @@ export default function GrabarPage() {
     return () => clearInterval(interval);
   }, [rec.recMode, userId, orgId]);
 
-  // ─── Waveform — exact same as /analisis/nueva (orange bars) ─
-  const drawWaveform = useCallback(() => {
-    const canvas = canvasRef.current;
-    const analyser = rec.analyserNode;
-    if (!canvas || !analyser) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    const draw = () => {
-      animFrameRef.current = requestAnimationFrame(draw);
-      analyser.getByteFrequencyData(dataArray);
-      const w = canvas.width;
-      const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-      const barCount = 32;
-      const barWidth = Math.floor(w / barCount) - 2;
-      const step = Math.floor(bufferLength / barCount);
-      for (let i = 0; i < barCount; i++) {
-        const value = dataArray[i * step] / 255;
-        const barHeight = Math.max(2, value * h * 0.85);
-        const x = i * (barWidth + 2);
-        const y = (h - barHeight) / 2;
-        ctx.fillStyle = value > 0.4 ? "#06b6d4" : "rgba(6,182,212,0.3)";
-        ctx.beginPath();
-        ctx.roundRect(x, y, barWidth, barHeight, 2);
-        ctx.fill();
-      }
-    };
-    draw();
-  }, [rec.analyserNode, rec.recMode]);
-
-  useEffect(() => {
-    if (rec.recMode === "recording" && rec.analyserNode && canvasRef.current) {
-      drawWaveform();
-    }
-    return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    };
-  }, [rec.recMode, rec.analyserNode, drawWaveform]);
+  // ─── Waveform handled by <WaveformCanvas /> component ─
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
@@ -458,7 +418,7 @@ export default function GrabarPage() {
             <span className="ear-rec-label">{rec.recMode === "paused" ? "En pausa" : "Grabando"}</span>
           </div>
           <span className="ear-timer">{formatTime(rec.recElapsed)}</span>
-          <canvas ref={canvasRef} className="ear-waveform" width={280} height={60} />
+          <WaveformCanvas analyserNode={rec.analyserNode} isRecording={rec.recMode === "recording"} />
           {rec.recElapsed > maxRecordingSec * 0.8 && (
             <p className="ear-long-warning">
               {rec.recElapsed > maxRecordingSec

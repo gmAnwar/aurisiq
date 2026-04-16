@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react";
 import { supabase } from "../../../../lib/supabase";
 import { requireAuth } from "../../../../lib/auth";
 import TranscriptEditor from "../../../components/TranscriptEditor";
+import LeadBadge from "../../../components/LeadBadge";
 
 interface Phase { phase_name: string; score: number; score_max: number; }
 interface DescalCat { code: string; label: string; }
@@ -191,9 +192,7 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
           {/* Lead quality + outcome badges */}
           {((analysis.lead_quality as string | null) || (analysis.lead_outcome as string | null)) && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-              {(analysis.lead_quality as string | null) === "calificado" && <span className="c3-lead-badge c3-lead-calificado" style={{ fontSize: 12, padding: "3px 10px" }}>Lead calificado</span>}
-              {(analysis.lead_quality as string | null) === "indeterminado" && <span className="c3-lead-badge c3-lead-pendiente" style={{ fontSize: 12, padding: "3px 10px" }}>Calidad indeterminada</span>}
-              {(analysis.lead_quality as string | null) === "descalificado" && <span className="c3-lead-badge c3-lead-descartado" style={{ fontSize: 12, padding: "3px 10px" }}>Lead descalificado</span>}
+              <LeadBadge quality={analysis.lead_quality as string | null} />
               {(analysis.lead_outcome as string | null) === "cerrado_completo" && <span className="c3-lead-badge c3-lead-calificado" style={{ fontSize: 12, padding: "3px 10px" }}>Cerrado completo</span>}
               {(analysis.lead_outcome as string | null) === "cerrado_parcial" && <span className="c3-lead-badge c3-lead-calificado" style={{ fontSize: 12, padding: "3px 10px", background: "#d1fae5", borderColor: "#6ee7b7" }}>Cerrado parcial</span>}
               {(analysis.lead_outcome as string | null) === "pospuesto_con_agenda" && <span className="c3-lead-badge" style={{ fontSize: 12, padding: "3px 10px", background: "#dbeafe", color: "#1e40af", borderColor: "#93c5fd" }}>Pospuesto con agenda</span>}

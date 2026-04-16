@@ -8,6 +8,7 @@ import { useRecording } from "../../contexts/RecordingContext";
 import MobileSelect from "../../components/MobileSelect";
 import { WORKER_URL } from "../../../lib/config";
 import { isPresencial as isPresencialVertical } from "../../../lib/verticals";
+import WaveformCanvas from "../../components/WaveformCanvas";
 
 interface GuideField { field_name: string; phrases: string[]; }
 interface GuidePhase { phase_name: string; transition?: string; fields?: GuideField[]; phrases?: string[]; }
@@ -80,8 +81,7 @@ export default function NuevaLlamadaPage() {
   const [dailyDone, setDailyDone] = useState(0);
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
-  const animFrameRef = useRef<number | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Waveform handled by <WaveformCanvas /> component
 
   const wordCount = transcription.trim().split(/\s+/).filter(Boolean).length;
   const MIN_WORDS = transcriptionSource === "audio" ? 50 : 200;
@@ -329,9 +329,6 @@ export default function NuevaLlamadaPage() {
     }
 
     init();
-    return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    };
   }, []);
 
   // Track edits to auto-transcribed text
@@ -352,45 +349,7 @@ export default function NuevaLlamadaPage() {
     return `${m}:${s}`;
   };
 
-  const drawWaveform = useCallback(() => {
-    const canvas = canvasRef.current;
-    const analyser = rec.analyserNode;
-    if (!canvas || !analyser) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    const draw = () => {
-      animFrameRef.current = requestAnimationFrame(draw);
-      analyser.getByteFrequencyData(dataArray);
-      const w = canvas.width;
-      const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-      const barCount = 32;
-      const barWidth = Math.floor(w / barCount) - 2;
-      const step = Math.floor(bufferLength / barCount);
-      for (let i = 0; i < barCount; i++) {
-        const value = dataArray[i * step] / 255;
-        const barHeight = Math.max(2, value * h * 0.85);
-        const x = i * (barWidth + 2);
-        const y = (h - barHeight) / 2;
-        ctx.fillStyle = value > 0.4 ? "#06b6d4" : "rgba(6,182,212,0.3)";
-        ctx.beginPath();
-        ctx.roundRect(x, y, barWidth, barHeight, 2);
-        ctx.fill();
-      }
-    };
-    draw();
-  }, [rec.analyserNode]);
-
-  useEffect(() => {
-    if (rec.recMode === "recording" && rec.analyserNode && canvasRef.current) {
-      drawWaveform();
-    }
-    return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    };
-  }, [rec.recMode, rec.analyserNode, drawWaveform]);
+  // Waveform handled by <WaveformCanvas /> component
 
   // ─── Guide drawer ──────────────────────────────────────────
 
@@ -917,7 +876,7 @@ export default function NuevaLlamadaPage() {
               <span className="ear-rec-label">{rec.recMode === "paused" ? "En pausa" : rec.recLabel}</span>
             </div>
             <span className="ear-timer">{formatTime(rec.recElapsed)}</span>
-            <canvas ref={canvasRef} className="ear-waveform" width={280} height={60} />
+            <WaveformCanvas analyserNode={rec.analyserNode} isRecording={rec.recMode === "recording"} />
             {rec.recElapsed > 1800 && (
               <p className="ear-long-warning">Llevas más de 30 minutos grabando. Transcripciones muy largas pueden tardar más en analizar.</p>
             )}
@@ -1024,7 +983,7 @@ export default function NuevaLlamadaPage() {
               <span className="ear-rec-label">Procesando</span>
             </div>
             <span className="ear-timer">{formatTime(rec.recElapsed)}</span>
-            <canvas ref={canvasRef} className="ear-waveform" width={280} height={60} />
+            <WaveformCanvas analyserNode={rec.analyserNode} isRecording={false} />
             <div className="c2-progress-section" style={{ width: "100%", maxWidth: 320 }}>
               <div className="c2-progress-bg">
                 <div className="c2-progress-fill" style={{ width: `${rec.transcribePct}%` }} />

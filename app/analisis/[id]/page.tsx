@@ -9,6 +9,7 @@ import { stripJson } from "../../../lib/text";
 import EditableField from "../../components/EditableName";
 import TranscriptEditor from "../../components/TranscriptEditor";
 import { isFinanciero } from "../../../lib/verticals";
+import LeadBadge from "../../components/LeadBadge";
 
 interface Phase {
   phase_name: string;
@@ -359,9 +360,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
         {/* Lead quality + outcome badges (new v22 fields) */}
         {(analysis.lead_quality || analysis.lead_outcome) && (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
-            {analysis.lead_quality === "calificado" && <span className="c3-lead-badge c3-lead-calificado" style={{ fontSize: 12, padding: "3px 10px" }}>Lead calificado</span>}
-            {analysis.lead_quality === "indeterminado" && <span className="c3-lead-badge c3-lead-pendiente" style={{ fontSize: 12, padding: "3px 10px" }}>Calidad indeterminada</span>}
-            {analysis.lead_quality === "descalificado" && <span className="c3-lead-badge c3-lead-descartado" style={{ fontSize: 12, padding: "3px 10px" }}>Lead descalificado</span>}
+            <LeadBadge quality={analysis.lead_quality} />
             {analysis.lead_outcome === "cerrado_completo" && <span className="c3-lead-badge c3-lead-calificado" style={{ fontSize: 12, padding: "3px 10px" }}>Cerrado completo</span>}
             {analysis.lead_outcome === "cerrado_parcial" && <span className="c3-lead-badge c3-lead-calificado" style={{ fontSize: 12, padding: "3px 10px", background: "#d1fae5", borderColor: "#6ee7b7" }}>Cerrado parcial</span>}
             {analysis.lead_outcome === "pospuesto_con_agenda" && <span className="c3-lead-badge" style={{ fontSize: 12, padding: "3px 10px", background: "#dbeafe", color: "#1e40af", borderColor: "#93c5fd" }}>Pospuesto con agenda</span>}
