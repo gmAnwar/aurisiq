@@ -14,7 +14,7 @@ import {
   RecordingLock,
   type PendingRecording,
 } from "../../lib/recordings-queue";
-import { uploadWithRetry, submitForAnalysis } from "../../lib/recording-upload";
+import { uploadWithRetry } from "../../lib/recording-upload";
 
 interface FunnelStage {
   id: string;
@@ -22,7 +22,7 @@ interface FunnelStage {
   scorecard_id: string | null;
 }
 
-type PageState = "idle" | "recording" | "post";
+type PageState = "idle" | "recording" | "transcribing" | "post" | "analyzing";
 
 export default function GrabarPage() {
   const rec = useRecording();
@@ -41,6 +41,8 @@ export default function GrabarPage() {
   const [submitMsg, setSubmitMsg] = useState("");
   const [orgVertical, setOrgVertical] = useState("");
   const [recoveryRec, setRecoveryRec] = useState<PendingRecording | null>(null);
+  const [analysisPct, setAnalysisPct] = useState(0);
+  const [analysisPhase, setAnalysisPhase] = useState("");
 
   // Auto-save ref
   const autoSaveIdRef = useRef<string | null>(null);
@@ -53,9 +55,8 @@ export default function GrabarPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
 
-  // Recording limits based on vertical
-  const PRESENCIAL_VERTICALS = ["body_spa", "dentistas", "quiropractico"];
-  const isPresencial = orgVertical !== "" && PRESENCIAL_VERTICALS.includes(orgVertical);
+  // Recording limits — everything is presencial except financiero
+  const isPresencial = orgVertical !== "" && orgVertical !== "financiero";
   const maxRecordingMin = isPresencial ? 50 : 25;
   const maxRecordingSec = maxRecordingMin * 60;
 
@@ -81,7 +82,7 @@ export default function GrabarPage() {
           .eq("organization_id", session.organizationId).eq("active", true).order("order_index"),
         countPending(session.userId),
         checkStorageAvailable(),
-        supabase.from("scorecards").select("vertical").eq("organization_id", session.organizationId).eq("active", true).limit(1).maybeSingle(),
+        supabase.from("organizations").select("vertical").eq("id", session.organizationId).single(),
       ]);
 
       setFunnelStages(stagesRes.data || []);
@@ -89,7 +90,7 @@ export default function GrabarPage() {
       if (!storage.available) setStorageWarning(true);
       if (scRes.data?.vertical) setOrgVertical(scRes.data.vertical);
 
-      // Check for incomplete recordings (crash recovery)
+      // Recovery check
       const incomplete = await getIncompleteRecordings(session.userId);
       if (incomplete.length > 0) {
         const newest = incomplete[0];
@@ -97,7 +98,6 @@ export default function GrabarPage() {
         if (ageMin > 5) {
           setRecoveryRec(newest);
         } else {
-          // Recent incomplete — silently delete (probably just finished)
           for (const r of incomplete) await deleteRecording(r.id);
         }
       }
@@ -106,17 +106,32 @@ export default function GrabarPage() {
     }
     init();
 
-    // Multi-tab lock
     const lock = new RecordingLock();
     lockRef.current = lock;
     lock.onChange(setLockedByOther);
     return () => lock.destroy();
   }, []);
 
-  // Auto-save metadata every 30s during recording (crash recovery marker)
+  // ─── State machine: track recMode changes ─────────────────
+  useEffect(() => {
+    if (rec.recMode === "recording" || rec.recMode === "paused") {
+      setPageState("recording");
+    } else if (rec.recMode === "transcribing") {
+      setPageState("transcribing");
+    }
+    // When recMode goes to "off" after transcribing, check for result
+  }, [rec.recMode]);
+
+  // When transcription result arrives → post state
+  useEffect(() => {
+    if (rec.transcriptionResult && rec.transcriptionResult.text) {
+      setPageState("post");
+    }
+  }, [rec.transcriptionResult]);
+
+  // ─── Auto-save during recording ───────────────────────────
   useEffect(() => {
     if (rec.recMode !== "recording" && rec.recMode !== "paused") {
-      // Recording stopped — clean up incomplete marker
       if (autoSaveIdRef.current) {
         deleteRecording(autoSaveIdRef.current).catch(() => {});
         autoSaveIdRef.current = null;
@@ -131,7 +146,7 @@ export default function GrabarPage() {
     const save = () => {
       putRecording({
         id: saveId,
-        audio_blob: new Blob([]), // placeholder — actual audio not available until stop
+        audio_blob: new Blob([]),
         duration_seconds: rec.recElapsed,
         created_at: new Date().toISOString(),
         organization_id: orgId,
@@ -150,31 +165,12 @@ export default function GrabarPage() {
       }).catch(() => {});
     };
 
-    save(); // Save immediately on start
+    save();
     const interval = setInterval(save, 30000);
     return () => clearInterval(interval);
   }, [rec.recMode, userId, orgId]);
 
-  // Track recording state changes
-  useEffect(() => {
-    if (rec.recMode === "recording" || rec.recMode === "paused") {
-      setPageState("recording");
-    } else if (rec.recMode === "off" && pageState === "recording") {
-      // Just stopped — check if there's a transcription result (means audio was processed)
-      if (rec.transcriptionResult) {
-        setPageState("post");
-      }
-    }
-  }, [rec.recMode]);
-
-  // When transcription result arrives, move to post state
-  useEffect(() => {
-    if (rec.transcriptionResult && pageState !== "post") {
-      setPageState("post");
-    }
-  }, [rec.transcriptionResult]);
-
-  // Waveform drawing
+  // ─── Waveform ─────────────────────────────────────────────
   const drawWaveform = useCallback(() => {
     const canvas = canvasRef.current;
     const analyser = rec.analyserNode;
@@ -186,10 +182,10 @@ export default function GrabarPage() {
     const draw = () => {
       animFrameRef.current = requestAnimationFrame(draw);
       analyser.getByteTimeDomainData(dataArray);
-      ctx.fillStyle = "#f5f5f5";
+      ctx.fillStyle = "#1a1a1a";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.lineWidth = 2;
-      ctx.strokeStyle = "var(--accent, #00C2E0)";
+      ctx.strokeStyle = "#00C2E0";
       ctx.beginPath();
       const sliceWidth = canvas.width / bufferLength;
       let x = 0;
@@ -206,7 +202,9 @@ export default function GrabarPage() {
   }, [rec.analyserNode]);
 
   useEffect(() => {
-    if (rec.recMode === "recording" && rec.analyserNode && canvasRef.current) drawWaveform();
+    if ((rec.recMode === "recording" || rec.recMode === "paused") && rec.analyserNode && canvasRef.current) {
+      drawWaveform();
+    }
     return () => { if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current); };
   }, [rec.recMode, rec.analyserNode, drawWaveform]);
 
@@ -216,14 +214,41 @@ export default function GrabarPage() {
     return `${m}:${sec.toString().padStart(2, "0")}`;
   };
 
-  // ─── Start recording ──────────────────────────────────────
+  // ─── Actions ──────────────────────────────────────────────
   const handleStart = async () => {
     if (!orgId || lockedByOther) return;
     lockRef.current?.acquireLock();
+    setCallNotes("");
+    setProspectName("");
+    setSelectedStage("");
     await rec.startRecording(orgId);
   };
 
-  // ─── Save to queue + upload in background ─────────────────
+  const handleStop = () => {
+    rec.stopRecording();
+    lockRef.current?.releaseLock();
+  };
+
+  const handleCancel = () => {
+    rec.cancelRecording();
+    lockRef.current?.releaseLock();
+    setPageState("idle");
+    setCallNotes("");
+  };
+
+  const resetToIdle = () => {
+    setPageState("idle");
+    setCallNotes("");
+    setProspectName("");
+    setSelectedStage("");
+    setSubmitting(false);
+    setSubmitMsg("");
+    setAnalysisPct(0);
+    setAnalysisPhase("");
+    rec.clearTranscriptionResult();
+  };
+
+  // ─── Save to queue (analyze later) ────────────────────────
   const handleSaveToQueue = async () => {
     if (!userId || !orgId || !rec.transcriptionResult) return;
     setSubmitting(true);
@@ -236,7 +261,7 @@ export default function GrabarPage() {
 
     const recording: PendingRecording = {
       id: crypto.randomUUID(),
-      audio_blob: new Blob([rec.transcriptionResult.original], { type: "text/plain" }),
+      audio_blob: new Blob([rec.transcriptionResult.text], { type: "text/plain" }),
       duration_seconds: rec.recElapsed,
       created_at: new Date().toISOString(),
       organization_id: orgId,
@@ -256,27 +281,15 @@ export default function GrabarPage() {
 
     await putRecording(recording);
     setPendingCount(prev => prev + 1);
-
-    // Background upload
     uploadWithRetry(recording).catch(() => {});
 
     setSubmitMsg("Guardado en cola");
-    setTimeout(() => {
-      setPageState("idle");
-      setCallNotes("");
-      setProspectName("");
-      setSelectedStage("");
-      setSubmitting(false);
-      setSubmitMsg("");
-      rec.clearTranscriptionResult();
-    }, 800);
+    setTimeout(resetToIdle, 800);
   };
 
-  // ─── Analyze now (inline, like /analisis/nueva) ───────────
+  // ─── Analyze now (inline) ─────────────────────────────────
   const handleAnalyzeNow = async () => {
     if (!userId || !orgId || !rec.transcriptionResult) return;
-    setSubmitting(true);
-    setSubmitMsg("Enviando para análisis...");
 
     const stageId = selectedStage || (uniqueScorecards.length === 1 ? uniqueScorecards[0].stageId : "");
     const scorecardId = stageId
@@ -285,12 +298,31 @@ export default function GrabarPage() {
 
     if (!scorecardId) {
       setSubmitMsg("Selecciona el tipo de visita");
-      setSubmitting(false);
       return;
     }
 
+    setPageState("analyzing");
+    setSubmitting(true);
+    setAnalysisPct(0);
+    setAnalysisPhase("Enviando transcripcion...");
+
+    const phases = [
+      { at: 0, text: "Enviando transcripcion..." },
+      { at: 15, text: "Analizando con IA..." },
+      { at: 40, text: "Evaluando fases del scorecard..." },
+      { at: 85, text: "Generando coaching personalizado..." },
+      { at: 95, text: "Listo — redirigiendo a resultados..." },
+    ];
+    const start = Date.now();
+    const progressInterval = setInterval(() => {
+      const elapsed = (Date.now() - start) / 1000;
+      const pct = Math.min(94, Math.floor(elapsed * 0.6));
+      const cur = [...phases].reverse().find(p => pct >= p.at);
+      if (cur) setAnalysisPhase(cur.text);
+      setAnalysisPct(pct);
+    }, 500);
+
     try {
-      // Create background job directly with transcription text
       const { data: job, error } = await supabase
         .from("background_jobs")
         .insert({
@@ -321,7 +353,6 @@ export default function GrabarPage() {
 
       if (error || !job) throw new Error(error?.message || "Failed to create job");
 
-      // Invoke edge function
       const { data: { session } } = await supabase.auth.getSession();
       const edgeUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/analyze`;
       await fetch(edgeUrl, {
@@ -333,42 +364,57 @@ export default function GrabarPage() {
         body: JSON.stringify({ job_id: job.id }),
       });
 
-      setSubmitMsg("Analizando...");
-
       // Poll for completion
       const poll = setInterval(async () => {
         const { data: j } = await supabase.from("background_jobs").select("status, result").eq("id", job.id).single();
         if (j?.status === "completed") {
           clearInterval(poll);
+          clearInterval(progressInterval);
+          setAnalysisPct(100);
+          setAnalysisPhase("Listo — redirigiendo...");
           const analysisId = (j.result as { analysis_id?: string })?.analysis_id;
           if (analysisId) {
             rec.clearTranscriptionResult();
-            window.location.href = `/analisis/${analysisId}`;
+            setTimeout(() => { window.location.href = `/analisis/${analysisId}`; }, 600);
           }
         } else if (j?.status === "error") {
           clearInterval(poll);
-          setSubmitMsg("Error en análisis. Guardando en cola...");
+          clearInterval(progressInterval);
+          setSubmitMsg("Error en analisis. Guardando en cola...");
           await handleSaveToQueue();
         }
       }, 3000);
 
-      setTimeout(() => clearInterval(poll), 180000);
-    } catch (err) {
+      setTimeout(() => { clearInterval(poll); clearInterval(progressInterval); }, 180000);
+    } catch {
+      clearInterval(progressInterval);
       setSubmitMsg("Error — guardando en cola...");
       await handleSaveToQueue();
     }
   };
 
   if (loading) {
+    return <div className="grabar-container"><div className="skeleton-block skeleton-title" /></div>;
+  }
+
+  // ─── ANALYZING state ──────────────────────────────────────
+  if (pageState === "analyzing") {
     return (
       <div className="grabar-container">
-        <div className="skeleton-block skeleton-title" />
+        <div className="grabar-hero">
+          <div className="c2-progress-section" style={{ width: "100%", maxWidth: 320 }}>
+            <div className="c2-progress-bg">
+              <div className="c2-progress-fill" style={{ width: `${analysisPct}%` }} />
+            </div>
+            <p className="c2-progress-phase">{analysisPhase}</p>
+          </div>
+        </div>
       </div>
     );
   }
 
-  // ─── Transcribing state ───────────────────────────────────
-  if (rec.recMode === "transcribing") {
+  // ─── TRANSCRIBING state ───────────────────────────────────
+  if (pageState === "transcribing" || rec.recMode === "transcribing") {
     return (
       <div className="grabar-container">
         <div className="grabar-hero">
@@ -390,22 +436,22 @@ export default function GrabarPage() {
     );
   }
 
-  // ─── Recording state ──────────────────────────────────────
+  // ─── RECORDING state ──────────────────────────────────────
   if (pageState === "recording" && rec.recMode !== "off") {
     return (
       <div className="grabar-container">
         <div className="ear-recording">
           <div className="ear-rec-indicator">
             <span className="ear-rec-dot" style={rec.recMode === "paused" ? { animation: "none", opacity: 0.3 } : undefined} />
-            <span className="ear-rec-label">{rec.recMode === "paused" ? "En pausa" : rec.recLabel}</span>
+            <span className="ear-rec-label">{rec.recMode === "paused" ? "En pausa" : "Grabando"}</span>
           </div>
           <span className="ear-timer">{formatTime(rec.recElapsed)}</span>
-          <canvas ref={canvasRef} className="ear-waveform" width={280} height={60} />
+          <canvas ref={canvasRef} className="ear-waveform" width={280} height={60} style={{ background: "#1a1a1a", borderRadius: 8 }} />
           {rec.recElapsed > maxRecordingSec * 0.8 && (
             <p className="ear-long-warning">
               {rec.recElapsed > maxRecordingSec
-                ? `Limite de ${maxRecordingMin} min excedido. Detén la grabación.`
-                : `Llevas mas de ${Math.floor(rec.recElapsed / 60)} minutos. Limite: ${maxRecordingMin} min.`}
+                ? `Limite de ${maxRecordingMin} min excedido. Detener la grabacion.`
+                : `${Math.floor(rec.recElapsed / 60)} min. Limite: ${maxRecordingMin} min.`}
             </p>
           )}
           <div className="ear-btn-row">
@@ -414,16 +460,12 @@ export default function GrabarPage() {
             ) : (
               <button className="ear-resume-btn" onClick={rec.resumeRecording}>Continuar</button>
             )}
-            <button className="ear-stop-btn" onClick={() => { rec.stopRecording(); lockRef.current?.releaseLock(); }}>
-              Terminar
-            </button>
+            <button className="ear-stop-btn" onClick={handleStop}>Terminar</button>
           </div>
-          <button className="ear-retry-btn" onClick={() => { rec.cancelRecording(); lockRef.current?.releaseLock(); setPageState("idle"); }}>
-            Cancelar
-          </button>
+          <button className="ear-retry-btn" onClick={handleCancel}>Cancelar grabacion</button>
         </div>
 
-        {/* Notes during recording */}
+        {/* Notes during recording — persist across states */}
         <div style={{ width: "100%", maxWidth: 400, marginTop: 16 }}>
           <textarea
             className="input-field"
@@ -438,18 +480,28 @@ export default function GrabarPage() {
     );
   }
 
-  // ─── Post-recording state ─────────────────────────────────
+  // ─── POST-RECORDING state ─────────────────────────────────
   if (pageState === "post" && rec.transcriptionResult) {
+    const wordCount = rec.transcriptionResult.text.trim().split(/\s+/).filter(Boolean).length;
+    const minWords = 50;
+    const canAnalyze = wordCount >= minWords && (!isMultiScorecard || selectedStage !== "") && !submitting;
+
     return (
       <div className="grabar-container">
         <div className="grabar-post">
           <div className="grabar-post-summary">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
             {formatTime(rec.recElapsed)}
-            <span>{(rec.transcriptionResult.text.length / 1024).toFixed(1)} KB</span>
+            <span>{wordCount} palabras</span>
           </div>
 
-          {/* Scorecard toggle for multi-scorecard orgs */}
+          {wordCount < minWords && (
+            <p style={{ fontSize: 12, color: "var(--red)", marginTop: 4 }}>
+              Minimo {minWords} palabras para analizar ({wordCount} detectadas). La grabacion puede ser muy corta o sin audio hablado.
+            </p>
+          )}
+
+          {/* Scorecard toggle */}
           {isMultiScorecard && (
             <>
               <p style={{ fontSize: 14, fontWeight: 500, marginTop: 8 }}>Tipo de visita</p>
@@ -477,14 +529,30 @@ export default function GrabarPage() {
             value={prospectName}
             onChange={(e) => setProspectName(e.target.value)}
             disabled={submitting}
+            style={{ marginTop: 8 }}
           />
+
+          {/* Notes from recording (editable) */}
+          {callNotes && (
+            <div style={{ marginTop: 8 }}>
+              <label style={{ fontSize: 12, color: "var(--ink-light)" }}>Notas de la grabacion</label>
+              <textarea
+                className="input-field"
+                rows={2}
+                value={callNotes}
+                onChange={(e) => setCallNotes(e.target.value)}
+                disabled={submitting}
+                style={{ fontSize: 13, resize: "vertical", marginTop: 4 }}
+              />
+            </div>
+          )}
 
           {/* Action buttons */}
           <button
             className="btn-submit btn-terracota"
             onClick={handleAnalyzeNow}
-            disabled={submitting || (isMultiScorecard && !selectedStage)}
-            style={{ padding: "14px 20px", fontSize: 16, fontWeight: 600 }}
+            disabled={!canAnalyze}
+            style={{ padding: "14px 20px", fontSize: 16, fontWeight: 600, marginTop: 12 }}
           >
             {submitting ? submitMsg : "Analizar ahora"}
           </button>
@@ -497,42 +565,38 @@ export default function GrabarPage() {
           >
             Nueva consulta (analizar despues)
           </button>
+
+          <button
+            style={{ fontSize: 13, color: "var(--ink-light)", background: "none", border: "none", cursor: "pointer", marginTop: 4, fontFamily: "inherit" }}
+            onClick={resetToIdle}
+            disabled={submitting}
+          >
+            Descartar grabacion
+          </button>
         </div>
       </div>
     );
   }
 
-  // ─── Idle state — Hero button ─────────────────────────────
+  // ─── IDLE state — Hero button ─────────────────────────────
   return (
     <div className="grabar-container">
-      {/* Recovery modal for incomplete recordings */}
       {recoveryRec && (
         <div style={{ width: "100%", maxWidth: 400, padding: 16, background: "#fef9c3", border: "1px solid #fde047", borderRadius: 10, marginBottom: 16 }}>
-          <p style={{ fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
-            Grabacion incompleta encontrada
-          </p>
+          <p style={{ fontSize: 14, fontWeight: 500, marginBottom: 8 }}>Grabacion incompleta encontrada</p>
           <p style={{ fontSize: 13, color: "#854d0e", marginBottom: 12 }}>
-            {Math.round((Date.now() - new Date(recoveryRec.created_at).getTime()) / 60000)} min ago · {Math.round(recoveryRec.duration_seconds / 60)} min grabados
+            {Math.round((Date.now() - new Date(recoveryRec.created_at).getTime()) / 60000)} min ago
           </p>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              className="btn-submit"
-              style={{ fontSize: 13, padding: "8px 14px" }}
-              onClick={() => {
-                // Can't recover actual audio (wasn't saved), just acknowledge
-                deleteRecording(recoveryRec.id);
-                setRecoveryRec(null);
-              }}
-            >
-              Descartar
-            </button>
-          </div>
+          <button className="btn-submit" style={{ fontSize: 13, padding: "8px 14px" }}
+            onClick={() => { deleteRecording(recoveryRec.id); setRecoveryRec(null); }}>
+            Descartar
+          </button>
         </div>
       )}
       <div className="grabar-hero">
         {storageWarning && (
           <p style={{ fontSize: 12, color: "#854d0e", background: "#fef9c3", padding: "6px 12px", borderRadius: 6, textAlign: "center" }}>
-            Espacio de almacenamiento bajo. Las grabaciones largas podrian fallar.
+            Espacio de almacenamiento bajo.
           </p>
         )}
 

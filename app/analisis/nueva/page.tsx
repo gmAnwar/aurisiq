@@ -218,8 +218,8 @@ export default function NuevaLlamadaPage() {
   // Stage is optional: Claude auto-detects it from the transcription
   // when the user leaves it blank. User can still choose a stage manually.
   const missingConfig = leadSources.length === 0 && !loading;
-  const PRESENCIAL_VERTICALS = ['body_spa', 'dentistas', 'quiropractico'];
-  const isPresencial = orgVertical !== "" && PRESENCIAL_VERTICALS.includes(orgVertical);
+  // Everything is presencial except financiero
+  const isPresencial = orgVertical !== "" && orgVertical !== "financiero";
 
   // Unique scorecards from funnel stages (for multi-scorecard presencial toggle)
   const uniqueScorecards = funnelStages
@@ -453,24 +453,16 @@ export default function NuevaLlamadaPage() {
     }));
   }
 
-  // Reload vertical when stage changes
+  // Load vertical from organization (not scorecard)
   useEffect(() => {
     if (!orgId) return;
-    const stage = funnelStages.find(s => s.id === selectedStage);
-    const scorecardId = stage?.scorecard_id;
     (async () => {
       try {
-        let query = supabase.from("scorecards").select("vertical").eq("active", true);
-        if (scorecardId) {
-          query = query.eq("id", scorecardId);
-        } else {
-          query = query.eq("organization_id", orgId);
-        }
-        const { data: sc } = await query.limit(1).maybeSingle();
-        if (sc?.vertical) setOrgVertical(sc.vertical);
+        const { data } = await supabase.from("organizations").select("vertical").eq("id", orgId).single();
+        if (data?.vertical) setOrgVertical(data.vertical);
       } catch { /* ignore */ }
     })();
-  }, [selectedStage, orgId, funnelStages]);
+  }, [orgId]);
 
   // Reload checklist from stage_checklist_items when stage changes
   useEffect(() => {

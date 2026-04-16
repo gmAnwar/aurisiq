@@ -10,6 +10,9 @@ function formatTime(secs: number) {
   return `${m}:${s}`;
 }
 
+// Pages that handle recording internally — don't show bar, don't redirect
+const RECORDING_PAGES = ["/analisis/nueva", "/grabar"];
+
 export default function RecordingBar() {
   const {
     recMode, recElapsed, pauseRecording, resumeRecording, stopRecording,
@@ -18,10 +21,9 @@ export default function RecordingBar() {
   const pathname = usePathname();
   const router = useRouter();
 
-  const isOnC2 = pathname === "/analisis/nueva";
-  const visible = recMode !== "off" && !isOnC2;
+  const isRecordingPage = RECORDING_PAGES.includes(pathname || "");
+  const visible = recMode !== "off" && !isRecordingPage;
 
-  // Add/remove body class for layout padding
   useEffect(() => {
     if (visible) {
       document.body.classList.add("has-recording-bar");
@@ -31,16 +33,19 @@ export default function RecordingBar() {
     return () => { document.body.classList.remove("has-recording-bar"); };
   }, [visible]);
 
-  // When the transcription finishes on a screen other than C2, auto
-  // navigate the user to C2 so they don't lose the recording. C2 will
-  // hydrate the transcription from sessionStorage on mount.
+  // When transcription finishes on a non-recording page, redirect to the
+  // recording page the user was on (default /analisis/nueva)
   useEffect(() => {
-    if (!isOnC2 && transcriptionResult && transcriptionResult.text) {
+    if (!isRecordingPage && transcriptionResult && transcriptionResult.text) {
       router.push("/analisis/nueva");
     }
-  }, [transcriptionResult, isOnC2, router]);
+  }, [transcriptionResult, isRecordingPage, router]);
 
   if (!visible) return null;
+
+  // Determine where "go back" should point
+  const backHref = "/grabar";
+  const backLabel = "Ir a grabacion";
 
   if (recMode === "transcribing") {
     return (
@@ -52,8 +57,8 @@ export default function RecordingBar() {
           <div className="rb-progress-fill" style={{ width: `${transcribePct}%` }} />
         </div>
         <span className="rb-phase">{transcribePhase}</span>
-        <button className="rb-link" onClick={() => router.push("/analisis/nueva")}>
-          Volver a llamada
+        <button className="rb-link" onClick={() => router.push(backHref)}>
+          {backLabel}
         </button>
       </div>
     );
@@ -72,8 +77,8 @@ export default function RecordingBar() {
         )}
         <button className="rb-btn rb-btn-stop" onClick={stopRecording}>Terminar</button>
       </div>
-      <button className="rb-link" onClick={() => router.push("/analisis/nueva")}>
-        Volver a llamada
+      <button className="rb-link" onClick={() => router.push(backHref)}>
+        {backLabel}
       </button>
     </div>
   );
