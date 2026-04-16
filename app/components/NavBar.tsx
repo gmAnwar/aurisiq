@@ -184,7 +184,24 @@ export default function NavBar({ role, roles, userName, userEmail, orgSlug, role
     }, 1500);
   };
   const effectiveRoles = roles && roles.length > 0 ? roles : [role];
-  const allItems = getNavForRoles(effectiveRoles);
+
+  // Load org vertical to decide "consulta" vs "llamada" copy and routing
+  const [orgVertical, setOrgVertical] = useState<string>("");
+  useEffect(() => {
+    if (!activeOrgId) return;
+    (async () => {
+      const { data } = await supabase.from("organizations").select("vertical").eq("id", activeOrgId).maybeSingle();
+      if (data?.vertical) setOrgVertical(data.vertical);
+    })();
+  }, [activeOrgId]);
+  const isPresencial = orgVertical !== "" && orgVertical !== "financiero";
+
+  // In presencial orgs, CTA routes to /grabar and the standalone "Grabar"
+  // sidebar item is redundant — hide it.
+  const allItems = getNavForRoles(effectiveRoles).filter(item => {
+    if (item.href === "/grabar" && isPresencial && effectiveRoles.includes("captadora")) return false;
+    return true;
+  });
   const mobileItems = (MOBILE_NAV[role] || allItems).slice(0, 5);
   const isSidebar = useSidebarLayout();
   const isCta = showCta(effectiveRoles);
@@ -215,11 +232,15 @@ export default function NavBar({ role, roles, userName, userEmail, orgSlug, role
         </button>
       )}
       <div className="navbar-items">
-      {/* CTA — Nueva llamada */}
+      {/* CTA — Nueva consulta/llamada */}
       {isCta && (
-        <Link href="/analisis/nueva" className="navbar-item navbar-item-cta" title={collapsed ? "Nueva llamada" : undefined}>
+        <Link
+          href={isPresencial ? "/grabar" : "/analisis/nueva"}
+          className="navbar-item navbar-item-cta"
+          title={collapsed ? (isPresencial ? "Nueva consulta" : "Nueva llamada") : undefined}
+        >
           <Mic size={18} className="navbar-item-icon" />
-          <span className="navbar-item-label">Nueva llamada</span>
+          <span className="navbar-item-label">{isPresencial ? "Nueva consulta" : "Nueva llamada"}</span>
         </Link>
       )}
       {allItems.map((item) => {

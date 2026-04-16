@@ -707,7 +707,7 @@ export default function NuevaLlamadaPage() {
           clearInterval(pollInterval);
           if (progressRef.current) clearInterval(progressRef.current);
           setStatus("error");
-          setErrorMsg(statusData.error_message || "Hubo un problema al analizar tu llamada. Intenta de nuevo.");
+          setErrorMsg(statusData.error_message || (isPresencial ? "Hubo un problema al analizar tu consulta. Intenta de nuevo." : "Hubo un problema al analizar tu llamada. Intenta de nuevo."));
         }
       } catch {
         // Network error on poll — keep trying
@@ -786,7 +786,7 @@ export default function NuevaLlamadaPage() {
           clearInterval(pollInterval);
           if (progressRef.current) clearInterval(progressRef.current);
           setStatus("error");
-          setErrorMsg(data.error_message || "Hubo un problema al analizar tu llamada. Intenta de nuevo.");
+          setErrorMsg(data.error_message || (isPresencial ? "Hubo un problema al analizar tu consulta. Intenta de nuevo." : "Hubo un problema al analizar tu llamada. Intenta de nuevo."));
         }
       } catch {
         // Network error on poll — keep trying
@@ -866,7 +866,7 @@ export default function NuevaLlamadaPage() {
       } else if (message === "readonly") {
         setErrorMsg("Tu organización está en modo lectura. Contacta a tu gerente.");
       } else {
-        setErrorMsg("No pudimos procesar tu llamada. Intenta de nuevo.");
+        setErrorMsg(isPresencial ? "No pudimos procesar tu consulta. Intenta de nuevo." : "No pudimos procesar tu llamada. Intenta de nuevo.");
       }
     }
   };
@@ -913,7 +913,7 @@ export default function NuevaLlamadaPage() {
                 <button className="ear-resume-btn" onClick={rec.resumeRecording}>Continuar</button>
               )}
               <button className="ear-stop-btn" onClick={rec.stopRecording}>
-                Terminar llamada
+                {isPresencial ? "Terminar consulta" : "Terminar llamada"}
               </button>
             </div>
             <button className="ear-retry-btn" onClick={rec.cancelRecording}>
@@ -928,7 +928,7 @@ export default function NuevaLlamadaPage() {
             <textarea
               className="input-field"
               rows={3}
-              placeholder="Notas de la llamada..."
+              placeholder={isPresencial ? "Notas de la consulta..." : "Notas de la llamada..."}
               value={callNotes}
               onChange={(e) => { setCallNotes(e.target.value); sessionStorage.setItem("c2_call_notes", e.target.value); }}
               style={{ fontSize: 13, resize: "vertical" }}
@@ -1042,7 +1042,7 @@ export default function NuevaLlamadaPage() {
               : `${dailyDone} de ${dailyTarget} este mes`}
           </p>
         )}
-        <h1 className="c2-title">Nueva llamada</h1>
+        <h1 className="c2-title">{isPresencial ? "Nueva consulta" : "Nueva llamada"}</h1>
         <p className="c2-subtitle">Graba en vivo, sube un audio o pega la transcripción, aurisIQ se encarga del resto.</p>
         {isPresencial && (
           <p className="c2-subtitle" style={{ fontSize: 13, marginTop: 2 }}>Modo consulta — solo graba y analiza</p>
@@ -1088,11 +1088,11 @@ export default function NuevaLlamadaPage() {
           )}
           {stageNoSpeech && !stageNoScorecard && (
             <div style={{ marginTop: 8, padding: "8px 12px", background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 6, fontSize: 13, color: "#92400e" }}>
-              Esta etapa aún no tiene speech publicado. Puedes grabar pero no tendrás referencia durante la llamada.
+              Esta etapa aún no tiene speech publicado. Puedes grabar pero no tendrás referencia durante la {isPresencial ? "consulta" : "llamada"}.
             </div>
           )}
           {missedFields.length > 0 && !transcription && rec.recMode === "off" && (
-            <p className="c2-missed-tip">En tus últimas llamadas se te olvidó preguntar: {missedFields.join(", ")}</p>
+            <p className="c2-missed-tip">En tus últimas {isPresencial ? "consultas" : "llamadas"} se te olvidó preguntar: {missedFields.join(", ")}</p>
           )}
         </div>
 
@@ -1114,7 +1114,7 @@ export default function NuevaLlamadaPage() {
           )}
           {leadSources.length === 0 && !errorMsg && !loading && (
             <div className="message-box message-error" style={{ marginTop: 8 }}>
-              <p>Tu organización no tiene fuentes de lead configuradas. No puedes registrar llamadas hasta que tu gerente las configure en <strong>Configuración</strong>.</p>
+              <p>Tu organización no tiene fuentes de lead configuradas. No puedes registrar {isPresencial ? "consultas" : "llamadas"} hasta que tu gerente las configure en <strong>Configuración</strong>.</p>
             </div>
           )}
         </div>
@@ -1210,8 +1210,8 @@ export default function NuevaLlamadaPage() {
           {isPresencial
             ? "Coloca el celular sobre la mesa o cerca y presiona grabar."
             : mobile
-              ? "Pon tu llamada en altavoz y presiona grabar."
-              : "Selecciona la pestaña de tu llamada cuando se abra el selector."}
+              ? (isPresencial ? "Coloca el celular sobre la mesa o cerca y presiona grabar." : "Pon tu llamada en altavoz y presiona grabar.")
+              : (isPresencial ? "Selecciona la pestaña de tu consulta cuando se abra el selector." : "Selecciona la pestaña de tu llamada cuando se abra el selector.")}
         </p>
         {!isPresencial && (
           <button
@@ -1239,7 +1239,7 @@ export default function NuevaLlamadaPage() {
             rows={3}
             style={{ minHeight: 60, resize: "vertical" }}
           />
-          <p className="c2-hint">Contexto adicional que ayude a interpretar mejor esta llamada.</p>
+          <p className="c2-hint">Contexto adicional que ayude a interpretar mejor esta {isPresencial ? "consulta" : "llamada"}.</p>
         </div>
         )}
 
@@ -1310,11 +1310,11 @@ export default function NuevaLlamadaPage() {
           {/* 3. Notas de llamada (hidden in presencial pre-recording — available during recording) */}
           {!isPresencial && (
           <details className="c2-collapse">
-            <summary className="c2-collapse-summary">Notas de llamada</summary>
+            <summary className="c2-collapse-summary">{isPresencial ? "Notas de consulta" : "Notas de llamada"}</summary>
             <div className="c2-collapse-body">
               <textarea
                 className="input-field"
-                placeholder="Escribe tus notas durante o después de la llamada..."
+                placeholder={isPresencial ? "Escribe tus notas durante o después de la consulta..." : "Escribe tus notas durante o después de la llamada..."}
                 value={callNotes}
                 onChange={(e) => { setCallNotes(e.target.value); sessionStorage.setItem("c2_call_notes", e.target.value); }}
                 disabled={status === "analyzing"}
@@ -1364,7 +1364,7 @@ export default function NuevaLlamadaPage() {
           <div className="c2-guide-backdrop" onClick={() => setGuideOpen(false)} />
           <div className="c2-guide-drawer">
             <div className="c2-guide-header">
-              <span className="c2-guide-title">Tu guía de llamada</span>
+              <span className="c2-guide-title">{isPresencial ? "Tu guía de consulta" : "Tu guía de llamada"}</span>
               <button className="c2-guide-close" onClick={() => setGuideOpen(false)}>&times;</button>
             </div>
             <div className="c2-guide-body">

@@ -195,6 +195,16 @@ export default function GrabacionesPendientesPage() {
               <button onClick={() => setConfirmDelete(rec.id)}>Eliminar</button>
             )}
           </div>
+          {(rec.status === "pending" || rec.status === "uploading") && (
+            <p style={{ fontSize: 11, color: "var(--ink-light)", marginTop: 8, fontStyle: "italic" }}>
+              Subiendo audio... se analizara automaticamente cuando haya conexion.
+            </p>
+          )}
+          {rec.status === "analyzing" && (
+            <p style={{ fontSize: 11, color: "var(--ink-light)", marginTop: 8, fontStyle: "italic" }}>
+              Analizando — se abrira automaticamente cuando termine.
+            </p>
+          )}
         </div>
       ))}
 
