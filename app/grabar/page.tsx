@@ -44,8 +44,10 @@ export default function GrabarPage() {
   const [analysisPct, setAnalysisPct] = useState(0);
   const [analysisPhase, setAnalysisPhase] = useState("");
 
-  // Auto-save ref
+  // Refs for cleanup
   const autoSaveIdRef = useRef<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Multi-tab lock
   const lockRef = useRef<RecordingLock | null>(null);
@@ -255,6 +257,8 @@ export default function GrabarPage() {
   };
 
   const resetToIdle = () => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    if (progressRef.current) { clearInterval(progressRef.current); progressRef.current = null; }
     setPageState("idle");
     setCallNotes("");
     setProspectName("");
@@ -333,7 +337,8 @@ export default function GrabarPage() {
       { at: 95, text: "Listo — redirigiendo a resultados..." },
     ];
     const start = Date.now();
-    const progressInterval = setInterval(() => {
+    if (progressRef.current) clearInterval(progressRef.current);
+    progressRef.current = setInterval(() => {
       const elapsed = (Date.now() - start) / 1000;
       const pct = Math.min(94, Math.floor(elapsed * 0.6));
       const cur = [...phases].reverse().find(p => pct >= p.at);
@@ -372,23 +377,16 @@ export default function GrabarPage() {
 
       if (error || !job) throw new Error(error?.message || "Failed to create job");
 
-      const { data: { session } } = await supabase.auth.getSession();
-      const edgeUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/analyze`;
-      await fetch(edgeUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
-        body: JSON.stringify({ job_id: job.id }),
-      });
-
-      // Poll for completion
-      const poll = setInterval(async () => {
-        const { data: j } = await supabase.from("background_jobs").select("status, result").eq("id", job.id).single();
+      // Job inserted as "pending" — process-queue cron will claim it,
+      // flip to "processing", and invoke the analyze Edge Function.
+      // We just poll for completion.
+      const jobId = job.id;
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(async () => {
+        const { data: j } = await supabase.from("background_jobs").select("status, result, error_message").eq("id", jobId).single();
         if (j?.status === "completed") {
-          clearInterval(poll);
-          clearInterval(progressInterval);
+          if (pollRef.current) clearInterval(pollRef.current);
+          if (progressRef.current) clearInterval(progressRef.current);
           setAnalysisPct(100);
           setAnalysisPhase("Listo — redirigiendo...");
           const analysisId = (j.result as { analysis_id?: string })?.analysis_id;
@@ -397,16 +395,17 @@ export default function GrabarPage() {
             setTimeout(() => { window.location.href = `/analisis/${analysisId}`; }, 600);
           }
         } else if (j?.status === "error") {
-          clearInterval(poll);
-          clearInterval(progressInterval);
+          if (pollRef.current) clearInterval(pollRef.current);
+          if (progressRef.current) clearInterval(progressRef.current);
           setSubmitMsg("Error en analisis. Guardando en cola...");
           await handleSaveToQueue();
         }
       }, 3000);
 
-      setTimeout(() => { clearInterval(poll); clearInterval(progressInterval); }, 180000);
+      setTimeout(() => { if (pollRef.current) clearInterval(pollRef.current); if (progressRef.current) clearInterval(progressRef.current); }, 180000);
     } catch {
-      clearInterval(progressInterval);
+      if (progressRef.current) clearInterval(progressRef.current);
+      if (pollRef.current) clearInterval(pollRef.current);
       setSubmitMsg("Error — guardando en cola...");
       await handleSaveToQueue();
     }
