@@ -2413,6 +2413,75 @@ div:has(> .c4-item):hover .historial-delete-btn {
 }
 .historial-load-more:hover { background: #f3f4f6; }
 
+.historial-custom-picker {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 50;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 200px;
+  margin-top: 4px;
+}
+.historial-date-input {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 100%;
+}
+.historial-apply-btn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.historial-apply-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.historial-cancel-btn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  padding: 6px 12px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--ink-light);
+}
+.historial-chip {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #f0f9ff;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+.c1-pill-blue { color: #1e40af; background: #dbeafe; }
+.c1-pill-gray { color: #6b7280; background: #f3f4f6; }
+.historial-delete-btn {
+  padding: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ink-light);
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+.historial-delete-btn:hover { opacity: 1; color: #dc2626; }
+
 /* C1 — Streak, tip, delta */
 .c1-streak { display: none; } /* legacy — replaced by c1-streak-card */
 
