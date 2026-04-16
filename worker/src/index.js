@@ -1317,6 +1317,306 @@ const PRICE_TO_PLAN = {
   'price_1TGZzJEhAsKsSoSLEhwK8hcd': 'enterprise',
 };
 
+// ─── Zadarma webhook (auto-grab EnPagos fase 1) ────────────
+
+// Fase 1: constantes hardcoded para EnPagos. Cuando haya más orgs con Zadarma,
+// mover a tabla de mapeo org ↔ Zadarma account.
+const ZADARMA_ENPAGOS_ORG_ID = 'a0000000-0000-0000-0000-000000000002';
+const ZADARMA_ENPAGOS_SCORECARD_ID = '9eabe664-aa2f-4720-a0c3-0d5255cafe3f';
+const ZADARMA_ENPAGOS_FUNNEL_STAGE_ID = 'fa963522-16da-497c-894b-600c39fadc7b';
+const ZADARMA_ENPAGOS_SYSTEM_USER_ID = '0caa88bb-814e-4e75-bc7e-320ad0f3402b';
+
+// Filtros de calidad antes de procesar
+const ZADARMA_MIN_DURATION_SECONDS = 60;
+const ZADARMA_RECORDING_DELAY_MS = 40_000;
+const ZADARMA_RECORDING_LIFETIME_SECONDS = 86_400;
+
+// ─── MD5 (pure JS, required for Zadarma API auth — not in Web Crypto) ──
+// Classic RFC 1321 implementation; UTF-8 via TextEncoder. Returns lowercase hex.
+function md5Hex(input) {
+  function rol(x, n) { return (x << n) | (x >>> (32 - n)); }
+  function add(x, y) {
+    const l = (x & 0xFFFF) + (y & 0xFFFF);
+    const m = (x >>> 16) + (y >>> 16) + (l >>> 16);
+    return ((m & 0xFFFF) << 16) | (l & 0xFFFF);
+  }
+  function F(x, y, z) { return (x & y) | ((~x) & z); }
+  function G(x, y, z) { return (x & z) | (y & (~z)); }
+  function H(x, y, z) { return x ^ y ^ z; }
+  function I(x, y, z) { return y ^ (x | (~z)); }
+  function step(fn, a, b, c, d, x, s, t) {
+    return add(rol(add(add(a, fn(b, c, d)), add(x, t)), s), b);
+  }
+  const bytes = new TextEncoder().encode(input);
+  const len = bytes.length;
+  const numBlocks = ((len + 8) >> 6) + 1;
+  const words = new Array(numBlocks * 16).fill(0);
+  for (let i = 0; i < len; i++) {
+    words[i >> 2] |= bytes[i] << ((i % 4) * 8);
+  }
+  words[len >> 2] |= 0x80 << ((len % 4) * 8);
+  words[numBlocks * 16 - 2] = len * 8;
+  let a = 0x67452301, b = 0xEFCDAB89, c = 0x98BADCFE, d = 0x10325476;
+  const T = [
+    0xD76AA478, 0xE8C7B756, 0x242070DB, 0xC1BDCEEE, 0xF57C0FAF, 0x4787C62A, 0xA8304613, 0xFD469501,
+    0x698098D8, 0x8B44F7AF, 0xFFFF5BB1, 0x895CD7BE, 0x6B901122, 0xFD987193, 0xA679438E, 0x49B40821,
+    0xF61E2562, 0xC040B340, 0x265E5A51, 0xE9B6C7AA, 0xD62F105D, 0x02441453, 0xD8A1E681, 0xE7D3FBC8,
+    0x21E1CDE6, 0xC33707D6, 0xF4D50D87, 0x455A14ED, 0xA9E3E905, 0xFCEFA3F8, 0x676F02D9, 0x8D2A4C8A,
+    0xFFFA3942, 0x8771F681, 0x6D9D6122, 0xFDE5380C, 0xA4BEEA44, 0x4BDECFA9, 0xF6BB4B60, 0xBEBFBC70,
+    0x289B7EC6, 0xEAA127FA, 0xD4EF3085, 0x04881D05, 0xD9D4D039, 0xE6DB99E5, 0x1FA27CF8, 0xC4AC5665,
+    0xF4292244, 0x432AFF97, 0xAB9423A7, 0xFC93A039, 0x655B59C3, 0x8F0CCC92, 0xFFEFF47D, 0x85845DD1,
+    0x6FA87E4F, 0xFE2CE6E0, 0xA3014314, 0x4E0811A1, 0xF7537E82, 0xBD3AF235, 0x2AD7D2BB, 0xEB86D391,
+  ];
+  const S = [
+    [7, 12, 17, 22], [5, 9, 14, 20], [4, 11, 16, 23], [6, 10, 15, 21],
+  ];
+  const X = [
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    [1, 6, 11, 0, 5, 10, 15, 4, 9, 14, 3, 8, 13, 2, 7, 12],
+    [5, 8, 11, 14, 1, 4, 7, 10, 13, 0, 3, 6, 9, 12, 15, 2],
+    [0, 7, 14, 5, 12, 3, 10, 1, 8, 15, 6, 13, 4, 11, 2, 9],
+  ];
+  const fns = [F, G, H, I];
+  for (let blk = 0; blk < numBlocks; blk++) {
+    const w = words.slice(blk * 16, blk * 16 + 16);
+    const AA = a, BB = b, CC = c, DD = d;
+    for (let round = 0; round < 4; round++) {
+      for (let i = 0; i < 16; i++) {
+        const tIdx = round * 16 + i;
+        const s = S[round][i % 4];
+        const xIdx = X[round][i];
+        const next = step(fns[round], a, b, c, d, w[xIdx], s, T[tIdx]);
+        a = d; d = c; c = b; b = next;
+      }
+    }
+    a = add(a, AA); b = add(b, BB); c = add(c, CC); d = add(d, DD);
+  }
+  function toHex(n) {
+    let s = '';
+    for (let i = 0; i < 4; i++) {
+      s += ((n >>> (i * 8)) & 0xFF).toString(16).padStart(2, '0');
+    }
+    return s;
+  }
+  return toHex(a) + toHex(b) + toHex(c) + toHex(d);
+}
+
+async function hmacSha1Base64(secret, message) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-1' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message));
+  const bytes = new Uint8Array(sig);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+function zadarmaSortedParamString(params) {
+  // Canonical form used by Zadarma for signing: URLSearchParams with alphabetical keys.
+  // Matches their PHP/Node signing code (querystring.stringify over sorted keys).
+  const sortedKeys = Object.keys(params).sort();
+  const usp = new URLSearchParams();
+  for (const k of sortedKeys) usp.append(k, params[k]);
+  return usp.toString();
+}
+
+async function verifyZadarmaSignature(params, signature, secret) {
+  if (!signature || !secret) return false;
+  const paramStr = zadarmaSortedParamString(params);
+  const expected = await hmacSha1Base64(secret, paramStr);
+  return expected === signature;
+}
+
+async function requestZadarmaRecording(callId, env) {
+  // Zadarma API auth: sign = base64(hmac_sha1(secret, method + params + md5(params)))
+  // Header: "KEY:SIGN"
+  const method = '/v1/pbx/record/request/';
+  const params = {
+    call_id: callId,
+    lifetime: String(ZADARMA_RECORDING_LIFETIME_SECONDS),
+  };
+  const paramStr = zadarmaSortedParamString(params);
+  const md5Param = md5Hex(paramStr);
+  const signature = await hmacSha1Base64(env.ZADARMA_SECRET, method + paramStr + md5Param);
+  const authHeader = `${env.ZADARMA_KEY}:${signature}`;
+  const url = `https://api.zadarma.com${method}?${paramStr}`;
+
+  const res = await fetch(url, { headers: { Authorization: authHeader } });
+  if (!res.ok) {
+    console.error(`[zadarma] record/request failed: ${res.status} ${await res.text()}`);
+    return null;
+  }
+  const data = await res.json();
+  if (data.status !== 'success' || !data.link) {
+    console.error(`[zadarma] record/request non-success:`, data);
+    return null;
+  }
+  return data.link;
+}
+
+// Transcribe binary audio buffer via AssemblyAI — same pattern as handleTranscribe.
+async function transcribeAudioBuffer(audioBuffer, env) {
+  const uploadRes = await fetch(`${ASSEMBLYAI_URL}/upload`, {
+    method: 'POST',
+    headers: {
+      authorization: env.ASSEMBLYAI_API_KEY,
+      'content-type': 'application/octet-stream',
+    },
+    body: audioBuffer,
+  });
+  if (!uploadRes.ok) {
+    throw new Error(`AssemblyAI upload failed: ${uploadRes.status} ${await uploadRes.text()}`);
+  }
+  const { upload_url } = await uploadRes.json();
+
+  const transcriptRes = await fetch(`${ASSEMBLYAI_URL}/transcript`, {
+    method: 'POST',
+    headers: {
+      authorization: env.ASSEMBLYAI_API_KEY,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ audio_url: upload_url, language_code: 'es', speech_models: ['universal-3-pro'] }),
+  });
+  if (!transcriptRes.ok) {
+    throw new Error(`AssemblyAI transcript request failed: ${transcriptRes.status} ${await transcriptRes.text()}`);
+  }
+  const { id: transcriptId } = await transcriptRes.json();
+
+  const maxPolls = 60; // 60 × 3s = 180s
+  for (let i = 0; i < maxPolls; i++) {
+    await new Promise((r) => setTimeout(r, 3000));
+    const pollRes = await fetch(`${ASSEMBLYAI_URL}/transcript/${transcriptId}`, {
+      headers: { authorization: env.ASSEMBLYAI_API_KEY },
+    });
+    const pollData = await pollRes.json();
+    if (pollData.status === 'completed') {
+      if (!pollData.text || pollData.text.trim().length === 0) {
+        throw new Error('No speech detected in recording');
+      }
+      return pollData.text;
+    }
+    if (pollData.status === 'error') {
+      throw new Error(`AssemblyAI error: ${pollData.error || 'unknown'}`);
+    }
+  }
+  throw new Error('AssemblyAI transcription timed out');
+}
+
+async function processZadarmaCall(params, env) {
+  const callIdWithRec = params.call_id_with_rec;
+  const callerPhone = params.caller_id || params.destination || null;
+
+  try {
+    // 1. Wait for Zadarma to finalize the recording file
+    await new Promise((r) => setTimeout(r, ZADARMA_RECORDING_DELAY_MS));
+
+    // 2. Request the download URL from Zadarma
+    const audioLink = await requestZadarmaRecording(callIdWithRec, env);
+    if (!audioLink) {
+      console.error(`[zadarma] No audio link for call ${callIdWithRec}`);
+      return;
+    }
+
+    // 3. Download the MP3
+    const audioRes = await fetch(audioLink);
+    if (!audioRes.ok) {
+      console.error(`[zadarma] Failed to download audio: ${audioRes.status} ${audioLink}`);
+      return;
+    }
+    const audioBuffer = await audioRes.arrayBuffer();
+    if (audioBuffer.byteLength > MAX_AUDIO_BYTES) {
+      console.error(`[zadarma] Audio exceeds 25MB limit: ${audioBuffer.byteLength} bytes, call ${callIdWithRec}`);
+      return;
+    }
+
+    // 4. Transcribe with AssemblyAI (same flow as handleTranscribe)
+    const transcription = await transcribeAudioBuffer(audioBuffer, env);
+    console.log(`[zadarma] Transcribed call ${callIdWithRec}: ${transcription.length} chars`);
+
+    // 5. Insert background_jobs row — cron will claim it and invoke analyze
+    await supabaseInsert(env, 'background_jobs', {
+      organization_id: ZADARMA_ENPAGOS_ORG_ID,
+      user_id: ZADARMA_ENPAGOS_SYSTEM_USER_ID,
+      type: 'analysis',
+      status: 'pending',
+      priority: 0,
+      retry_count: 0,
+      max_retries: 2,
+      quota_consumed: false,
+      payload: {
+        scorecard_id: ZADARMA_ENPAGOS_SCORECARD_ID,
+        funnel_stage_id: ZADARMA_ENPAGOS_FUNNEL_STAGE_ID,
+        has_audio: true,
+        transcription_text: transcription,
+        transcription_original: transcription,
+        transcription_edited: null,
+        edit_percentage: 0,
+        pause_count: 0,
+        total_paused_seconds: 0,
+        prospect_phone: callerPhone,
+        prospect_identifier: callerPhone,
+        fuente_lead_id: '',
+        avanzo_a_siguiente_etapa: 'pending',
+        call_notes: null,
+      },
+    });
+    console.log(`[zadarma] Enqueued analysis job for call ${callIdWithRec}`);
+  } catch (err) {
+    console.error(`[zadarma] processZadarmaCall error for ${callIdWithRec}: ${err.message}`);
+  }
+}
+
+async function handleZadarmaWebhook(request, env, ctx) {
+  const rawBody = await request.text();
+  const params = {};
+  for (const [k, v] of new URLSearchParams(rawBody)) params[k] = v;
+
+  const signature = request.headers.get('Signature') || request.headers.get('signature');
+  if (!env.ZADARMA_SECRET) {
+    console.log('[zadarma] ZADARMA_SECRET not configured, skipping');
+    return new Response('ok', { status: 200 });
+  }
+  if (!signature) {
+    return new Response('forbidden', { status: 403 });
+  }
+  const valid = await verifyZadarmaSignature(params, signature, env.ZADARMA_SECRET);
+  if (!valid) {
+    return new Response('forbidden', { status: 403 });
+  }
+
+  const event = params.event || '';
+  if (event !== 'NOTIFY_END' && event !== 'NOTIFY_OUT_END') {
+    return new Response('ok', { status: 200 });
+  }
+
+  if (params.is_recorded !== '1') {
+    return new Response('ok', { status: 200 });
+  }
+
+  // Quality filters
+  const disposition = params.disposition || '';
+  const duration = parseInt(params.duration || '0', 10);
+  if (disposition !== 'answered') return new Response('ok', { status: 200 });
+  if (duration < ZADARMA_MIN_DURATION_SECONDS) return new Response('ok', { status: 200 });
+
+  if (!env.ZADARMA_KEY) {
+    console.log('[zadarma] ZADARMA_KEY not configured, skipping');
+    return new Response('ok', { status: 200 });
+  }
+
+  // Respond immediately; background-process the call
+  ctx.waitUntil(processZadarmaCall(params, env));
+  return new Response('ok', { status: 200 });
+}
+
+// ─── Stripe webhook ────────────────────────────────────────
+
 async function verifyStripeSignature(request, secret) {
   const body = await request.text();
   const sig = request.headers.get('stripe-signature');
@@ -1434,10 +1734,29 @@ async function handleStripeWebhook(request, env) {
 export default {
   async fetch(request, env, ctx) {
     const origin = request.headers.get('Origin') || '';
+    const url = new URL(request.url);
 
     // CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    }
+
+    // Zadarma webhook — form-urlencoded, no CORS, path-based routing
+    if (url.pathname === '/zadarma-webhook') {
+      if (request.method === 'GET') {
+        const zdEcho = url.searchParams.get('zd_echo');
+        if (zdEcho) return new Response(zdEcho, { status: 200 });
+        return new Response('ok', { status: 200 });
+      }
+      if (request.method === 'POST') {
+        try {
+          return await handleZadarmaWebhook(request, env, ctx);
+        } catch (err) {
+          console.error('[zadarma] webhook handler error:', err.message);
+          return new Response('ok', { status: 200 });
+        }
+      }
+      return new Response('method not allowed', { status: 405 });
     }
 
     if (request.method !== 'POST') {

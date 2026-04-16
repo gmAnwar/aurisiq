@@ -4,11 +4,16 @@ compatibility_date = "2024-09-23"
 
 [vars]
 SUPABASE_URL = "https://ekvvsosbwkfyhawywgpn.supabase.co"
+# Zadarma auto-grab (EnPagos fase 1) — valores reales via `wrangler secret put`
+ZADARMA_KEY = ""
+ZADARMA_SECRET = ""
 
 # Secrets (set via `wrangler secret put`):
 # CLAUDE_API_KEY
 # SUPABASE_SERVICE_ROLE_KEY
 # ASSEMBLYAI_API_KEY
+# ZADARMA_KEY (override del var vacío)
+# ZADARMA_SECRET (override del var vacío)
 
 # Cron: timeout recovery every 5 minutes
 [triggers]
