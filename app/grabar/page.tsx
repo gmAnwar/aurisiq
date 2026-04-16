@@ -39,6 +39,7 @@ export default function GrabarPage() {
   const [pageState, setPageState] = useState<PageState>("idle");
   const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState("");
+  const [orgVertical, setOrgVertical] = useState("");
   const [recoveryRec, setRecoveryRec] = useState<PendingRecording | null>(null);
 
   // Auto-save ref
@@ -51,6 +52,12 @@ export default function GrabarPage() {
   // Waveform
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
+
+  // Recording limits based on vertical
+  const PRESENCIAL_VERTICALS = ["body_spa", "dentistas", "quiropractico"];
+  const isPresencial = orgVertical !== "" && PRESENCIAL_VERTICALS.includes(orgVertical);
+  const maxRecordingMin = isPresencial ? 50 : 25;
+  const maxRecordingSec = maxRecordingMin * 60;
 
   // Unique scorecards for toggle
   const uniqueScorecards = funnelStages
@@ -69,16 +76,18 @@ export default function GrabarPage() {
       setUserId(session.userId);
       setOrgId(session.organizationId);
 
-      const [stagesRes, count, storage] = await Promise.all([
+      const [stagesRes, count, storage, scRes] = await Promise.all([
         supabase.from("funnel_stages").select("id, name, scorecard_id")
           .eq("organization_id", session.organizationId).eq("active", true).order("order_index"),
         countPending(session.userId),
         checkStorageAvailable(),
+        supabase.from("scorecards").select("vertical").eq("organization_id", session.organizationId).eq("active", true).limit(1).maybeSingle(),
       ]);
 
       setFunnelStages(stagesRes.data || []);
       setPendingCount(count);
       if (!storage.available) setStorageWarning(true);
+      if (scRes.data?.vertical) setOrgVertical(scRes.data.vertical);
 
       // Check for incomplete recordings (crash recovery)
       const incomplete = await getIncompleteRecordings(session.userId);
@@ -392,8 +401,12 @@ export default function GrabarPage() {
           </div>
           <span className="ear-timer">{formatTime(rec.recElapsed)}</span>
           <canvas ref={canvasRef} className="ear-waveform" width={280} height={60} />
-          {rec.recElapsed > 1800 && (
-            <p className="ear-long-warning">Llevas mas de 30 minutos grabando.</p>
+          {rec.recElapsed > maxRecordingSec * 0.8 && (
+            <p className="ear-long-warning">
+              {rec.recElapsed > maxRecordingSec
+                ? `Limite de ${maxRecordingMin} min excedido. Detén la grabación.`
+                : `Llevas mas de ${Math.floor(rec.recElapsed / 60)} minutos. Limite: ${maxRecordingMin} min.`}
+            </p>
           )}
           <div className="ear-btn-row">
             {rec.recMode === "recording" ? (

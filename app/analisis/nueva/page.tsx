@@ -82,6 +82,11 @@ export default function NuevaLlamadaPage() {
   const wordCount = transcription.trim().split(/\s+/).filter(Boolean).length;
   const MIN_WORDS = transcriptionSource === "audio" ? 50 : 200;
 
+  const TRANSCRIPT_LIMITS = {
+    presencial: { maxChars: 40000, maxRecordingMin: 50, warnAtChars: 25000 },
+    telefonica: { maxChars: 20000, maxRecordingMin: 25, warnAtChars: 12000 },
+  } as const;
+
   const AUDIO_EXTENSIONS = [".mp3", ".m4a", ".wav", ".ogg", ".opus", ".webm", ".mp4"];
   const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
 
@@ -142,9 +147,10 @@ export default function NuevaLlamadaPage() {
         setFileMsg("Transcripción automática lista — revisa antes de analizar.");
       }
 
-      if (text.length > 15000) {
-        text = text.slice(0, 15000);
-        setFileMsg("La transcripción es muy larga. Se mostrarán los primeros 15,000 caracteres. Revisa que incluya las partes más importantes de la llamada.");
+      const maxC = (isPresencial ? TRANSCRIPT_LIMITS.presencial : TRANSCRIPT_LIMITS.telefonica).maxChars;
+      if (text.length > maxC) {
+        text = text.slice(0, maxC);
+        setFileMsg(`La transcripción es muy larga. Se mostrarán los primeros ${maxC.toLocaleString()} caracteres.`);
       }
 
       setTranscription(text);
@@ -169,11 +175,11 @@ export default function NuevaLlamadaPage() {
       return;
     }
 
-    const CHAR_LIMIT = 15000;
+    const FILE_CHAR_LIMIT = (isPresencial ? TRANSCRIPT_LIMITS.presencial : TRANSCRIPT_LIMITS.telefonica).maxChars;
     if (name.endsWith(".txt")) {
       const text = await file.text();
-      if (text.length > CHAR_LIMIT) {
-        setFileMsg(`El archivo tiene ${text.length.toLocaleString()} caracteres (máximo ${CHAR_LIMIT.toLocaleString()}).`);
+      if (text.length > FILE_CHAR_LIMIT) {
+        setFileMsg(`El archivo tiene ${text.length.toLocaleString()} caracteres (máximo ${FILE_CHAR_LIMIT.toLocaleString()}).`);
         return;
       }
       setTranscription(text);
@@ -181,8 +187,8 @@ export default function NuevaLlamadaPage() {
     } else if (name.endsWith(".doc") || name.endsWith(".docx")) {
       const text = await file.text();
       const cleaned = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-      if (cleaned.length > CHAR_LIMIT) {
-        setFileMsg(`El texto extraído tiene ${cleaned.length.toLocaleString()} caracteres (máximo ${CHAR_LIMIT.toLocaleString()}).`);
+      if (cleaned.length > FILE_CHAR_LIMIT) {
+        setFileMsg(`El texto extraído tiene ${cleaned.length.toLocaleString()} caracteres (máximo ${FILE_CHAR_LIMIT.toLocaleString()}).`);
         return;
       }
       if (cleaned.length < 50) {
@@ -225,9 +231,10 @@ export default function NuevaLlamadaPage() {
   const isMultiScorecard = isPresencial && uniqueScorecards.length >= 2;
   const needsStageChoice = isMultiScorecard && !selectedStage;
 
-  const canSubmit = (isPresencial ? !needsStageChoice : (selectedSource !== "" && !missingConfig)) && wordCount >= MIN_WORDS && status === "idle" && !isTranscribing && !stageNoScorecard;
   const charCount = transcription.length;
-  const CHAR_LIMIT = 15000;
+  const limits = isPresencial ? TRANSCRIPT_LIMITS.presencial : TRANSCRIPT_LIMITS.telefonica;
+  const CHAR_LIMIT = limits.maxChars;
+  const canSubmit = (isPresencial ? !needsStageChoice : (selectedSource !== "" && !missingConfig)) && wordCount >= MIN_WORDS && charCount <= CHAR_LIMIT && status === "idle" && !isTranscribing && !stageNoScorecard;
 
   useEffect(() => {
     setMobile(isMobile());
@@ -1171,9 +1178,15 @@ export default function NuevaLlamadaPage() {
             </div>
           )}
           <div className="c2-char-count">
-            <span className={wordCount < MIN_WORDS ? "c2-char-warning" : ""}>
+            <span className={wordCount < MIN_WORDS ? "c2-char-warning" : charCount > CHAR_LIMIT ? "c2-char-error" : charCount > limits.warnAtChars ? "c2-char-amber" : ""}>
               {wordCount} palabras{wordCount < MIN_WORDS ? ` (mínimo ${MIN_WORDS})` : ""} · {charCount.toLocaleString()} / {CHAR_LIMIT.toLocaleString()} caracteres
             </span>
+            {charCount > limits.warnAtChars && charCount <= CHAR_LIMIT && (
+              <span className="c2-char-amber" style={{ display: "block", fontSize: 11, marginTop: 2 }}>Transcripcion larga, analisis puede tardar 30-60s</span>
+            )}
+            {charCount > CHAR_LIMIT && (
+              <span className="c2-char-error" style={{ display: "block", fontSize: 11, marginTop: 2 }}>Limite excedido — recorta la transcripcion para continuar</span>
+            )}
           </div>
         </div>
 

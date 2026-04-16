@@ -947,6 +947,8 @@ body.has-nav {
 }
 
 .c2-char-warning { color: var(--red); font-weight: 600; }
+.c2-char-amber { color: #d97706; font-weight: 500; }
+.c2-char-error { color: var(--red); font-weight: 600; }
 
 .c2-hint {
   font-size: 13px;
