@@ -446,7 +446,7 @@ export default function GrabarPage() {
   }
 
   // ─── RECORDING state ──────────────────────────────────────
-  if (pageState === "recording" && rec.recMode !== "off") {
+  if ((pageState === "recording" || rec.recMode === "recording" || rec.recMode === "paused") && rec.recMode !== "off") {
     return (
       <div className="grabar-container">
         <div className="ear-recording">
