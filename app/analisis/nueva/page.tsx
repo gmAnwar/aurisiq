@@ -1135,7 +1135,7 @@ export default function NuevaLlamadaPage() {
 
         <div className="input-group">
           <label htmlFor="transcription" className="input-label">
-            Transcripción de la llamada *
+            {isPresencial ? "Transcripción de la consulta *" : "Transcripción de la llamada *"}
           </label>
           <div
             className={`c2-drop-zone ${dragging ? "c2-drop-active" : ""}`}
@@ -1191,7 +1191,7 @@ export default function NuevaLlamadaPage() {
             disabled={status === "analyzing" || isTranscribing || transcription.length > 0}
             type="button"
           >
-            🎙️ Grabar llamada
+            {isPresencial ? "🎙️ Grabar consulta" : "🎙️ Grabar llamada"}
           </button>
           <label className="c2-file-btn">
             Buscar archivo

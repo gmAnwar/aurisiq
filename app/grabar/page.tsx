@@ -208,11 +208,20 @@ export default function GrabarPage() {
   }, [rec.analyserNode]);
 
   useEffect(() => {
-    if ((rec.recMode === "recording" || rec.recMode === "paused") && rec.analyserNode && canvasRef.current) {
-      drawWaveform();
+    if (animFrameRef.current) { cancelAnimationFrame(animFrameRef.current); animFrameRef.current = null; }
+    if ((rec.recMode === "recording" || rec.recMode === "paused") && rec.analyserNode) {
+      // Canvas may not be mounted yet on first render — retry with rAF
+      const tryDraw = () => {
+        if (canvasRef.current && rec.analyserNode) {
+          drawWaveform();
+        } else {
+          requestAnimationFrame(tryDraw);
+        }
+      };
+      requestAnimationFrame(tryDraw);
     }
     return () => { if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current); };
-  }, [rec.recMode, rec.analyserNode, drawWaveform]);
+  }, [rec.recMode, rec.analyserNode, drawWaveform, pageState]);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
@@ -224,9 +233,12 @@ export default function GrabarPage() {
   const handleStart = async () => {
     if (!orgId || lockedByOther) return;
     lockRef.current?.acquireLock();
+    setSavedTranscription(null);
     setCallNotes("");
     setProspectName("");
     setSelectedStage("");
+    setSubmitting(false);
+    setSubmitMsg("");
     await rec.startRecording(orgId);
   };
 
@@ -507,6 +519,16 @@ export default function GrabarPage() {
               Minimo {minWords} palabras para analizar ({wordCount} detectadas). La grabacion puede ser muy corta o sin audio hablado.
             </p>
           )}
+
+          {/* Transcript preview */}
+          <details style={{ marginTop: 8, border: "1px solid var(--border, #e5e5e5)", borderRadius: 8, overflow: "hidden" }}>
+            <summary style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>
+              Ver transcripcion ({wordCount} palabras)
+            </summary>
+            <div style={{ padding: "8px 14px 12px", fontSize: 12, lineHeight: 1.5, color: "var(--ink-light)", maxHeight: 200, overflowY: "auto", whiteSpace: "pre-wrap" }}>
+              {savedTranscription.text}
+            </div>
+          </details>
 
           {/* Scorecard toggle */}
           {isMultiScorecard && (
