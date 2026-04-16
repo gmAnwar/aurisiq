@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
+import { WORKER_URL } from "../../../lib/config";
 
 interface SpeechField { field_name: string; phrases: string[]; }
 interface SpeechPhase { phase_name: string; transition?: string; fields?: SpeechField[]; phrases?: string[]; }
@@ -75,7 +76,6 @@ export default function BibliotecaPage() {
   const [createStageId, setCreateStageId] = useState("");
   const [creatingSpeech, setCreatingSpeech] = useState(false);
 
-  const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
 
   useEffect(() => {
     async function load() {

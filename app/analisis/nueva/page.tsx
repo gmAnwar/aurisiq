@@ -6,6 +6,7 @@ import { requireAuth } from "../../../lib/auth";
 import { computeEditPercentage } from "../../../lib/text";
 import { useRecording } from "../../contexts/RecordingContext";
 import MobileSelect from "../../components/MobileSelect";
+import { WORKER_URL } from "../../../lib/config";
 
 interface GuideField { field_name: string; phrases: string[]; }
 interface GuidePhase { phase_name: string; transition?: string; fields?: GuideField[]; phrases?: string[]; }
@@ -90,7 +91,6 @@ export default function NuevaLlamadaPage() {
   } as const;
 
   const AUDIO_EXTENSIONS = [".mp3", ".m4a", ".wav", ".ogg", ".opus", ".webm", ".mp4"];
-  const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
 
   // ─── Consume transcription result from recording context ──
   // Only consume if sessionStorage has the marker (set by RecordingContext

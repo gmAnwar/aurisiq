@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
+import { WORKER_URL } from "../../lib/config";
 
 interface SpeechField {
   field_name: string;
@@ -61,7 +62,6 @@ export default function SpeechPage() {
   const [generatingStage, setGeneratingStage] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
 
-  const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
 
   useEffect(() => {
     async function load() {

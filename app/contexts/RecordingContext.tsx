@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useRef, useCallback, useEffect } from "react";
+import { WORKER_URL } from "../../lib/config";
 
 type RecMode = "off" | "recording" | "paused" | "transcribing";
 
@@ -52,7 +53,6 @@ function isMobile(): boolean {
   return window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
-const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
 const DB_NAME = "aurisiq_drafts";
 const STORE_NAME = "recordings";
 const OFFLINE_STORE = "offline_queue";

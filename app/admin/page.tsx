@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
+import { getAccessToken } from "../../lib/auth-token";
 import ScorecardEditor from "./ScorecardEditor";
 import TrackersCRUD from "../components/TrackersCRUD";
 
@@ -203,8 +204,7 @@ export default function AdminPage() {
   }
 
   const loadAllData = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
+    const token = await getAccessToken();
     if (!token) { setError("Sin sesión activa"); return; }
     const res = await fetch("/api/admin/data", {
       headers: { Authorization: `Bearer ${token}` },
@@ -377,8 +377,7 @@ export default function AdminPage() {
     setSavingUserId(userId);
     setSavedUserId(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const token = await getAccessToken();
       const res = await fetch("/api/admin/update-user", {
         method: "POST",
         headers: {
@@ -423,8 +422,7 @@ export default function AdminPage() {
     setCreatingUser(true);
     setLastCreatedUserLink(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const token = await getAccessToken();
       if (!token) {
         showToast({ type: "err", msg: "No hay sesión activa — reingresa para crear usuarios" });
         setCreatingUser(false);
@@ -478,8 +476,7 @@ export default function AdminPage() {
   async function addUserOrg(userId: string) {
     if (!addOrgId) return;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const token = await getAccessToken();
       const res = await fetch("/api/admin/user-orgs", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -501,8 +498,7 @@ export default function AdminPage() {
   async function removeUserOrg(membershipId: string) {
     if (!window.confirm("¿Quitar esta organización del usuario?")) return;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const token = await getAccessToken();
       const res = await fetch(`/api/admin/user-orgs?id=${encodeURIComponent(membershipId)}`, {
         method: "DELETE",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -517,8 +513,7 @@ export default function AdminPage() {
 
   async function resendInvite(u: UserRow) {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const token = await getAccessToken();
       const res = await fetch("/api/admin/resend-invite", {
         method: "POST",
         headers: {
@@ -559,8 +554,7 @@ export default function AdminPage() {
     if (!pendingDeleteAnalysisId) return;
     const targetId = pendingDeleteAnalysisId;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const token = await getAccessToken();
       const res = await fetch("/api/admin/delete-analysis", {
         method: "POST",
         headers: {
@@ -623,8 +617,7 @@ export default function AdminPage() {
     const targetOrg = editingStage?.organization_id || embudoOrgFilter;
     if (!targetOrg || !stageName.trim()) return;
     setSavingStage(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
+    const token = await getAccessToken();
     if (!token) { setSavingStage(false); return; }
 
     if (editingStage) {
