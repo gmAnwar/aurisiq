@@ -112,6 +112,9 @@ export default function GrabarPage() {
     return () => lock.destroy();
   }, []);
 
+  // Saved transcription for post state (survives recMode changes)
+  const [savedTranscription, setSavedTranscription] = useState<{ text: string; original: string } | null>(null);
+
   // ─── State machine: track recMode changes ─────────────────
   useEffect(() => {
     if (rec.recMode === "recording" || rec.recMode === "paused") {
@@ -119,12 +122,12 @@ export default function GrabarPage() {
     } else if (rec.recMode === "transcribing") {
       setPageState("transcribing");
     }
-    // When recMode goes to "off" after transcribing, check for result
   }, [rec.recMode]);
 
-  // When transcription result arrives → post state
+  // When transcription result arrives → save locally + transition to post
   useEffect(() => {
     if (rec.transcriptionResult && rec.transcriptionResult.text) {
+      setSavedTranscription({ text: rec.transcriptionResult.text, original: rec.transcriptionResult.original });
       setPageState("post");
     }
   }, [rec.transcriptionResult]);
@@ -182,10 +185,12 @@ export default function GrabarPage() {
     const draw = () => {
       animFrameRef.current = requestAnimationFrame(draw);
       analyser.getByteTimeDomainData(dataArray);
-      ctx.fillStyle = "#1a1a1a";
+      ctx.fillStyle = "rgba(26, 26, 26, 0.3)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 3;
       ctx.strokeStyle = "#00C2E0";
+      ctx.shadowColor = "#00C2E0";
+      ctx.shadowBlur = 4;
       ctx.beginPath();
       const sliceWidth = canvas.width / bufferLength;
       let x = 0;
@@ -197,6 +202,7 @@ export default function GrabarPage() {
       }
       ctx.lineTo(canvas.width, canvas.height / 2);
       ctx.stroke();
+      ctx.shadowBlur = 0;
     };
     draw();
   }, [rec.analyserNode]);
@@ -245,12 +251,13 @@ export default function GrabarPage() {
     setSubmitMsg("");
     setAnalysisPct(0);
     setAnalysisPhase("");
+    setSavedTranscription(null);
     rec.clearTranscriptionResult();
   };
 
   // ─── Save to queue (analyze later) ────────────────────────
   const handleSaveToQueue = async () => {
-    if (!userId || !orgId || !rec.transcriptionResult) return;
+    if (!userId || !orgId || !savedTranscription) return;
     setSubmitting(true);
     setSubmitMsg("Guardando...");
 
@@ -261,7 +268,7 @@ export default function GrabarPage() {
 
     const recording: PendingRecording = {
       id: crypto.randomUUID(),
-      audio_blob: new Blob([rec.transcriptionResult.text], { type: "text/plain" }),
+      audio_blob: new Blob([savedTranscription.text], { type: "text/plain" }),
       duration_seconds: rec.recElapsed,
       created_at: new Date().toISOString(),
       organization_id: orgId,
@@ -289,7 +296,7 @@ export default function GrabarPage() {
 
   // ─── Analyze now (inline) ─────────────────────────────────
   const handleAnalyzeNow = async () => {
-    if (!userId || !orgId || !rec.transcriptionResult) return;
+    if (!userId || !orgId || !savedTranscription) return;
 
     const stageId = selectedStage || (uniqueScorecards.length === 1 ? uniqueScorecards[0].stageId : "");
     const scorecardId = stageId
@@ -332,13 +339,13 @@ export default function GrabarPage() {
           status: "pending",
           priority: 0,
           payload: {
-            transcription_text: rec.transcriptionResult.text,
+            transcription_text: savedTranscription.text,
             scorecard_id: scorecardId,
             funnel_stage_id: stageId || null,
             fuente_lead_id: null,
             prospect_phone: null,
-            transcription_original: rec.transcriptionResult.original,
-            transcription_edited: rec.transcriptionResult.text !== rec.transcriptionResult.original ? rec.transcriptionResult.text : null,
+            transcription_original: savedTranscription.original,
+            transcription_edited: savedTranscription.text !== savedTranscription.original ? savedTranscription.text : null,
             edit_percentage: 0,
             call_notes: callNotes.trim() || null,
             has_audio: true,
@@ -413,8 +420,8 @@ export default function GrabarPage() {
     );
   }
 
-  // ─── TRANSCRIBING state ───────────────────────────────────
-  if (pageState === "transcribing" || rec.recMode === "transcribing") {
+  // ─── TRANSCRIBING state (only if no result yet) ────────────
+  if ((pageState === "transcribing" || rec.recMode === "transcribing") && !savedTranscription) {
     return (
       <div className="grabar-container">
         <div className="grabar-hero">
@@ -481,8 +488,8 @@ export default function GrabarPage() {
   }
 
   // ─── POST-RECORDING state ─────────────────────────────────
-  if (pageState === "post" && rec.transcriptionResult) {
-    const wordCount = rec.transcriptionResult.text.trim().split(/\s+/).filter(Boolean).length;
+  if (pageState === "post" && savedTranscription) {
+    const wordCount = savedTranscription.text.trim().split(/\s+/).filter(Boolean).length;
     const minWords = 50;
     const canAnalyze = wordCount >= minWords && (!isMultiScorecard || selectedStage !== "") && !submitting;
 
