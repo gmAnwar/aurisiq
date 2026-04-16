@@ -91,13 +91,19 @@ export default function NuevaLlamadaPage() {
   const WORKER_URL = "https://aurisiq-worker.anwarhsg.workers.dev";
 
   // ─── Consume transcription result from recording context ──
+  // Only consume if sessionStorage has the marker (set by RecordingContext
+  // when transcription finishes). This prevents stale results from /grabar
+  // from pre-filling the textarea.
   useEffect(() => {
     if (rec.transcriptionResult) {
-      setTranscription(rec.transcriptionResult.text);
-      setTranscriptionOriginal(rec.transcriptionResult.original);
-      setTranscriptionSource("audio");
-      setEditPct(0);
-      setFileMsg(rec.transcriptionResult.message);
+      const hasMarker = sessionStorage.getItem("c2_source_type") === "audio";
+      if (hasMarker) {
+        setTranscription(rec.transcriptionResult.text);
+        setTranscriptionOriginal(rec.transcriptionResult.original);
+        setTranscriptionSource("audio");
+        setEditPct(0);
+        setFileMsg(rec.transcriptionResult.message);
+      }
       rec.clearTranscriptionResult();
     }
   }, [rec.transcriptionResult]);

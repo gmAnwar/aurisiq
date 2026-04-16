@@ -175,7 +175,7 @@ export default function GrabarPage() {
     return () => clearInterval(interval);
   }, [rec.recMode, userId, orgId]);
 
-  // ─── Waveform ─────────────────────────────────────────────
+  // ─── Waveform — exact same as /analisis/nueva (orange bars) ─
   const drawWaveform = useCallback(() => {
     const canvas = canvasRef.current;
     const analyser = rec.analyserNode;
@@ -186,44 +186,35 @@ export default function GrabarPage() {
     const dataArray = new Uint8Array(bufferLength);
     const draw = () => {
       animFrameRef.current = requestAnimationFrame(draw);
-      analyser.getByteTimeDomainData(dataArray);
-      ctx.fillStyle = "rgba(26, 26, 26, 0.3)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = "#00C2E0";
-      ctx.shadowColor = "#00C2E0";
-      ctx.shadowBlur = 4;
-      ctx.beginPath();
-      const sliceWidth = canvas.width / bufferLength;
-      let x = 0;
-      for (let i = 0; i < bufferLength; i++) {
-        const v = dataArray[i] / 128.0;
-        const y = (v * canvas.height) / 2;
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        x += sliceWidth;
+      analyser.getByteFrequencyData(dataArray);
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      const barCount = 32;
+      const barWidth = Math.floor(w / barCount) - 2;
+      const step = Math.floor(bufferLength / barCount);
+      for (let i = 0; i < barCount; i++) {
+        const value = dataArray[i * step] / 255;
+        const barHeight = Math.max(2, value * h * 0.85);
+        const x = i * (barWidth + 2);
+        const y = (h - barHeight) / 2;
+        ctx.fillStyle = value > 0.4 ? "#c87840" : "rgba(200,120,64,0.3)";
+        ctx.beginPath();
+        ctx.roundRect(x, y, barWidth, barHeight, 2);
+        ctx.fill();
       }
-      ctx.lineTo(canvas.width, canvas.height / 2);
-      ctx.stroke();
-      ctx.shadowBlur = 0;
     };
     draw();
   }, [rec.analyserNode]);
 
   useEffect(() => {
-    if (animFrameRef.current) { cancelAnimationFrame(animFrameRef.current); animFrameRef.current = null; }
-    if ((rec.recMode === "recording" || rec.recMode === "paused") && rec.analyserNode) {
-      // Canvas may not be mounted yet on first render — retry with rAF
-      const tryDraw = () => {
-        if (canvasRef.current && rec.analyserNode) {
-          drawWaveform();
-        } else {
-          requestAnimationFrame(tryDraw);
-        }
-      };
-      requestAnimationFrame(tryDraw);
+    if (rec.recMode === "recording" && rec.analyserNode && canvasRef.current) {
+      drawWaveform();
     }
-    return () => { if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current); };
-  }, [rec.recMode, rec.analyserNode, drawWaveform, pageState]);
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    };
+  }, [rec.recMode, rec.analyserNode, drawWaveform]);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
@@ -464,7 +455,7 @@ export default function GrabarPage() {
             <span className="ear-rec-label">{rec.recMode === "paused" ? "En pausa" : "Grabando"}</span>
           </div>
           <span className="ear-timer">{formatTime(rec.recElapsed)}</span>
-          <canvas ref={canvasRef} className="ear-waveform" width={280} height={60} style={{ background: "#1a1a1a", borderRadius: 8 }} />
+          <canvas ref={canvasRef} className="ear-waveform" width={280} height={60} />
           {rec.recElapsed > maxRecordingSec * 0.8 && (
             <p className="ear-long-warning">
               {rec.recElapsed > maxRecordingSec
