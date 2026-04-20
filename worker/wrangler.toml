@@ -14,6 +14,11 @@ ZADARMA_SECRET = ""
 # ASSEMBLYAI_API_KEY
 # ZADARMA_KEY (override del var vacío)
 # ZADARMA_SECRET (override del var vacío)
+# INMOBILI_VAMBE_API_KEY
+# INMOBILI_META_PIXEL_ID
+# INMOBILI_META_CAPI_TOKEN
+# INMOBILI_VAMBE_WEBHOOK_SECRET
+# SLACK_TOKEN
 
 # Cron: timeout recovery every 5 minutes
 [triggers]
