@@ -13,7 +13,8 @@ interface NavItem {
 }
 
 import { hasAnyRole, type UserRole } from "../../lib/auth";
-import { isPresencial as isPresencialVertical } from "../../lib/verticals";
+import { useFunnelStages } from "../contexts/FunnelStagesContext";
+import { resolveGrabarCta } from "../../lib/cta-routing";
 import { Sun, BarChart3, CalendarRange, MessageSquare, Users, FolderOpen, BookOpen, FileBarChart, Settings, ClipboardList, TrendingUp, UserCircle, LayoutDashboard, Building2, Bell, ShieldCheck, Mic, ListChecks, type LucideIcon } from "lucide-react";
 
 interface RoleNavItem extends NavItem {
@@ -186,26 +187,18 @@ export default function NavBar({ role, roles, userName, userEmail, orgSlug, role
   };
   const effectiveRoles = roles && roles.length > 0 ? roles : [role];
 
-  // Load org vertical to decide "consulta" vs "llamada" copy and routing
-  const [orgVertical, setOrgVertical] = useState<string>("");
-  useEffect(() => {
-    if (!activeOrgId) return;
-    (async () => {
-      const { data } = await supabase.from("organizations").select("vertical").eq("id", activeOrgId).maybeSingle();
-      if (data?.vertical) setOrgVertical(data.vertical);
-    })();
-  }, [activeOrgId]);
-  const isPresencial = isPresencialVertical(orgVertical);
+  // CTA routing + sidebar "Grabar" visibility resolved from funnel_stages
+  // shared via FunnelStagesProvider (mounted in RecordingShell).
+  const isCta = showCta(effectiveRoles);
+  const { funnelStages } = useFunnelStages();
+  const cta = resolveGrabarCta({ hasCaptadora: isCta, funnelStages });
 
-  // In presencial orgs, CTA routes to /grabar and the standalone "Grabar"
-  // sidebar item is redundant — hide it.
   const allItems = getNavForRoles(effectiveRoles).filter(item => {
-    if (item.href === "/grabar" && isPresencial && effectiveRoles.includes("captadora")) return false;
+    if (item.href === "/grabar" && !cta.showSidebarGrabar) return false;
     return true;
   });
   const mobileItems = (MOBILE_NAV[role] || allItems).slice(0, 5);
   const isSidebar = useSidebarLayout();
-  const isCta = showCta(effectiveRoles);
   const initial = userName.charAt(0).toUpperCase() || "?";
   const roleLabel = getRoleLabel(role, { slug: orgSlug, role_label_vendedor: roleLabelVendedor });
 
@@ -234,14 +227,14 @@ export default function NavBar({ role, roles, userName, userEmail, orgSlug, role
       )}
       <div className="navbar-items">
       {/* CTA — Nueva consulta/llamada */}
-      {isCta && (
+      {cta.showCta && cta.href && cta.label && (
         <Link
-          href={isPresencial ? "/grabar" : "/analisis/nueva"}
+          href={cta.href}
           className="navbar-item navbar-item-cta"
-          title={collapsed ? (isPresencial ? "Nueva consulta" : "Nueva llamada") : undefined}
+          title={collapsed ? cta.label : undefined}
         >
           <Mic size={18} className="navbar-item-icon" />
-          <span className="navbar-item-label">{isPresencial ? "Nueva consulta" : "Nueva llamada"}</span>
+          <span className="navbar-item-label">{cta.label}</span>
         </Link>
       )}
       {allItems.map((item) => {

@@ -1,0 +1,37 @@
+import { orgHasTelefonico, orgHasPresencial } from "./verticals";
+
+export interface CtaRoutingInput {
+  // true si el user puede crear análisis. Equivalente a la condición showCta
+  // actual del NavBar (captadora en roles[] O role === "super_admin").
+  hasCaptadora: boolean;
+  funnelStages: ReadonlyArray<{ stage_type?: string | null }> | null | undefined;
+}
+
+export interface CtaRoutingOutput {
+  showCta: boolean;
+  href: "/analisis/nueva" | "/grabar" | null;
+  label: "Nueva llamada" | "Nueva consulta" | null;
+  showSidebarGrabar: boolean;
+}
+
+export function resolveGrabarCta(input: CtaRoutingInput): CtaRoutingOutput {
+  const { hasCaptadora, funnelStages } = input;
+
+  if (!hasCaptadora) {
+    return { showCta: false, href: null, label: null, showSidebarGrabar: false };
+  }
+
+  const hasTel = orgHasTelefonico(funnelStages);
+  const hasPres = orgHasPresencial(funnelStages);
+
+  if (!hasTel && !hasPres) {
+    return { showCta: true, href: "/analisis/nueva", label: "Nueva llamada", showSidebarGrabar: false };
+  }
+  if (hasTel && hasPres) {
+    return { showCta: true, href: "/analisis/nueva", label: "Nueva llamada", showSidebarGrabar: true };
+  }
+  if (hasTel) {
+    return { showCta: true, href: "/analisis/nueva", label: "Nueva llamada", showSidebarGrabar: false };
+  }
+  return { showCta: true, href: "/grabar", label: "Nueva consulta", showSidebarGrabar: false };
+}
