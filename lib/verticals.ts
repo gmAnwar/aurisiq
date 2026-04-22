@@ -1,12 +1,4 @@
-// Centralized vertical/stage logic — single source of truth for
-// presencial vs telefónico decisions across NavBar, CTAs and /analisis/nueva.
-//
-// The stage-based API (isPresencialStageType, orgHasTelefonico,
-// orgHasPresencial) is the correct signal for per-session and per-org
-// routing. The org-vertical-based helpers below (isPresencial,
-// isFinanciero) are @deprecated: they mis-classify mixed orgs (e.g.
-// Inmobili has vertical="inmobiliario" but its funnel has both llamada
-// V5A/V5C and visita V5B stages).
+// Stage-based classification helpers for aurisIQ verticals.
 
 export const PRESENCIAL_STAGE_TYPES = ["visita"] as const;
 
@@ -47,26 +39,10 @@ export function orgHasPresencial(
 }
 
 /**
- * @deprecated Use isPresencialStageType(stage_type) or orgHasPresencial(funnelStages)
- * instead. This helper classifies by organizations.vertical, which is
- * incorrect for mixed orgs (e.g. Inmobili with vertical="inmobiliario"
- * but mixed llamada+visita funnel). Kept byte-exact for call sites not
- * yet migrated; scheduled for removal in the final migration commit.
+ * True si el vertical del scorecard es "financiero".
+ * Input es scorecards.vertical (scalar), NO organizations.vertical (array).
+ * Úsalo para decidir UX per-análisis (ej: mostrar business_type / equipment_type de EnPagos).
  */
-export function isPresencial(vertical: string | string[] | null | undefined): boolean {
-  if (!vertical) return false;
-  const v = Array.isArray(vertical) ? vertical : [vertical];
-  return v.some((val) => val !== "financiero");
-}
-
-/**
- * @deprecated Use isPresencialStageType / org-level helpers. See note on
- * isPresencial above. Kept byte-exact for the single remaining call site
- * in app/analisis/[id]/page.tsx (which uses it to toggle a financiero-only
- * UI field); scheduled for migration in the final commit.
- */
-export function isFinanciero(vertical: string | string[] | null | undefined): boolean {
-  if (!vertical) return false;
-  const v = Array.isArray(vertical) ? vertical : [vertical];
-  return v.includes("financiero");
+export function isFinancieroScorecard(scorecardVertical: string | null | undefined): boolean {
+  return scorecardVertical === "financiero";
 }

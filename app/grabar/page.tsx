@@ -15,7 +15,6 @@ import {
   type PendingRecording,
 } from "../../lib/recordings-queue";
 import { uploadWithRetry } from "../../lib/recording-upload";
-import { isPresencial as isPresencialVertical } from "../../lib/verticals";
 import WaveformCanvas from "../components/WaveformCanvas";
 
 interface FunnelStage {
@@ -41,7 +40,6 @@ export default function GrabarPage() {
   const [pageState, setPageState] = useState<PageState>("idle");
   const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState("");
-  const [orgVertical, setOrgVertical] = useState("");
   const [recoveryRec, setRecoveryRec] = useState<PendingRecording | null>(null);
   const [analysisPct, setAnalysisPct] = useState(0);
   const [analysisPhase, setAnalysisPhase] = useState("");
@@ -57,9 +55,8 @@ export default function GrabarPage() {
 
   // Waveform handled by <WaveformCanvas /> component
 
-  // Recording limits — everything is presencial except financiero
-  const isPresencial = isPresencialVertical(orgVertical);
-  const maxRecordingMin = isPresencial ? 50 : 25;
+  // /grabar assumes presencial visit by design; telefónico flows route to /analisis/nueva.
+  const maxRecordingMin = 50;
   const maxRecordingSec = maxRecordingMin * 60;
 
   // Unique scorecards for toggle
@@ -79,18 +76,16 @@ export default function GrabarPage() {
       setUserId(session.userId);
       setOrgId(session.organizationId);
 
-      const [stagesRes, count, storage, scRes] = await Promise.all([
+      const [stagesRes, count, storage] = await Promise.all([
         supabase.from("funnel_stages").select("id, name, scorecard_id")
           .eq("organization_id", session.organizationId).eq("active", true).order("order_index"),
         countPending(session.userId),
         checkStorageAvailable(),
-        supabase.from("organizations").select("vertical").eq("id", session.organizationId).single(),
       ]);
 
       setFunnelStages(stagesRes.data || []);
       setPendingCount(count);
       if (!storage.available) setStorageWarning(true);
-      if (scRes.data?.vertical) setOrgVertical(scRes.data.vertical);
 
       // Recovery check
       const incomplete = await getIncompleteRecordings(session.userId);

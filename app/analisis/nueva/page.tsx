@@ -7,7 +7,7 @@ import { computeEditPercentage } from "../../../lib/text";
 import { useRecording } from "../../contexts/RecordingContext";
 import MobileSelect from "../../components/MobileSelect";
 import { WORKER_URL } from "../../../lib/config";
-import { isPresencial as isPresencialVertical } from "../../../lib/verticals";
+import { isPresencialStageType, orgHasPresencial, orgHasTelefonico } from "../../../lib/verticals";
 import WaveformCanvas from "../../components/WaveformCanvas";
 
 interface GuideField { field_name: string; phrases: string[]; }
@@ -25,6 +25,7 @@ interface FunnelStage {
   id: string;
   name: string;
   scorecard_id: string | null;
+  stage_type: "llamada" | "visita" | "cierre" | null;
 }
 
 function isMobile(): boolean {
@@ -39,7 +40,6 @@ export default function NuevaLlamadaPage() {
 
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [funnelStages, setFunnelStages] = useState<FunnelStage[]>([]);
-  const [orgVertical, setOrgVertical] = useState<string>("");
   const [checklistFields, setChecklistFields] = useState<ChecklistField[]>([]);
   const [selectedSource, setSelectedSource] = useState("");
   const [selectedStage, setSelectedStage] = useState("");
@@ -156,7 +156,7 @@ export default function NuevaLlamadaPage() {
         setFileMsg("Transcripción automática lista — revisa antes de analizar.");
       }
 
-      const maxC = (isPresencial ? TRANSCRIPT_LIMITS.presencial : TRANSCRIPT_LIMITS.telefonica).maxChars;
+      const maxC = (isPresencialSession ? TRANSCRIPT_LIMITS.presencial : TRANSCRIPT_LIMITS.telefonica).maxChars;
       if (text.length > maxC) {
         text = text.slice(0, maxC);
         setFileMsg(`La transcripción es muy larga. Se mostrarán los primeros ${maxC.toLocaleString()} caracteres.`);
@@ -184,7 +184,7 @@ export default function NuevaLlamadaPage() {
       return;
     }
 
-    const FILE_CHAR_LIMIT = (isPresencial ? TRANSCRIPT_LIMITS.presencial : TRANSCRIPT_LIMITS.telefonica).maxChars;
+    const FILE_CHAR_LIMIT = (isPresencialSession ? TRANSCRIPT_LIMITS.presencial : TRANSCRIPT_LIMITS.telefonica).maxChars;
     if (name.endsWith(".txt")) {
       const text = await file.text();
       if (text.length > FILE_CHAR_LIMIT) {
@@ -227,8 +227,6 @@ export default function NuevaLlamadaPage() {
   // Stage is optional: Claude auto-detects it from the transcription
   // when the user leaves it blank. User can still choose a stage manually.
   const missingConfig = leadSources.length === 0 && !loading;
-  // Everything is presencial except financiero
-  const isPresencial = isPresencialVertical(orgVertical);
 
   // Unique scorecards from funnel stages (for multi-scorecard presencial toggle)
   const uniqueScorecards = funnelStages
@@ -237,13 +235,23 @@ export default function NuevaLlamadaPage() {
       if (!acc.some(x => x.id === s.scorecard_id)) acc.push({ id: s.scorecard_id!, name: s.name, stageId: s.id });
       return acc;
     }, []);
-  const isMultiScorecard = isPresencial && uniqueScorecards.length >= 2;
+  const isMultiScorecard = orgHasPresencial(funnelStages) && uniqueScorecards.length >= 2;
   const needsStageChoice = isMultiScorecard && !selectedStage;
 
+  // Session kind: derived from the selected stage's stage_type. Fallback:
+  // multi-scorecard orgs (Inmobili) default to telefónico until user picks a pill;
+  // single-scorecard orgs infer from org-level funnel presence.
+  const selectedStageRow = funnelStages.find((s) => s.id === selectedStage);
+  const isPresencialSession = selectedStageRow?.stage_type
+    ? isPresencialStageType(selectedStageRow.stage_type)
+    : isMultiScorecard
+      ? false
+      : orgHasPresencial(funnelStages);
+
   const charCount = transcription.length;
-  const limits = isPresencial ? TRANSCRIPT_LIMITS.presencial : TRANSCRIPT_LIMITS.telefonica;
+  const limits = isPresencialSession ? TRANSCRIPT_LIMITS.presencial : TRANSCRIPT_LIMITS.telefonica;
   const CHAR_LIMIT = limits.maxChars;
-  const canSubmit = (isPresencial ? !needsStageChoice : (selectedSource !== "" && !missingConfig)) && wordCount >= MIN_WORDS && charCount <= CHAR_LIMIT && status === "idle" && !isTranscribing && !stageNoScorecard;
+  const canSubmit = (isPresencialSession ? !needsStageChoice : (selectedSource !== "" && !missingConfig)) && wordCount >= MIN_WORDS && charCount <= CHAR_LIMIT && status === "idle" && !isTranscribing && !stageNoScorecard;
 
   useEffect(() => {
     setMobile(isMobile());
@@ -270,7 +278,7 @@ export default function NuevaLlamadaPage() {
       const [sourcesRes, stagesRes] = await Promise.all([
         supabase.from("lead_sources").select("id, name, active")
           .eq("organization_id", effectiveOrgId).order("name"),
-        supabase.from("funnel_stages").select("id, name, scorecard_id")
+        supabase.from("funnel_stages").select("id, name, scorecard_id, stage_type")
           .eq("organization_id", effectiveOrgId).eq("active", true).order("order_index"),
       ]);
 
@@ -421,17 +429,6 @@ export default function NuevaLlamadaPage() {
     }));
   }
 
-  // Load vertical from organization (not scorecard)
-  useEffect(() => {
-    if (!orgId) return;
-    (async () => {
-      try {
-        const { data } = await supabase.from("organizations").select("vertical").eq("id", orgId).single();
-        if (data?.vertical) setOrgVertical(data.vertical);
-      } catch { /* ignore */ }
-    })();
-  }, [orgId]);
-
   // Reload checklist from stage_checklist_items when stage changes
   useEffect(() => {
     if (!selectedStage) {
@@ -535,7 +532,7 @@ export default function NuevaLlamadaPage() {
 
   // Clear irrelevant fields for presencial verticals
   useEffect(() => {
-    if (!isPresencial) return;
+    if (!isPresencialSession) return;
     setSelectedSource("");
     setProspectPhone("");
     sessionStorage.removeItem("c2_source");
@@ -545,7 +542,7 @@ export default function NuevaLlamadaPage() {
       setSelectedStage("");
       sessionStorage.removeItem("c2_stage");
     }
-  }, [isPresencial, uniqueScorecards.length]);
+  }, [isPresencialSession, uniqueScorecards.length]);
 
   // ─── Submit ────────────────────────────────────────────────
 
@@ -670,7 +667,7 @@ export default function NuevaLlamadaPage() {
           if (pollRef.current) clearInterval(pollRef.current);
           if (progressRef.current) clearInterval(progressRef.current);
           setStatus("error");
-          setErrorMsg(statusData.error_message || (isPresencial ? "Hubo un problema al analizar tu consulta. Intenta de nuevo." : "Hubo un problema al analizar tu llamada. Intenta de nuevo."));
+          setErrorMsg(statusData.error_message || (isPresencialSession ? "Hubo un problema al analizar tu consulta. Intenta de nuevo." : "Hubo un problema al analizar tu llamada. Intenta de nuevo."));
         }
       } catch {
         // Network error on poll — keep trying
@@ -751,7 +748,7 @@ export default function NuevaLlamadaPage() {
           if (pollRef.current) clearInterval(pollRef.current);
           if (progressRef.current) clearInterval(progressRef.current);
           setStatus("error");
-          setErrorMsg(data.error_message || (isPresencial ? "Hubo un problema al analizar tu consulta. Intenta de nuevo." : "Hubo un problema al analizar tu llamada. Intenta de nuevo."));
+          setErrorMsg(data.error_message || (isPresencialSession ? "Hubo un problema al analizar tu consulta. Intenta de nuevo." : "Hubo un problema al analizar tu llamada. Intenta de nuevo."));
         }
       } catch {
         // Network error on poll — keep trying
@@ -843,7 +840,7 @@ export default function NuevaLlamadaPage() {
       } else if (message === "readonly") {
         setErrorMsg("Tu organización está en modo lectura. Contacta a tu gerente.");
       } else {
-        setErrorMsg(isPresencial ? "No pudimos procesar tu consulta. Intenta de nuevo." : "No pudimos procesar tu llamada. Intenta de nuevo.");
+        setErrorMsg(isPresencialSession ? "No pudimos procesar tu consulta. Intenta de nuevo." : "No pudimos procesar tu llamada. Intenta de nuevo.");
       }
     }
   };
@@ -890,7 +887,7 @@ export default function NuevaLlamadaPage() {
                 <button className="ear-resume-btn" onClick={rec.resumeRecording}>Continuar</button>
               )}
               <button className="ear-stop-btn" onClick={rec.stopRecording}>
-                {isPresencial ? "Terminar consulta" : "Terminar llamada"}
+                {isPresencialSession ? "Terminar consulta" : "Terminar llamada"}
               </button>
             </div>
             <button className="ear-retry-btn" onClick={rec.cancelRecording}>
@@ -905,7 +902,7 @@ export default function NuevaLlamadaPage() {
             <textarea
               className="input-field"
               rows={3}
-              placeholder={isPresencial ? "Notas de la consulta..." : "Notas de la llamada..."}
+              placeholder={isPresencialSession ? "Notas de la consulta..." : "Notas de la llamada..."}
               value={callNotes}
               onChange={(e) => { setCallNotes(e.target.value); sessionStorage.setItem("c2_call_notes", e.target.value); }}
               style={{ fontSize: 13, resize: "vertical" }}
@@ -1019,9 +1016,9 @@ export default function NuevaLlamadaPage() {
               : `${dailyDone} de ${dailyTarget} este mes`}
           </p>
         )}
-        <h1 className="c2-title">{isPresencial ? "Nueva consulta" : "Nueva llamada"}</h1>
+        <h1 className="c2-title">{isPresencialSession ? "Nueva consulta" : "Nueva llamada"}</h1>
         <p className="c2-subtitle">Graba en vivo, sube un audio o pega la transcripción, aurisIQ se encarga del resto.</p>
-        {isPresencial && (
+        {isPresencialSession && (
           <p className="c2-subtitle" style={{ fontSize: 13, marginTop: 2 }}>Modo consulta — solo graba y analiza</p>
         )}
       </div>
@@ -1044,7 +1041,7 @@ export default function NuevaLlamadaPage() {
       )}
 
       <div className="c2-form">
-        {!isPresencial && (
+        {!isMultiScorecard && orgHasTelefonico(funnelStages) && !orgHasPresencial(funnelStages) && (
         <>
         <div className="input-group">
           <label htmlFor="funnel-stage" className="input-label">
@@ -1065,11 +1062,11 @@ export default function NuevaLlamadaPage() {
           )}
           {stageNoSpeech && !stageNoScorecard && (
             <div style={{ marginTop: 8, padding: "8px 12px", background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 6, fontSize: 13, color: "#92400e" }}>
-              Esta etapa aún no tiene speech publicado. Puedes grabar pero no tendrás referencia durante la {isPresencial ? "consulta" : "llamada"}.
+              Esta etapa aún no tiene speech publicado. Puedes grabar pero no tendrás referencia durante la {isPresencialSession ? "consulta" : "llamada"}.
             </div>
           )}
           {missedFields.length > 0 && !transcription && rec.recMode === "off" && (
-            <p className="c2-missed-tip">En tus últimas {isPresencial ? "consultas" : "llamadas"} se te olvidó preguntar: {missedFields.join(", ")}</p>
+            <p className="c2-missed-tip">En tus últimas {isPresencialSession ? "consultas" : "llamadas"} se te olvidó preguntar: {missedFields.join(", ")}</p>
           )}
         </div>
 
@@ -1091,7 +1088,7 @@ export default function NuevaLlamadaPage() {
           )}
           {leadSources.length === 0 && !errorMsg && !loading && (
             <div className="message-box message-error" style={{ marginTop: 8 }}>
-              <p>Tu organización no tiene fuentes de lead configuradas. No puedes registrar {isPresencial ? "consultas" : "llamadas"} hasta que tu gerente las configure en <strong>Configuración</strong>.</p>
+              <p>Tu organización no tiene fuentes de lead configuradas. No puedes registrar {isPresencialSession ? "consultas" : "llamadas"} hasta que tu gerente las configure en <strong>Configuración</strong>.</p>
             </div>
           )}
         </div>
@@ -1118,7 +1115,7 @@ export default function NuevaLlamadaPage() {
 
         <div className="input-group">
           <label htmlFor="transcription" className="input-label">
-            {isPresencial ? "Transcripción de la consulta *" : "Transcripción de la llamada *"}
+            {isPresencialSession ? "Transcripción de la consulta *" : "Transcripción de la llamada *"}
           </label>
           <div
             className={`c2-drop-zone ${dragging ? "c2-drop-active" : ""}`}
@@ -1174,7 +1171,7 @@ export default function NuevaLlamadaPage() {
             disabled={status === "analyzing" || isTranscribing || transcription.length > 0}
             type="button"
           >
-            {isPresencial ? "🎙️ Grabar consulta" : "🎙️ Grabar llamada"}
+            {isPresencialSession ? "🎙️ Grabar consulta" : "🎙️ Grabar llamada"}
           </button>
           <label className="c2-file-btn">
             Buscar archivo
@@ -1184,13 +1181,13 @@ export default function NuevaLlamadaPage() {
           {rec.recError && <p className="c2-rec-error">{rec.recError}</p>}
         </div>
         <p className="c2-rec-hint" style={{ marginTop: 4 }}>
-          {isPresencial
+          {isPresencialSession
             ? "Coloca el celular sobre la mesa o cerca y presiona grabar."
             : mobile
-              ? (isPresencial ? "Coloca el celular sobre la mesa o cerca y presiona grabar." : "Pon tu llamada en altavoz y presiona grabar.")
-              : (isPresencial ? "Selecciona la pestaña de tu consulta cuando se abra el selector." : "Selecciona la pestaña de tu llamada cuando se abra el selector.")}
+              ? (isPresencialSession ? "Coloca el celular sobre la mesa o cerca y presiona grabar." : "Pon tu llamada en altavoz y presiona grabar.")
+              : (isPresencialSession ? "Selecciona la pestaña de tu consulta cuando se abra el selector." : "Selecciona la pestaña de tu llamada cuando se abra el selector.")}
         </p>
-        {!isPresencial && (
+        {!isPresencialSession && (
           <button
             className="c2-guide-link"
             onClick={openGuide}
@@ -1201,7 +1198,7 @@ export default function NuevaLlamadaPage() {
           </button>
         )}
 
-        {!isPresencial && (
+        {!isPresencialSession && (
         <div className="input-group">
           <label htmlFor="notes" className="input-label">
             Notas de contexto (opcional)
@@ -1216,7 +1213,7 @@ export default function NuevaLlamadaPage() {
             rows={3}
             style={{ minHeight: 60, resize: "vertical" }}
           />
-          <p className="c2-hint">Contexto adicional que ayude a interpretar mejor esta {isPresencial ? "consulta" : "llamada"}.</p>
+          <p className="c2-hint">Contexto adicional que ayude a interpretar mejor esta {isPresencialSession ? "consulta" : "llamada"}.</p>
         </div>
         )}
 
@@ -1244,7 +1241,7 @@ export default function NuevaLlamadaPage() {
           )}
 
           {/* 2. Checklist — full list with missed-field highlights (hidden in presencial pre-recording) */}
-          {!isPresencial && (
+          {!isPresencialSession && (
           <details className="c2-collapse">
             <summary className="c2-collapse-summary">Checklist de referencia{checklistFields.length > 0 ? ` (${checklistFields.length} campos)` : ""}</summary>
             <div className="c2-collapse-body">
@@ -1285,13 +1282,13 @@ export default function NuevaLlamadaPage() {
           )}
 
           {/* 3. Notas de llamada (hidden in presencial pre-recording — available during recording) */}
-          {!isPresencial && (
+          {!isPresencialSession && (
           <details className="c2-collapse">
-            <summary className="c2-collapse-summary">{isPresencial ? "Notas de consulta" : "Notas de llamada"}</summary>
+            <summary className="c2-collapse-summary">{isPresencialSession ? "Notas de consulta" : "Notas de llamada"}</summary>
             <div className="c2-collapse-body">
               <textarea
                 className="input-field"
-                placeholder={isPresencial ? "Escribe tus notas durante o después de la consulta..." : "Escribe tus notas durante o después de la llamada..."}
+                placeholder={isPresencialSession ? "Escribe tus notas durante o después de la consulta..." : "Escribe tus notas durante o después de la llamada..."}
                 value={callNotes}
                 onChange={(e) => { setCallNotes(e.target.value); sessionStorage.setItem("c2_call_notes", e.target.value); }}
                 disabled={status === "analyzing"}
@@ -1341,7 +1338,7 @@ export default function NuevaLlamadaPage() {
           <div className="c2-guide-backdrop" onClick={() => setGuideOpen(false)} />
           <div className="c2-guide-drawer">
             <div className="c2-guide-header">
-              <span className="c2-guide-title">{isPresencial ? "Tu guía de consulta" : "Tu guía de llamada"}</span>
+              <span className="c2-guide-title">{isPresencialSession ? "Tu guía de consulta" : "Tu guía de llamada"}</span>
               <button className="c2-guide-close" onClick={() => setGuideOpen(false)}>&times;</button>
             </div>
             <div className="c2-guide-body">
