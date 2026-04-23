@@ -1042,7 +1042,6 @@ export default function NuevaLlamadaPage() {
 
       <div className="c2-form">
         {!isMultiScorecard && orgHasTelefonico(funnelStages) && !orgHasPresencial(funnelStages) && (
-        <>
         <div className="input-group">
           <label htmlFor="funnel-stage" className="input-label">
             Etapa del embudo <span style={{ fontWeight: 400, color: "var(--ink-light)" }}>(opcional — se detecta automáticamente)</span>
@@ -1069,7 +1068,9 @@ export default function NuevaLlamadaPage() {
             <p className="c2-missed-tip">En tus últimas {isPresencialSession ? "consultas" : "llamadas"} se te olvidó preguntar: {missedFields.join(", ")}</p>
           )}
         </div>
+        )}
 
+        {!isPresencialSession && orgHasTelefonico(funnelStages) && (
         <div className="input-group">
           <label htmlFor="fuente-lead" className="input-label">
             Fuente del lead *
@@ -1092,7 +1093,9 @@ export default function NuevaLlamadaPage() {
             </div>
           )}
         </div>
+        )}
 
+        {!isPresencialSession && orgHasTelefonico(funnelStages) && (
         <div className="input-group">
           <label htmlFor="prospect-phone" className="input-label">
             WhatsApp del prospecto <span style={{ fontWeight: 400, color: "var(--ink-light)" }}>(opcional)</span>
@@ -1110,7 +1113,6 @@ export default function NuevaLlamadaPage() {
           />
           <p className="c2-hint">Si lo dejas vacío, lo detectamos automáticamente de la transcripción.</p>
         </div>
-        </>
         )}
 
         <div className="input-group">
