@@ -1,5 +1,6 @@
 import { getServiceClient } from "../_shared/supabase-client.ts";
 import { TIER_LIMITS } from "../_shared/env.ts";
+import { normalizePhone } from "../_shared/phone.ts";
 import type { BackgroundJob, ParsedOutput, MatchedPhase, DescalCategory, FunnelStage } from "./types.ts";
 import { detectConversionDiscrepancy } from "./parser.ts";
 
@@ -206,6 +207,12 @@ export async function writeAnalysisResults(
     throw new Error("Claude returned malformed output: score_general is null");
   }
 
+  const rawPhone = job.payload.prospect_phone || parsed.prospect_phone;
+  const normalizedPhone = normalizePhone(rawPhone);
+  if (rawPhone && !normalizedPhone) {
+    console.warn(`[phone] invalid phone format, defaulting to null: ${String(rawPhone).slice(0, 20)}`);
+  }
+
   const updatePayload: Record<string, unknown> = {
     score_general: Math.min(parsed.score_general, 100),
     clasificacion: parsed.clasificacion,
@@ -223,7 +230,7 @@ export async function writeAnalysisResults(
     business_type: parsed.business_type,
     equipment_type: parsed.equipment_type,
     sale_reason: parsed.sale_reason,
-    prospect_phone: job.payload.prospect_phone || parsed.prospect_phone,
+    prospect_phone: normalizedPhone,
     checklist_results: parsed.checklist_results,
     notes: job.payload.call_notes || null,
     related_analysis_id: relatedId,

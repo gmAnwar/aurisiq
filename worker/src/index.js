@@ -1,6 +1,8 @@
 // AurisIQ Worker v1.3.0 — Cola async + status + timeout + Stripe webhooks
 // Separado de Optix. CORS restringido a app.aurisiq.io.
 
+import { normalizePhone } from "./lib/phone.js";
+
 const ALLOWED_ORIGINS = [
   'https://app.aurisiq.io',
   'http://localhost:3000',
@@ -742,6 +744,12 @@ PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en l
 
     console.log(`[debug-final] analysis=${analysisId} score=${parsed.score_general} clas=${parsed.clasificacion} descal=[${validDescal.join(',')}]`);
 
+    const rawPhone = body.prospect_phone || parsed.prospect_phone;
+    const normalizedPhone = normalizePhone(rawPhone);
+    if (rawPhone && !normalizedPhone) {
+      console.warn(`[phone] invalid phone format, defaulting to null: ${String(rawPhone).slice(0, 20)}`);
+    }
+
     const updatePayload = {
       score_general: Math.min(parsed.score_general, 100),
       clasificacion: parsed.clasificacion,
@@ -757,7 +765,7 @@ PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en l
       business_type: parsed.business_type,
       equipment_type: parsed.equipment_type,
       sale_reason: parsed.sale_reason,
-      prospect_phone: body.prospect_phone || parsed.prospect_phone,
+      prospect_phone: normalizedPhone,
       checklist_results: parsed.checklist_results,
       notes: body.call_notes || null,
       related_analysis_id: relatedId,
@@ -1511,6 +1519,10 @@ async function transcribeAudioBuffer(audioBuffer, env) {
 async function processZadarmaCall(params, env) {
   const callIdWithRec = params.call_id_with_rec;
   const callerPhone = params.caller_id || params.destination || null;
+  const normalizedCallerPhone = normalizePhone(callerPhone);
+  if (callerPhone && !normalizedCallerPhone) {
+    console.warn(`[zadarma] invalid phone format, defaulting to null: ${String(callerPhone).slice(0, 20)}`);
+  }
 
   try {
     // 1. Wait for Zadarma to finalize the recording file
@@ -1559,7 +1571,7 @@ async function processZadarmaCall(params, env) {
         edit_percentage: 0,
         pause_count: 0,
         total_paused_seconds: 0,
-        prospect_phone: callerPhone,
+        prospect_phone: normalizedCallerPhone,
         prospect_identifier: callerPhone,
         fuente_lead_id: '',
         avanzo_a_siguiente_etapa: 'pending',
