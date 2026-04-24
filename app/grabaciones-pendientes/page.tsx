@@ -13,6 +13,7 @@ import {
   type PendingRecording,
 } from "../../lib/recordings-queue";
 import { uploadRecording, submitForAnalysis } from "../../lib/recording-upload";
+import { getSessionNoun } from "../../lib/verticals";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pendiente",
@@ -37,6 +38,7 @@ export default function GrabacionesPendientesPage() {
   const [recordings, setRecordings] = useState<PendingRecording[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [orgSlug, setOrgSlug] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [justCompleted, setJustCompleted] = useState<string | null>(null); // track transition
 
@@ -92,6 +94,7 @@ export default function GrabacionesPendientesPage() {
       const session = await requireAuth(["captadora", "gerente", "super_admin"]);
       if (!session) return;
       setUserId(session.userId);
+      setOrgSlug(session.organizationSlug);
       await refresh(session.userId);
       setLoading(false);
     }
@@ -161,7 +164,7 @@ export default function GrabacionesPendientesPage() {
         <div className="queue-empty">
           <p>No hay grabaciones pendientes</p>
           <Link href="/grabar" className="btn-submit" style={{ display: "inline-block", marginTop: 16, textDecoration: "none" }}>
-            Grabar consulta
+            Grabar {getSessionNoun(true, { orgSlug })}
           </Link>
         </div>
       )}
@@ -246,7 +249,7 @@ export default function GrabacionesPendientesPage() {
 
       {active.length > 0 && (
         <Link href="/grabar" style={{ display: "block", textAlign: "center", marginTop: 20, fontSize: 14, color: "var(--accent)" }}>
-          Grabar otra consulta
+          Grabar otra {getSessionNoun(true, { orgSlug })}
         </Link>
       )}
     </div>

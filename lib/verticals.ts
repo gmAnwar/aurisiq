@@ -46,3 +46,37 @@ export function orgHasPresencial(
 export function isFinancieroScorecard(scorecardVertical: string | null | undefined): boolean {
   return scorecardVertical === "financiero";
 }
+
+export type SessionNoun = "llamada" | "visita" | "consulta";
+
+/**
+ * Returns the Spanish noun for a sales session.
+ *
+ * Replaces the binary pattern `isPresencialSession ? "consulta" : "llamada"`
+ * which incorrectly maps presencial → consulta for all verticals. "Consulta"
+ * is correct for salud/servicios (bodygreen, carone, dentistas, momentum);
+ * inmobiliario uses "visita" instead.
+ *
+ * Signal priority: scorecardVertical (preferred, more precise) → orgSlug (fallback).
+ * Default for presencial with unknown vertical: "consulta".
+ */
+export function getSessionNoun(
+  isPresencial: boolean,
+  context: { scorecardVertical?: string | null; orgSlug?: string | null }
+): SessionNoun {
+  if (!isPresencial) return "llamada";
+  if (context.scorecardVertical === "inmobiliario") return "visita";
+  if (context.orgSlug === "immobili") return "visita";
+  return "consulta";
+}
+
+/**
+ * Same as getSessionNoun but capitalized (for sentence-initial position).
+ */
+export function getSessionNounCap(
+  isPresencial: boolean,
+  context: { scorecardVertical?: string | null; orgSlug?: string | null }
+): "Llamada" | "Visita" | "Consulta" {
+  const n = getSessionNoun(isPresencial, context);
+  return (n.charAt(0).toUpperCase() + n.slice(1)) as "Llamada" | "Visita" | "Consulta";
+}

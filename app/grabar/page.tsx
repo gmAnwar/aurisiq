@@ -16,6 +16,7 @@ import {
 } from "../../lib/recordings-queue";
 import { uploadWithRetry } from "../../lib/recording-upload";
 import WaveformCanvas from "../components/WaveformCanvas";
+import { getSessionNoun } from "../../lib/verticals";
 
 interface FunnelStage {
   id: string;
@@ -30,6 +31,7 @@ export default function GrabarPage() {
 
   const [userId, setUserId] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [orgSlug, setOrgSlug] = useState<string | null>(null);
   const [funnelStages, setFunnelStages] = useState<FunnelStage[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
@@ -75,6 +77,7 @@ export default function GrabarPage() {
       if (!session) return;
       setUserId(session.userId);
       setOrgId(session.organizationId);
+      setOrgSlug(session.organizationSlug);
 
       const [stagesRes, count, storage] = await Promise.all([
         supabase.from("funnel_stages").select("id, name, scorecard_id")
@@ -540,7 +543,7 @@ export default function GrabarPage() {
             disabled={submitting}
             style={{ padding: "12px 20px", fontSize: 14 }}
           >
-            Nueva consulta (analizar despues)
+            Nueva {getSessionNoun(true, { orgSlug })} (analizar despues)
           </button>
 
           <button
@@ -590,7 +593,7 @@ export default function GrabarPage() {
                 <line x1="12" y1="19" x2="12" y2="22"/>
               </svg>
             </button>
-            <span className="grabar-btn-label">Grabar consulta</span>
+            <span className="grabar-btn-label">Grabar {getSessionNoun(true, { orgSlug })}</span>
           </>
         )}
 

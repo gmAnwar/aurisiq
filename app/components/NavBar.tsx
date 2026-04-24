@@ -188,10 +188,12 @@ export default function NavBar({ role, roles, userName, userEmail, orgSlug, role
   const effectiveRoles = roles && roles.length > 0 ? roles : [role];
 
   // CTA routing + sidebar "Grabar" visibility resolved from funnel_stages
-  // shared via FunnelStagesProvider (mounted in RecordingShell).
+  // shared via FunnelStagesProvider (mounted in RecordingShell). Label noun
+  // ("llamada" | "visita" | "consulta") comes from resolveGrabarCta, which
+  // consumes orgSlug as fallback signal for vertical-aware copy.
   const isCta = showCta(effectiveRoles);
   const { funnelStages } = useFunnelStages();
-  const cta = resolveGrabarCta({ hasCaptadora: isCta, funnelStages });
+  const cta = resolveGrabarCta({ hasCaptadora: isCta, funnelStages, orgSlug });
 
   const allItems = getNavForRoles(effectiveRoles).filter(item => {
     if (item.href === "/grabar" && !cta.showSidebarGrabar) return false;
@@ -226,7 +228,7 @@ export default function NavBar({ role, roles, userName, userEmail, orgSlug, role
         </button>
       )}
       <div className="navbar-items">
-      {/* CTA — Nueva consulta/llamada */}
+      {/* CTA — Nueva llamada / visita / consulta (dynamic via resolveGrabarCta) */}
       {cta.showCta && cta.href && cta.label && (
         <Link
           href={cta.href}
