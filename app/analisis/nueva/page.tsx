@@ -8,6 +8,7 @@ import { useRecording } from "../../contexts/RecordingContext";
 import MobileSelect from "../../components/MobileSelect";
 import { WORKER_URL } from "../../../lib/config";
 import { isPresencialStageType, orgHasPresencial, orgHasTelefonico, getSessionNoun } from "../../../lib/verticals";
+import { normalizePhone } from "../../../lib/phone";
 import WaveformCanvas from "../../components/WaveformCanvas";
 
 interface GuideField { field_name: string; phrases: string[]; }
@@ -651,7 +652,7 @@ export default function NuevaLlamadaPage() {
         organization_id: submitOrgId,
         fuente_lead_id: selectedSource,
         funnel_stage_id: selectedStage || null,
-        prospect_phone: prospectPhone.trim() || null,
+        prospect_phone: normalizePhone(prospectPhone) || null,
         transcription_original: transcriptionOriginal,
         transcription_edited: transcriptionSource === "audio" && transcriptionOriginal && transcription.trim() !== transcriptionOriginal
           ? transcription.trim() : null,
@@ -726,7 +727,7 @@ export default function NuevaLlamadaPage() {
           scorecard_id: scorecardId,
           funnel_stage_id: selectedStage || null,
           fuente_lead_id: selectedSource,
-          prospect_phone: prospectPhone.trim() || null,
+          prospect_phone: normalizePhone(prospectPhone) || null,
           transcription_original: transcriptionOriginal,
           transcription_edited: transcriptionSource === "audio" && transcriptionOriginal && transcription.trim() !== transcriptionOriginal
             ? transcription.trim() : null,
