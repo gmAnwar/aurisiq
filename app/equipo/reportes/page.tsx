@@ -1,10 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
-import { getOrgTimezone, weekStart as getWeekStart } from "../../../lib/dates";
+import { getOrgTimezone } from "../../../lib/dates";
+import {
+  getPresetRange,
+  PRESET_LABELS,
+  formatDateShort,
+  fromISODate,
+  type PresetKey,
+  type DateRange,
+} from "../../../lib/date-presets";
 import { getRoleLabel } from "../../../lib/roleLabel";
+import DateRangeFilter from "../../components/DateRangeFilter";
 
 interface Report {
   id: string;
@@ -15,80 +25,146 @@ interface Report {
 }
 
 interface CaptadoraConv {
+  id: string;
   name: string;
   total: number;
   converted: number;
   convRate: number;
   avgScore: number;
+  lastActivity: Date | null;
 }
 
-export default function ReportesPage() {
+function ReportesInner() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const rangeParam = (searchParams.get("range") as PresetKey | "custom" | null) || "this_month";
+  const fromParam = searchParams.get("from") || undefined;
+  const toParam = searchParams.get("to") || undefined;
+
   const [activeTab, setActiveTab] = useState<"equipo" | "agencia">("equipo");
+  const [tz, setTz] = useState<string>("America/Monterrey");
+  const [orgId, setOrgId] = useState<string>("");
   const [teamReports, setTeamReports] = useState<Report[]>([]);
   const [agencyReports, setAgencyReports] = useState<Report[]>([]);
   const [captadoraConv, setCaptadoraConv] = useState<CaptadoraConv[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error] = useState("");
   const [sending, setSending] = useState(false);
   const [sendMsg, setSendMsg] = useState("");
   const [orgSlug, setOrgSlug] = useState<string | null>(null);
   const [roleLabelVendedor, setRoleLabelVendedor] = useState<string | null>(null);
 
+  const dateRange = useMemo<DateRange | null>(() => {
+    if (rangeParam === "custom" && fromParam && toParam) {
+      const from = fromISODate(fromParam);
+      const to = new Date(fromISODate(toParam).getTime() + 86400000);
+      return { from, to };
+    }
+    return getPresetRange(rangeParam as PresetKey, tz);
+  }, [rangeParam, fromParam, toParam, tz]);
+
+  const periodLabel = useMemo(() => {
+    if (rangeParam === "custom" && fromParam && toParam) {
+      return `Personalizado: ${formatDateShort(fromISODate(fromParam))} – ${formatDateShort(fromISODate(toParam))}`;
+    }
+    return PRESET_LABELS[rangeParam as PresetKey] || "Período";
+  }, [rangeParam, fromParam, toParam]);
+
   useEffect(() => {
-    async function load() {
+    async function init() {
       const session = await requireAuth(["gerente", "super_admin"]);
       if (!session) return;
-      const me = { organization_id: session.organizationId };
       setOrgSlug(session.organizationSlug);
       setRoleLabelVendedor(session.roleLabelVendedor);
+      const orgTz = await getOrgTimezone(session.organizationId);
+      setTz(orgTz);
+      setOrgId(session.organizationId);
+    }
+    init();
+  }, []);
 
-      const tz = await getOrgTimezone(me.organization_id);
-      const ws = getWeekStart(tz);
+  useEffect(() => {
+    if (!orgId) return;
 
-      const [reportsRes, weekRes, teamRes] = await Promise.all([
+    async function load() {
+      const fromIso = dateRange?.from.toISOString();
+      const toIso = dateRange?.to.toISOString();
+
+      let periodQuery = supabase.from("analyses")
+        .select("id, user_id, score_general, avanzo_a_siguiente_etapa")
+        .eq("organization_id", orgId).eq("status", "completado");
+      if (fromIso && toIso) {
+        periodQuery = periodQuery.gte("created_at", fromIso).lt("created_at", toIso);
+      }
+
+      const [reportsRes, periodRes, teamRes, lastActivityRes] = await Promise.all([
         supabase.from("reports")
           .select("id, tipo, destinatario_tipo, created_at, content")
-          .eq("organization_id", me.organization_id)
+          .eq("organization_id", orgId)
           .order("created_at", { ascending: false }).limit(50),
-        supabase.from("analyses")
-          .select("id, user_id, score_general, avanzo_a_siguiente_etapa")
-          .eq("organization_id", me.organization_id).eq("status", "completado")
-          .gte("created_at", ws),
+        periodQuery,
         supabase.from("users").select("id, name, role, roles")
-          .eq("organization_id", me.organization_id).eq("active", true),
+          .eq("organization_id", orgId).eq("active", true),
+        supabase.from("analyses")
+          .select("user_id, created_at")
+          .eq("organization_id", orgId).eq("status", "completado")
+          .order("created_at", { ascending: false }),
       ]);
 
       const all = reportsRes.data || [];
       setTeamReports(all.filter(r => ["equipo", "todos"].includes(r.destinatario_tipo)));
       setAgencyReports(all.filter(r => ["agencia", "todos"].includes(r.destinatario_tipo)));
 
-      // Conversion by captadora
+      const lastActivity: Record<string, Date> = {};
+      for (const a of lastActivityRes.data || []) {
+        if (!lastActivity[a.user_id]) lastActivity[a.user_id] = new Date(a.created_at);
+      }
+
       const caps = (teamRes.data || []).filter(u => (u.roles as string[] | null)?.includes("captadora") ?? u.role === "captadora");
-      const week = weekRes.data || [];
+      const period = periodRes.data || [];
       const convData: CaptadoraConv[] = caps.map(c => {
-        const mine = week.filter(a => a.user_id === c.id);
+        const mine = period.filter(a => a.user_id === c.id);
         const converted = mine.filter(a => a.avanzo_a_siguiente_etapa === "converted").length;
         const scores = mine.filter(a => a.score_general !== null).map(a => a.score_general!);
         return {
+          id: c.id,
           name: c.name,
           total: mine.length,
           converted,
           convRate: mine.length > 0 ? Math.round((converted / mine.length) * 100) : 0,
           avgScore: scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0,
+          lastActivity: lastActivity[c.id] || null,
         };
-      }).sort((a, b) => b.convRate - a.convRate);
+      });
       setCaptadoraConv(convData);
 
       setLoading(false);
     }
     load();
-  }, []);
+  }, [orgId, dateRange?.from.getTime(), dateRange?.to.getTime()]);
+
+  const updateRange = (newRange: PresetKey | "custom", from?: string, to?: string) => {
+    const params = new URLSearchParams();
+    params.set("range", newRange);
+    if (newRange === "custom" && from && to) {
+      params.set("from", from);
+      params.set("to", to);
+    }
+    router.push(`/equipo/reportes?${params.toString()}`, { scroll: false });
+  };
+
+  const groups = useMemo(() => {
+    const active = captadoraConv.filter(c => c.total > 0).sort((a, b) => b.total - a.total);
+    const inactiveWithHist = captadoraConv.filter(c => c.total === 0 && c.lastActivity !== null)
+      .sort((a, b) => (b.lastActivity!.getTime() - a.lastActivity!.getTime()));
+    const noHist = captadoraConv.filter(c => c.total === 0 && c.lastActivity === null)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return { active, inactiveWithHist, noHist };
+  }, [captadoraConv]);
 
   const handleSendReport = async () => {
     setSending(true);
     setSendMsg("");
-    // In production this would call the Worker to generate and send the report
-    // For now, show a placeholder
     setTimeout(() => {
       setSending(false);
       setSendMsg("Funcionalidad de envío de reportes disponible en Etapa 4.");
@@ -110,6 +186,9 @@ export default function ReportesPage() {
     </div></div>);
   }
 
+  const captadoraLabel = getRoleLabel("captadora", { slug: orgSlug, role_label_vendedor: roleLabelVendedor });
+  const showSectionHeaders = groups.inactiveWithHist.length > 0 || groups.noHist.length > 0;
+
   return (
     <div className="g1-wrapper">
       <div className="g1-container">
@@ -117,7 +196,14 @@ export default function ReportesPage() {
           <h1 className="g1-title">Reportes</h1>
         </div>
 
-        {/* Tabs */}
+        <DateRangeFilter
+          range={rangeParam as PresetKey | "custom"}
+          from={fromParam}
+          to={toParam}
+          onChange={updateRange}
+          tz={tz}
+        />
+
         <div className="g6-tabs">
           <button className={`g6-tab ${activeTab === "equipo" ? "g6-tab-active" : ""}`} onClick={() => setActiveTab("equipo")}>
             Equipo
@@ -127,28 +213,68 @@ export default function ReportesPage() {
           </button>
         </div>
 
-        {/* Conversion by captadora (equipo tab only) */}
         {activeTab === "equipo" && captadoraConv.length > 0 && (
           <div className="g1-section">
-            <h2 className="g1-section-title">Conversión por captadora — semana actual</h2>
+            <h2 className="g1-section-title">Conversión por captadora — {periodLabel}</h2>
             <div className="g1-ranking">
-              <div className="a1-source-header">
-                <span>{getRoleLabel("captadora", { slug: orgSlug, role_label_vendedor: roleLabelVendedor })}</span><span>Leads</span><span>Conv.</span><span>Tasa</span><span>Score</span>
+              <div className="g6-conv-header">
+                <span>{captadoraLabel}</span>
+                <span>Análisis</span>
+                <span>Última actividad</span>
+                <span>Leads</span>
+                <span>Conv.</span>
+                <span>Tasa</span>
+                <span>Score</span>
               </div>
-              {captadoraConv.map((c, i) => (
-                <div key={i} className="a1-source-row">
+
+              {showSectionHeaders && groups.active.length > 0 && (
+                <div className="g6-section-divider">Activas en el período</div>
+              )}
+              {groups.active.map(c => (
+                <div key={c.id} className="g6-conv-row">
                   <span className="g1-rank-name">{c.name}</span>
+                  <span className="g1-rank-count">{c.total}</span>
+                  <span className="g1-rank-count">{c.lastActivity ? formatDateShort(c.lastActivity) : "Nunca"}</span>
                   <span className="g1-rank-count">{c.total}</span>
                   <span className="g1-rank-count">{c.converted}</span>
                   <span className="g1-rank-score" style={{ color: c.convRate >= 50 ? "var(--green)" : c.convRate >= 25 ? "var(--gold)" : "var(--red)" }}>{c.convRate}%</span>
                   <span className="g1-rank-score">{c.avgScore || "—"}</span>
                 </div>
               ))}
+
+              {groups.inactiveWithHist.length > 0 && (
+                <div className="g6-section-divider">Sin actividad en el período</div>
+              )}
+              {groups.inactiveWithHist.map(c => (
+                <div key={c.id} className="g6-conv-row g6-inactive-row">
+                  <span className="g1-rank-name">{c.name}</span>
+                  <span className="g1-rank-count">0</span>
+                  <span className="g1-rank-count">{c.lastActivity ? formatDateShort(c.lastActivity) : "Nunca"}</span>
+                  <span className="g1-rank-count">0</span>
+                  <span className="g1-rank-count">0</span>
+                  <span className="g1-rank-score">—</span>
+                  <span className="g1-rank-score">—</span>
+                </div>
+              ))}
+
+              {groups.noHist.length > 0 && (
+                <div className="g6-section-divider">Sin actividad histórica</div>
+              )}
+              {groups.noHist.map(c => (
+                <div key={c.id} className="g6-conv-row g6-inactive-row">
+                  <span className="g1-rank-name">{c.name}</span>
+                  <span className="g1-rank-count">0</span>
+                  <span className="g1-rank-count">Nunca</span>
+                  <span className="g1-rank-count">0</span>
+                  <span className="g1-rank-count">0</span>
+                  <span className="g1-rank-score">—</span>
+                  <span className="g1-rank-score">—</span>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* Send button (equipo tab only) */}
         {activeTab === "equipo" && (
           <button className="btn-submit" style={{ marginBottom: 20 }} onClick={handleSendReport} disabled={sending}>
             {sending ? "Generando..." : "Enviar reporte ahora"}
@@ -159,7 +285,6 @@ export default function ReportesPage() {
           <div className="message-box message-success" style={{ marginBottom: 16 }}><p>{sendMsg}</p></div>
         )}
 
-        {/* Report list */}
         {currentReports.length === 0 ? (
           <p className="g1-empty">
             {activeTab === "equipo"
@@ -187,5 +312,13 @@ export default function ReportesPage() {
         <a href="/equipo" className="c5-back-link">Volver al dashboard</a>
       </div>
     </div>
+  );
+}
+
+export default function ReportesPage() {
+  return (
+    <Suspense fallback={<div className="g1-wrapper"><div className="g1-container"><div className="skeleton-block skeleton-title" /></div></div>}>
+      <ReportesInner />
+    </Suspense>
   );
 }

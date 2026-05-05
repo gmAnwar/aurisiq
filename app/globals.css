@@ -4496,6 +4496,41 @@ div:has(> .c4-item):hover .historial-delete-btn {
 .g6-report-date { font-size: 11px; font-family: 'DM Sans', sans-serif; font-weight: 500; color: var(--ink); }
 .g6-report-type { font-size: 9px; font-family: 'DM Sans', sans-serif; font-weight: 700; color: var(--ink-light); text-transform: uppercase; letter-spacing: 0.5px; }
 
+/* G6 — Conversion-by-captadora table (7 columns) */
+.g6-conv-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1.2fr 1fr 1fr 1fr 1fr;
+  padding: 10px 14px;
+  background: var(--cream-dark);
+  font-size: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 700;
+  color: var(--ink-light);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.g6-conv-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1.2fr 1fr 1fr 1fr 1fr;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(26,20,16,0.04);
+  font-size: 11px;
+  font-family: 'DM Sans', sans-serif;
+  align-items: center;
+}
+.g6-section-divider {
+  padding: 8px 14px;
+  background: var(--cream);
+  border-top: 1px solid rgba(26,20,16,0.06);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink-light);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+.g6-inactive-row { opacity: 0.6; }
+
 /* =============================================
    D1 — Dashboard Ejecutivo
    ============================================= */
