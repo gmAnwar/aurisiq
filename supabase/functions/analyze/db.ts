@@ -145,7 +145,7 @@ export async function createAnalysis(job: BackgroundJob) {
   const p = job.payload;
   const { data, error } = await db()
     .from("analyses")
-    .insert({
+    .upsert({
       organization_id: job.organization_id,
       user_id: job.user_id,
       scorecard_id: p.scorecard_id,
@@ -155,7 +155,8 @@ export async function createAnalysis(job: BackgroundJob) {
       avanzo_a_siguiente_etapa: p.avanzo_a_siguiente_etapa || "pending",
       categoria_descalificacion: [],
       status: "procesando",
-    })
+      background_job_id: job.id,
+    }, { onConflict: "background_job_id" })
     .select("id")
     .single();
   if (error || !data) throw new Error(`Failed to create analysis: ${error?.message}`);
@@ -227,11 +228,6 @@ export async function writeAnalysisResults(
     if (match) detectedStageId = match.id;
   }
 
-  // Validate score
-  if (parsed.score_general === null) {
-    throw new Error("Claude returned malformed output: score_general is null");
-  }
-
   const rawPhone = job.payload.prospect_phone || parsed.prospect_phone;
   const normalizedPhone = normalizePhone(rawPhone);
   if (rawPhone && !normalizedPhone) {
@@ -239,7 +235,7 @@ export async function writeAnalysisResults(
   }
 
   const updatePayload: Record<string, unknown> = {
-    score_general: Math.min(parsed.score_general, 100),
+    score_general: Math.min(parsed.score_general!, 100),
     clasificacion: parsed.clasificacion,
     momento_critico: parsed.momento_critico,
     patron_error: parsed.patron_error,
@@ -425,11 +421,33 @@ export async function failJob(jobId: string, errorMessage: string, retryCount: n
   }).eq("id", jobId);
 }
 
+export async function rejectJob(jobId: string, reason: string) {
+  await db().from("background_jobs").update({
+    status: "rejected",
+    error_message: reason,
+    completed_at: new Date().toISOString(),
+    next_retry_at: null,
+  }).eq("id", jobId);
+}
+
 export async function failAnalysis(analysisId: string, errorMessage: string) {
   await db().from("analyses").update({ status: "error" }).eq("id", analysisId);
   await db().from("analysis_jobs").update({
     status: "error",
     error_message: errorMessage,
+    completed_at: new Date().toISOString(),
+  }).eq("analysis_id", analysisId);
+}
+
+export async function rejectAnalysis(analysisId: string, reason: string) {
+  await db().from("analyses").update({
+    status: "rechazado",
+    error_message: reason,
+  }).eq("id", analysisId);
+
+  await db().from("analysis_jobs").update({
+    status: "rechazado",
+    error_message: reason,
     completed_at: new Date().toISOString(),
   }).eq("analysis_id", analysisId);
 }

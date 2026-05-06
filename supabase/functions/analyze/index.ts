@@ -19,12 +19,15 @@ import {
   completeJob,
   failJob,
   failAnalysis,
+  rejectJob,
+  rejectAnalysis,
   markQuotaConsumed,
   writeJobDiagnostic,
 } from "./db.ts";
 import { buildFullPrompt, callClaude, callClaudeForHighlights } from "./claude.ts";
 import { parseClaudeOutput, matchPhaseIds } from "./parser.ts";
 import { ASSEMBLYAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from "../_shared/env.ts";
+import { RejectedAnalysisError } from "../_shared/errors.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -111,6 +114,18 @@ async function processJobAsync(jobId: string) {
 
     // 8. Parse
     const parsed = parseClaudeOutput(rawOutput, extractionPatterns || null);
+
+    // 8b. Detect rejection (LLM couldn't analyze — not a sales call, silent audio, etc.)
+    if (parsed.score_general === null) {
+      const reason = (rawOutput || "Audio no analizable")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 500);
+      throw new RejectedAnalysisError(
+        reason.length === 500 ? `${reason}...` : reason,
+      );
+    }
+
     const phasesWithIds = matchPhaseIds(parsed.phases, scorecard.phases || []);
     console.log(`[analyze v23] Parsed ${parsed.phases.length} phases, matched ${phasesWithIds.length}, phase_ids: ${JSON.stringify(phasesWithIds.map(p => p.phase_id))}`);
 
@@ -152,10 +167,16 @@ async function processJobAsync(jobId: string) {
     await completeJob(jobId, analysisId);
     console.log(`[analyze] Completed job ${jobId} → analysis ${analysisId}`);
   } catch (err) {
-    let msg = err instanceof Error ? err.message : "Unknown error";
-    if (msg.includes("score_general is null") && lastRawOutput) {
-      msg = `${msg} | RAW_HEAD: ${lastRawOutput.slice(0, 800).replace(/\s+/g, " ")}`;
+    if (err instanceof RejectedAnalysisError) {
+      console.error(`[analyze] Rejected job ${jobId}: ${err.reason}`);
+      if (analysisId) {
+        try { await rejectAnalysis(analysisId, err.reason); } catch { /* best effort */ }
+      }
+      try { await rejectJob(jobId, err.reason); } catch { /* best effort */ }
+      return;
     }
+
+    const msg = err instanceof Error ? err.message : "Unknown error";
     console.error(`[analyze] Error processing job ${jobId}: ${msg}`);
 
     if (analysisId) {

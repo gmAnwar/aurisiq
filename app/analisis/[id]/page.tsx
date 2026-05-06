@@ -51,6 +51,8 @@ interface Analysis {
   legacy_note: string | null;
   highlights: { category_code: string; snippet: string; speaker: string; description: string }[] | null;
   created_at: string;
+  status: string | null;
+  error_message: string | null;
 }
 
 interface RelatedCall {
@@ -141,7 +143,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
 
       const { data: a, error: aErr } = await supabase
         .from("analyses")
-        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, notes, lead_quality, lead_outcome, related_analysis_id, created_at, scorecard_id, legacy_note, highlights")
+        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, notes, lead_quality, lead_outcome, related_analysis_id, created_at, scorecard_id, legacy_note, highlights, status, error_message")
         .eq("id", id)
         .single();
 
@@ -241,6 +243,34 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
       <div className="container c3-container">
         <div className="message-box message-error">
           <p>{error || "Error al cargar el análisis."}</p>
+        </div>
+        <Link href="/analisis/nueva" className="btn-submit btn-terracota" style={{ textDecoration: "none", textAlign: "center", marginTop: 16 }}>
+          Nueva llamada
+        </Link>
+      </div>
+    );
+  }
+
+  if (analysis.status === "rechazado") {
+    return (
+      <div className="container c3-container">
+        <div className="message-box message-error">
+          <h2 style={{ marginTop: 0 }}>Audio no analizable</h2>
+          <p>{analysis.error_message || "Este audio no parece ser una llamada de captación válida. Por favor sube un audio de una llamada con cliente."}</p>
+        </div>
+        <Link href="/analisis/nueva" className="btn-submit btn-terracota" style={{ textDecoration: "none", textAlign: "center", marginTop: 16 }}>
+          Nueva llamada
+        </Link>
+      </div>
+    );
+  }
+
+  if (analysis.status === "error") {
+    return (
+      <div className="container c3-container">
+        <div className="message-box message-error">
+          <h2 style={{ marginTop: 0 }}>Error técnico al procesar</h2>
+          <p>{analysis.error_message || "Hubo un error procesando este análisis. Intenta de nuevo o contacta soporte si persiste."}</p>
         </div>
         <Link href="/analisis/nueva" className="btn-submit btn-terracota" style={{ textDecoration: "none", textAlign: "center", marginTop: 16 }}>
           Nueva llamada

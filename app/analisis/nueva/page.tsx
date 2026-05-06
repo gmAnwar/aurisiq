@@ -20,7 +20,7 @@ interface LeadSource {
   active: boolean;
 }
 
-type Status = "idle" | "analyzing" | "error";
+type Status = "idle" | "analyzing" | "error" | "rechazado";
 
 interface FunnelStage {
   id: string;
@@ -769,6 +769,11 @@ export default function NuevaLlamadaPage() {
             setStatus("error");
             setErrorMsg("Análisis completado pero no se encontró el resultado. Revisa tu historial.");
           }
+        } else if (data?.status === "rejected") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          if (progressRef.current) clearInterval(progressRef.current);
+          setStatus("rechazado");
+          setErrorMsg(data.error_message || `El audio no parece ser una ${sessionNoun(isPresencialSession)} válida. Intenta con otro audio.`);
         } else if (data?.status === "error" || data?.status === "cancelled") {
           if (pollRef.current) clearInterval(pollRef.current);
           if (progressRef.current) clearInterval(progressRef.current);
@@ -873,6 +878,20 @@ export default function NuevaLlamadaPage() {
   const handleRetry = () => {
     setStatus("idle");
     setErrorMsg("");
+  };
+
+  const handleNewAudio = () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    if (progressRef.current) clearInterval(progressRef.current);
+    setStatus("idle");
+    setErrorMsg("");
+    setTranscription("");
+    setTranscriptionOriginal(null);
+    setTranscriptionSource("manual");
+    setEditPct(0);
+    setMethod("none");
+    setFileMsg("");
+    clearSessionData();
   };
 
   if (loading) {
@@ -1343,6 +1362,11 @@ export default function NuevaLlamadaPage() {
             {status === "error" && (
               <button className="c2-retry-btn" onClick={handleRetry}>
                 Reintentar
+              </button>
+            )}
+            {status === "rechazado" && (
+              <button className="c2-retry-btn" onClick={handleNewAudio}>
+                Subir otro audio
               </button>
             )}
           </div>
