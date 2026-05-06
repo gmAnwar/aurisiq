@@ -16,7 +16,7 @@ export interface PendingRecording {
   funnel_stage_id: string | null;
   prospect_name: string | null;
   notes: string | null;
-  status: "pending" | "uploading" | "uploaded" | "analyzing" | "completed" | "error";
+  status: "pending" | "uploading" | "uploaded" | "analyzing" | "completed" | "error" | "rejected";
   attempt_count: number;
   last_error: string | null;
   uploaded_audio_url: string | null;

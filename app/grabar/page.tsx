@@ -346,6 +346,10 @@ export default function GrabarPage() {
             rec.clearTranscriptionResult();
             setTimeout(() => { window.location.href = `/analisis/${analysisId}`; }, 600);
           }
+        } else if (j?.status === "rejected") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          if (progressRef.current) clearInterval(progressRef.current);
+          setSubmitMsg(j.error_message || "El audio no parece ser una llamada válida. Intenta con otro audio.");
         } else if (j?.status === "error") {
           if (pollRef.current) clearInterval(pollRef.current);
           if (progressRef.current) clearInterval(progressRef.current);

@@ -22,6 +22,7 @@ const STATUS_LABELS: Record<string, string> = {
   analyzing: "Analizando...",
   completed: "Completado",
   error: "Error",
+  rejected: "Audio rechazado",
 };
 
 const STATUS_CLASS: Record<string, string> = {
@@ -31,6 +32,7 @@ const STATUS_CLASS: Record<string, string> = {
   analyzing: "queue-status-analyzing",
   completed: "queue-status-uploaded",
   error: "queue-status-error",
+  rejected: "queue-status-error",
 };
 
 export default function GrabacionesPendientesPage() {
@@ -56,7 +58,7 @@ export default function GrabacionesPendientesPage() {
 
       const { data: job } = await supabase
         .from("background_jobs")
-        .select("status, result")
+        .select("status, result, error_message")
         .eq("id", rec.analysis_id) // currently stores job.id
         .maybeSingle();
 
@@ -73,6 +75,10 @@ export default function GrabacionesPendientesPage() {
             setJustCompleted(realAnalysisId);
           }
         }
+      } else if (job.status === "rejected") {
+        await updateRecordingStatus(rec.id, "rejected", {
+          last_error: job.error_message || "El audio no parece ser una llamada válida.",
+        });
       } else if (job.status === "error") {
         await updateRecordingStatus(rec.id, "error", { last_error: "Analisis fallo" });
       }
@@ -206,6 +212,11 @@ export default function GrabacionesPendientesPage() {
           {rec.status === "analyzing" && (
             <p style={{ fontSize: 11, color: "var(--ink-light)", marginTop: 8, fontStyle: "italic" }}>
               Analizando — se abrira automaticamente cuando termine.
+            </p>
+          )}
+          {rec.status === "rejected" && (
+            <p style={{ fontSize: 12, color: "#991b1b", marginTop: 8 }}>
+              {rec.last_error || "El audio no parece ser una llamada válida. Sube otra grabación."}
             </p>
           )}
         </div>
