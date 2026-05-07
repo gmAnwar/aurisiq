@@ -17,7 +17,7 @@ En caso de conflicto entre este CLAUDE.md y el TÉCNICO, el TÉCNICO tiene prior
 
 ## Canvases de Slack — IDs fijos
 - TÉCNICO: F0ALYPV5D16 — stack, schema, decisiones. FUENTE PRIMARIA.
-- PENDIENTES: F0AL1FB4XAN — next steps activos
+- PENDIENTES: F0AKR4HNNEB — next steps activos
 - SESIONES: F0ALHCSA449 — changelog de sesiones
 - RIESGOS: F0APJ3P59S4 — checklist de riesgos completo
 - SCORECARDS: F0AK5T984FM — prompts maestros V5A, V5B, v1
@@ -84,7 +84,7 @@ En caso de conflicto entre este CLAUDE.md y el TÉCNICO, el TÉCNICO tiene prior
 
 ## Al cerrar sesión — obligatorio sin preguntar
 1. Actualizar SESIONES (F0ALHCSA449) con prepend — nueva entrada arriba
-2. Actualizar PENDIENTES (F0AL1FB4XAN) con replace — mover completados
+2. Actualizar PENDIENTES (F0AKR4HNNEB) con replace — mover completados
 3. Postear resumen en #aurisiq (C0AL7UWC1SM)
 
 ## Criterios de aceptación — Sesión 1.1 (Schema Supabase)
