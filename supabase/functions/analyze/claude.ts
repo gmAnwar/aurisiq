@@ -1,5 +1,90 @@
 import { ANTHROPIC_API_KEY, CLAUDE_MODEL, CLAUDE_API_URL, CLAUDE_MAX_TOKENS } from "../_shared/env.ts";
 import type { Scorecard, ScorecardStructure, DescalCategory, FunnelStage } from "./types.ts";
+import { type RejectionReason, isRejectionReason } from "../_shared/rejection-reasons.ts";
+
+export interface ClaudeResponse {
+  type: "analyzed" | "rejected";
+  proseText?: string;
+  rejection?: {
+    reason: RejectionReason;
+    details_es_mx?: string;
+  };
+}
+
+interface ClaudeContentBlock {
+  type?: string;
+  text?: string;
+  name?: string;
+  input?: Record<string, unknown>;
+}
+
+// ─── Tool-use signal pattern: rejection of audio (NOT lead) ─
+
+/**
+ * Single-purpose signal tool. The LLM calls this ONLY when the audio is not
+ * analyzable as a sales/captación call (silent, not a sales conversation,
+ * wrong language, etc.). On normal sales calls — even when the lead is
+ * rejected, disqualified, or the conversation goes badly — the LLM produces
+ * the regular prose analysis and does NOT call this tool.
+ *
+ * tool_choice="auto" + disable_parallel_tool_use=true preserves the prose
+ * path (parser.ts) for the analyzed branch.
+ */
+export const REJECTION_TOOL_DEFINITION = {
+  name: "report_audio_not_analyzable",
+  description:
+    "Llamar SOLO cuando la transcripción NO permite generar un análisis válido de llamada de captación o venta. Casos: audio sin voz audible, audio que no es conversación de venta (ej. nota de voz personal, podcast, explicación de uso de herramienta), idioma no español. NO llamar cuando el prospecto fue rechazado o descalificado durante una llamada normal — ese caso es análisis normal, NO rejection del audio.",
+  input_schema: {
+    type: "object",
+    properties: {
+      reason: {
+        type: "string",
+        enum: [
+          "audio_sin_habla",
+          "no_es_conversacion_de_venta",
+          "idioma_no_soportado",
+          "otro",
+        ],
+        description:
+          "Categoría del motivo por el cual el audio no es analizable.",
+      },
+      details_es_mx: {
+        type: "string",
+        description:
+          "Descripción breve en español MX (1 oración, máx 200 chars). REQUERIDO cuando reason='otro'. Opcional en otros casos.",
+      },
+    },
+    required: ["reason"],
+  },
+} as const;
+
+/**
+ * System prompt addendum that instructs the LLM when to call the rejection
+ * tool vs produce normal prose analysis. Appended globally to every
+ * scorecard prompt (org-agnostic). Critical: distinguishes audio-level
+ * rejection (call the tool) from lead-level rejection during a valid
+ * conversation (normal analysis with low score / descalificación array).
+ */
+export const REJECTION_INSTRUCTION_BLOCK = `
+
+---
+
+## CRITERIO DE RECHAZO DEL AUDIO
+
+Si la transcripción NO permite analizar la llamada como conversación de captación o venta válida, llama la tool \`report_audio_not_analyzable\` con el reason apropiado. Casos:
+
+- \`audio_sin_habla\`: silencio o ruido sin voz audible
+- \`no_es_conversacion_de_venta\`: hay habla pero no es llamada de captación/venta (ej. nota personal, podcast, explicación de uso de herramientas, conversación interna)
+- \`idioma_no_soportado\`: la conversación no está en español
+- \`otro\`: caso fuera de los anteriores. Incluir \`details_es_mx\` con descripción breve en español MX
+
+CRÍTICO — NO llamar la tool en estos casos (son análisis NORMAL):
+- Llamada donde el prospecto fue rechazado, descalificado, o no calificó por crédito/perfil/disponibilidad
+- Llamada donde el prospecto colgó, perdió interés, o se cortó por mala señal
+- Llamada donde el agente cometió errores o el cliente fue grosero
+- Cualquier conversación de venta válida con resultado negativo
+
+El criterio es: ¿el AUDIO es analizable como conversación de venta? Si SÍ → produce análisis normal (con SCORE GENERAL, fases, etc.). Si NO (audio inválido como insumo) → llama la tool.`;
 
 // ─── Prompt building (Path A: structured) ─────────────────
 
@@ -140,12 +225,15 @@ export function buildFullPrompt(
     prompt += `\n\n---\nDESCALIFICACION DE LEADS\nAnaliza la transcripción y determina si el lead fue descalificado. Usa SOLO los siguientes códigos del catálogo de la organización:\n${catList}\n\nAl final de tu respuesta, incluye una línea con el formato:\nDESCALIFICACION: ["codigo1", "codigo2", "codigo3"]\nSi el lead calificó (no hay razón de descalificación), escribe:\nDESCALIFICACION: []\nMáximo 3 códigos. Usa SOLO códigos del catálogo anterior.\n\nINSTRUCCION CRITICA: Si la llamada menciona MULTIPLES razones de descalificación concurrentes, DEBES devolver TODAS las que apliquen hasta un máximo de 3. NO filtres. NO priorices. NO te limites a 2.\n\nEjemplo real:\nSi el propietario dice: "la propiedad está en intestamentario con mis hermanos, no tenemos escrituras todavía, y está en Tepatitlán Jalisco"\nOutput correcto: DESCALIFICACION: ["juridico", "sin_escrituras", "fuera_de_zona"]\nOutput INCORRECTO (solo 2): DESCALIFICACION: ["juridico", "fuera_de_zona"]\n\nDevolver siempre TODAS las categorías que el prospecto mencione, no solo las más severas.`;
   }
 
+  // Global addendum (org-agnostic, applies to both Path A structured and Path B legacy)
+  prompt += REJECTION_INSTRUCTION_BLOCK;
+
   return { systemPrompt: prompt, extractionPatterns: dbExtractionPatterns };
 }
 
 // ─── Call Anthropic API ────────────────────────────────────
 
-export async function callClaude(systemPrompt: string, userMessage: string): Promise<string> {
+export async function callClaude(systemPrompt: string, userMessage: string): Promise<ClaudeResponse> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120_000); // 120s timeout
 
@@ -162,6 +250,9 @@ export async function callClaude(systemPrompt: string, userMessage: string): Pro
         max_tokens: CLAUDE_MAX_TOKENS,
         system: systemPrompt,
         messages: [{ role: "user", content: userMessage }],
+        tools: [REJECTION_TOOL_DEFINITION],
+        tool_choice: { type: "auto" },
+        disable_parallel_tool_use: true,
       }),
       signal: controller.signal,
     });
@@ -172,10 +263,65 @@ export async function callClaude(systemPrompt: string, userMessage: string): Pro
     }
 
     const data = await res.json();
-    if (!data.content || !data.content[0] || !data.content[0].text) {
-      throw new Error("Claude returned empty content");
+
+    // 1. Truncation guard — must come before content inspection
+    if (data.stop_reason === "max_tokens") {
+      throw new Error("Claude response truncated by max_tokens");
     }
-    return data.content[0].text;
+
+    const content: ClaudeContentBlock[] = Array.isArray(data.content) ? data.content : [];
+
+    // 2. Look for tool_use block (rejection signal)
+    const toolBlock = content.find(
+      (b) => b.type === "tool_use" && b.name === "report_audio_not_analyzable",
+    );
+
+    // 3. Look for non-empty text block (analyzed prose)
+    const textBlock = content.find(
+      (b) => b.type === "text" && typeof b.text === "string" && b.text.trim().length > 0,
+    );
+
+    if (toolBlock) {
+      // Edge case: tool_use + text — priorize tool_use, warn for visibility
+      if (textBlock) {
+        console.warn(
+          "[claude] Tool_use + text in same response, prose ignored",
+          { textPreview: (textBlock.text || "").slice(0, 200) },
+        );
+      }
+
+      const input = toolBlock.input;
+      if (!input || typeof input !== "object") {
+        console.warn("[claude] Malformed tool_use input (missing or not object)", toolBlock);
+        return {
+          type: "rejected",
+          rejection: { reason: "otro", details_es_mx: "tool_use input malformado" },
+        };
+      }
+      const reasonRaw = input.reason;
+      if (typeof reasonRaw !== "string" || !isRejectionReason(reasonRaw)) {
+        console.warn(`[claude] Invalid reason in tool_use input: ${String(reasonRaw)}`, toolBlock);
+        return {
+          type: "rejected",
+          rejection: {
+            reason: "otro",
+            details_es_mx: `reason inválido: ${String(reasonRaw)}`,
+          },
+        };
+      }
+      const detailsRaw = input.details_es_mx;
+      const details = typeof detailsRaw === "string" ? detailsRaw : undefined;
+      return {
+        type: "rejected",
+        rejection: { reason: reasonRaw, details_es_mx: details },
+      };
+    }
+
+    if (textBlock && textBlock.text) {
+      return { type: "analyzed", proseText: textBlock.text };
+    }
+
+    throw new Error("Claude returned empty content");
   } finally {
     clearTimeout(timeout);
   }

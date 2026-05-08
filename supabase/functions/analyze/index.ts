@@ -28,6 +28,7 @@ import { buildFullPrompt, callClaude, callClaudeForHighlights } from "./claude.t
 import { parseClaudeOutput, matchPhaseIds } from "./parser.ts";
 import { ASSEMBLYAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from "../_shared/env.ts";
 import { RejectedAnalysisError } from "../_shared/errors.ts";
+import { mapRejectionToHumanText } from "../_shared/rejection-reasons.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -108,21 +109,38 @@ async function processJobAsync(jobId: string) {
       transcription = payload.transcription_edited || payload.transcription_original || payload.transcription_text;
     }
     console.log(`[analyze v23] Calling Claude for job ${jobId}, transcription length: ${transcription.length}`);
-    const rawOutput = await callClaude(systemPrompt, transcription);
+    const claudeResponse = await callClaude(systemPrompt, transcription);
+
+    // 7b. Branch: LLM signaled rejection via tool_use (early return before parse + highlights)
+    if (claudeResponse.type === "rejected") {
+      const humanText = mapRejectionToHumanText(
+        claudeResponse.rejection!.reason,
+        claudeResponse.rejection!.details_es_mx,
+      );
+      console.log(`[analyze] Tool-signaled rejection job=${jobId} reason=${claudeResponse.rejection!.reason}`);
+      throw new RejectedAnalysisError(humanText);
+    }
+
+    // 7c. Branch: analyzed — prose path
+    const rawOutput = claudeResponse.proseText!;
     lastRawOutput = rawOutput;
     console.log(`[analyze] Claude response length: ${rawOutput.length}`);
 
     // 8. Parse
     const parsed = parseClaudeOutput(rawOutput, extractionPatterns || null);
 
-    // 8b. Detect rejection (LLM couldn't analyze — not a sales call, silent audio, etc.)
+    // 8b. Parser drift detection — analyzed branch should always produce SCORE GENERAL.
+    // If null reaches here, the LLM output was malformed BUT it didn't call the rejection
+    // tool — surface as technical error (status='error'), NOT silent rejection.
     if (parsed.score_general === null) {
-      const reason = (rawOutput || "Audio no analizable")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, 500);
-      throw new RejectedAnalysisError(
-        reason.length === 500 ? `${reason}...` : reason,
+      console.error("[analyze] Analyzed branch but score_general null", {
+        jobId,
+        organizationId: job.organization_id,
+        scorecardId: job.payload?.scorecard_id,
+        rawTextPreview: rawOutput.slice(0, 300),
+      });
+      throw new Error(
+        "Parser drift: score_general null in analyzed branch (LLM should have called tool or output valid SCORE GENERAL)",
       );
     }
 
