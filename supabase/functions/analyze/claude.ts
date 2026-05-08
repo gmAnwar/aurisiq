@@ -251,8 +251,7 @@ export async function callClaude(systemPrompt: string, userMessage: string): Pro
         system: systemPrompt,
         messages: [{ role: "user", content: userMessage }],
         tools: [REJECTION_TOOL_DEFINITION],
-        tool_choice: { type: "auto" },
-        disable_parallel_tool_use: true,
+        tool_choice: { type: "auto", disable_parallel_tool_use: true },
       }),
       signal: controller.signal,
     });
