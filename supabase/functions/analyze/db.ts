@@ -170,7 +170,7 @@ export async function createAnalysisJob(
   const p = job.payload;
   const { error } = await db()
     .from("analysis_jobs")
-    .insert({
+    .upsert({
       analysis_id: analysisId,
       organization_id: job.organization_id,
       user_id: job.user_id,
@@ -183,7 +183,7 @@ export async function createAnalysisJob(
       has_audio: p.has_audio || false,
       pause_count: p.pause_count || 0,
       total_paused_seconds: p.total_paused_seconds || 0,
-    });
+    }, { onConflict: "analysis_id" });
   if (error) throw new Error(`Failed to create analysis_job: ${error.message}`);
 }
 
