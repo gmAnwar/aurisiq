@@ -3,3 +3,18 @@ node_modules
 .next
 tsconfig.tsbuildinfo
 .env*.local
+
+# OpenNext
+.open-next
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
+
+# OpenNext build artifact (causes worker deploy precedence bug)
+wrangler.jsonc
+
+# Local env file for Edge Function development (never commit)
+supabase/functions/.env
