@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     const [orgsRes, usersRes, analysesRes, speechRes, membershipsRes, stagesRes, scorecardsRes, templatesRes] = await Promise.all([
       admin
         .from("organizations")
-        .select("id, name, slug, plan, analyses_count, access_status, invite_token, role_label_vendedor")
+        .select("id, name, slug, plan, access_status, invite_token, role_label_vendedor")
         .order("created_at", { ascending: false }),
       admin
         .from("users")
@@ -52,9 +52,27 @@ export async function GET(req: Request) {
     if (speechRes.error) console.error("[admin/data] speech query error:", speechRes.error);
     if (membershipsRes.error) console.error("[admin/data] memberships query error:", membershipsRes.error);
 
+    // Derive analyses_count per org from completados this UTC month (replaces stored column)
+    const now = new Date();
+    const firstOfMonthUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+    const { data: monthlyCounts } = await admin
+      .from("analyses")
+      .select("organization_id")
+      .eq("status", "completado")
+      .gte("created_at", firstOfMonthUTC);
+    const countsByOrg = new Map<string, number>();
+    for (const row of monthlyCounts || []) {
+      const orgId = (row as { organization_id: string }).organization_id;
+      countsByOrg.set(orgId, (countsByOrg.get(orgId) || 0) + 1);
+    }
+    const orgsWithCount = (orgsRes.data || []).map((o) => ({
+      ...o,
+      analyses_count: countsByOrg.get(o.id) || 0,
+    }));
+
     return NextResponse.json({
       ok: true,
-      orgs: orgsRes.data || [],
+      orgs: orgsWithCount,
       users: usersRes.data || [],
       analyses: analysesRes.data || [],
       speech_versions: speechRes.data || [],

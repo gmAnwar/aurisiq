@@ -361,17 +361,6 @@ export default function AdminPage() {
     await loadOrgs();
   }
 
-  async function resetAnalysesCount(id: string) {
-    if (!window.confirm("¿Resetear el contador de análisis a 0 para esta organización?")) return;
-    const { error: e } = await supabase
-      .from("organizations")
-      .update({ analyses_count: 0 })
-      .eq("id", id);
-    if (e) { showToast({ type: "err", msg: e.message }); return; }
-    showToast({ type: "ok", msg: "Contador reseteado" });
-    await loadOrgs();
-  }
-
   // ----- Users -----
   async function updateUser(userId: string, updates: Record<string, unknown>) {
     setSavingUserId(userId);
