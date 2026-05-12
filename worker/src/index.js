@@ -1279,11 +1279,6 @@ async function handleTimeoutRecovery(env) {
   }
 }
 
-async function handleMonthlyReset(env) {
-  const affected = await supabaseRpc(env, 'reset_monthly_analysis_counts', {});
-  console.log(`Monthly reset: ${affected} org(s) reset to 0`);
-}
-
 async function handleStarterExpiration(env) {
   const affected = await supabaseRpc(env, 'expire_starter_orgs', {});
   if (affected > 0) {
@@ -1308,11 +1303,6 @@ async function handleScheduled(env, cron) {
   // Daily at midnight-ish (first cron run of the day: hour 0, minute 0-4)
   if (now.getUTCHours() === 0 && now.getUTCMinutes() < 5) {
     await handleStarterExpiration(env);
-  }
-
-  // Monthly on day 1, midnight-ish
-  if (now.getUTCDate() === 1 && now.getUTCHours() === 0 && now.getUTCMinutes() < 5) {
-    await handleMonthlyReset(env);
   }
 }
 
