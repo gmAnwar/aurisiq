@@ -10,9 +10,9 @@ export const CLAUDE_MAX_TOKENS = 4096;
 export const TIER_LIMITS: Record<string, number | null> = {
   free: 10,
   starter: 50,
-  growth: 500,
-  pro: 2000,
-  scale: 10000,
+  growth: 200,
+  pro: 500,
+  scale: 1500,
   enterprise: null,
   founder: 50,
 };
