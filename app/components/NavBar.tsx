@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import { getRoleLabel } from "../../lib/roleLabel";
 import OfflineIndicator from "./OfflineIndicator";
 
 interface NavItem {
@@ -15,7 +14,7 @@ interface NavItem {
 import { hasAnyRole, type UserRole } from "../../lib/auth";
 import { useFunnelStages } from "../contexts/FunnelStagesContext";
 import { resolveGrabarCta } from "../../lib/cta-routing";
-import { Sun, BarChart3, CalendarRange, MessageSquare, Users, FolderOpen, BookOpen, FileBarChart, Settings, ClipboardList, TrendingUp, UserCircle, LayoutDashboard, Building2, Bell, ShieldCheck, Mic, ListChecks, type LucideIcon } from "lucide-react";
+import { Sun, BarChart3, CalendarRange, MessageSquare, Users, FolderOpen, BookOpen, FileBarChart, Settings, ClipboardList, TrendingUp, UserCircle, LayoutDashboard, Building2, Bell, ShieldCheck, Mic, ListChecks, LogOut, type LucideIcon } from "lucide-react";
 
 interface RoleNavItem extends NavItem {
   requiredRoles: UserRole[];
@@ -103,6 +102,7 @@ interface NavBarProps {
   userName: string;
   userEmail: string;
   orgSlug?: string | null;
+  orgName?: string | null;
   roleLabelVendedor?: string | null;
   trainingMode?: boolean;
   onTrainingRoleChange?: (role: string) => void;
@@ -117,11 +117,15 @@ const TRAINING_ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: "direccion", label: "Dirección" },
 ];
 
-export default function NavBar({ role, roles, userName, userEmail, orgSlug, roleLabelVendedor, trainingMode, onTrainingRoleChange, orgOptions, activeOrgId, onActiveOrgChange }: NavBarProps) {
+export default function NavBar({ role, roles, userName, userEmail, orgSlug, orgName, roleLabelVendedor, trainingMode, onTrainingRoleChange, orgOptions, activeOrgId, onActiveOrgChange }: NavBarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
+  const userBtnRef = useRef<HTMLButtonElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   // SSR-safe localStorage read for collapse preference
   useEffect(() => {
@@ -156,6 +160,32 @@ export default function NavBar({ role, roles, userName, userEmail, orgSlug, role
 
   // Close mobile menu on route change
   useEffect(() => { setMobileOpen(false); }, [pathname]);
+
+  // User menu: Esc closes + returns focus to trigger; click outside closes
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMenuOpen(false);
+        userBtnRef.current?.focus();
+      }
+    };
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        userMenuRef.current && !userMenuRef.current.contains(target) &&
+        userBtnRef.current && !userBtnRef.current.contains(target)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onClick);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onClick);
+    };
+  }, [menuOpen]);
   const [showPwdForm, setShowPwdForm] = useState(false);
   const [pwd, setPwd] = useState("");
   const [pwdConfirm, setPwdConfirm] = useState("");
@@ -202,11 +232,19 @@ export default function NavBar({ role, roles, userName, userEmail, orgSlug, role
   const mobileItems = (MOBILE_NAV[role] || allItems).slice(0, 5);
   const isSidebar = useSidebarLayout();
   const initial = userName.charAt(0).toUpperCase() || "?";
-  const roleLabel = getRoleLabel(role, { slug: orgSlug, role_label_vendedor: roleLabelVendedor });
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    window.location.href = "/";
+    setSignOutError(null);
+    // scope: 'local' — only revoke current browser session.
+    // Inmobili captadoras share devices; default 'global' would log out
+    // teammates with active sessions on other computers.
+    const { error: signOutErr } = await supabase.auth.signOut({ scope: "local" });
+    if (signOutErr) {
+      setSignOutError(signOutErr.message || "Error al cerrar sesión");
+      return;
+    }
+    router.replace("/login");
+    router.refresh();
   };
 
   return (
@@ -338,61 +376,86 @@ export default function NavBar({ role, roles, userName, userEmail, orgSlug, role
 
         {/* User panel */}
         <div className="navbar-user-panel">
-          <button className="navbar-user-btn" onClick={() => setMenuOpen(!menuOpen)}>
+          <button
+            ref={userBtnRef}
+            id="user-menu-trigger"
+            className="navbar-user-btn"
+            onClick={() => setMenuOpen(v => !v)}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            aria-controls="user-menu-dropdown"
+          >
             <span className="navbar-user-initial">{initial}</span>
             <span className="navbar-user-name">{userName}</span>
           </button>
           {menuOpen && (
-            <>
-              <div className="navbar-user-backdrop" onClick={() => setMenuOpen(false)} />
-              <div className="navbar-user-menu">
-                <div className="navbar-menu-profile">
-                  <span className="navbar-menu-name">{userName}</span>
-                  <span className="navbar-menu-role">{roleLabel}</span>
-                  <span className="navbar-menu-email-text">{userEmail}</span>
-                </div>
-                <div className="navbar-menu-sep" />
-                <button
-                  className="navbar-menu-logout"
-                  style={{ color: "#00C2E0" }}
-                  onClick={() => { setShowPwdForm(v => !v); setPwdError(""); setPwdSuccess(false); }}
-                >
-                  {showPwdForm ? "Cancelar" : "Cambiar contraseña"}
-                </button>
-                {showPwdForm && (
-                  <div style={{ padding: "8px 12px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
-                    <input
-                      className="input-field"
-                      type="password"
-                      placeholder="Nueva contraseña (min 8)"
-                      value={pwd}
-                      onChange={e => setPwd(e.target.value)}
-                      autoComplete="new-password"
-                    />
-                    <input
-                      className="input-field"
-                      type="password"
-                      placeholder="Confirmar contraseña"
-                      value={pwdConfirm}
-                      onChange={e => setPwdConfirm(e.target.value)}
-                      autoComplete="new-password"
-                    />
-                    {pwdError && <p className="c2-rec-error" style={{ margin: 0 }}>{pwdError}</p>}
-                    {pwdSuccess && <p style={{ margin: 0, color: "#16a34a", fontSize: 13 }}>✓ Contraseña actualizada</p>}
-                    <button
-                      className="btn-submit"
-                      style={{ marginTop: 0, padding: "8px 12px" }}
-                      onClick={handleChangePassword}
-                      disabled={pwdSubmitting || !pwd || !pwdConfirm}
-                    >
-                      {pwdSubmitting ? "Guardando..." : "Guardar"}
-                    </button>
-                  </div>
+            <div
+              ref={userMenuRef}
+              id="user-menu-dropdown"
+              className="navbar-user-menu"
+              role="menu"
+              aria-labelledby="user-menu-trigger"
+            >
+              <div className="navbar-menu-profile">
+                <span className="navbar-menu-name" title={userName}>{userName}</span>
+                <span className="navbar-menu-email-text" title={userEmail}>{userEmail}</span>
+                {orgName && (
+                  <span className="navbar-menu-org-text" title={orgName}>{orgName}</span>
                 )}
-                <div className="navbar-menu-sep" />
-                <button className="navbar-menu-logout" onClick={handleSignOut}>Cerrar sesión</button>
               </div>
-            </>
+              <div className="navbar-menu-sep" role="separator" />
+              <button
+                className="navbar-menu-logout"
+                style={{ color: "#00C2E0" }}
+                onClick={() => { setShowPwdForm(v => !v); setPwdError(""); setPwdSuccess(false); }}
+              >
+                {showPwdForm ? "Cancelar" : "Cambiar contraseña"}
+              </button>
+              {showPwdForm && (
+                <div style={{ padding: "8px 12px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+                  <input
+                    className="input-field"
+                    type="password"
+                    placeholder="Nueva contraseña (min 8)"
+                    value={pwd}
+                    onChange={e => setPwd(e.target.value)}
+                    autoComplete="new-password"
+                  />
+                  <input
+                    className="input-field"
+                    type="password"
+                    placeholder="Confirmar contraseña"
+                    value={pwdConfirm}
+                    onChange={e => setPwdConfirm(e.target.value)}
+                    autoComplete="new-password"
+                  />
+                  {pwdError && <p className="c2-rec-error" style={{ margin: 0 }}>{pwdError}</p>}
+                  {pwdSuccess && <p style={{ margin: 0, color: "#16a34a", fontSize: 13 }}>✓ Contraseña actualizada</p>}
+                  <button
+                    className="btn-submit"
+                    style={{ marginTop: 0, padding: "8px 12px" }}
+                    onClick={handleChangePassword}
+                    disabled={pwdSubmitting || !pwd || !pwdConfirm}
+                  >
+                    {pwdSubmitting ? "Guardando..." : "Guardar"}
+                  </button>
+                </div>
+              )}
+              <div className="navbar-menu-sep" role="separator" />
+              <button
+                className="navbar-menu-logout"
+                role="menuitem"
+                onClick={handleSignOut}
+              >
+                <LogOut size={14} aria-hidden="true" />
+                <span>Cerrar sesión</span>
+              </button>
+              {signOutError && (
+                <p style={{ margin: "4px 14px 8px", color: "var(--red)", fontSize: 11 }}>
+                  {signOutError}
+                </p>
+              )}
+            </div>
           )}
         </div>
       </div>

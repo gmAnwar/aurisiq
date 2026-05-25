@@ -152,6 +152,8 @@ export default function AuthNav() {
     window.location.reload();
   };
 
+  const orgName = orgOptions.find(o => o.id === activeOrgId)?.name || null;
+
   return (
     <NavBar
       role={role}
@@ -159,6 +161,7 @@ export default function AuthNav() {
       userName={userName}
       userEmail={userEmail}
       orgSlug={orgSlug}
+      orgName={orgName}
       roleLabelVendedor={roleLabelVendedor}
       trainingMode={trainingMode}
       onTrainingRoleChange={handleTrainingRoleChange}
