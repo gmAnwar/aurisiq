@@ -968,6 +968,47 @@ body.has-nav {
 .c2-char-amber { color: #d97706; font-weight: 500; }
 .c2-char-error { color: var(--red); font-weight: 600; }
 
+.c2-mode-badge {
+  display: inline-block;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-light);
+  background: var(--gold-dim);
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin-bottom: 8px;
+  max-width: 100%;
+}
+
+.c2-missing-block {
+  margin: 12px 0;
+  padding: 10px 14px;
+  background: #fef3c7;
+  border-left: 3px solid var(--amber);
+  border-radius: 6px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.c2-missing-block-title {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.c2-missing-block-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: #92400e;
+  line-height: 1.6;
+}
+
+.c2-missing-block-list li {
+  margin: 2px 0;
+}
+
 .c2-hint {
   font-size: 13px;
   font-family: 'DM Sans', sans-serif;

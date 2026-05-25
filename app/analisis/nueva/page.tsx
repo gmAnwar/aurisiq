@@ -262,6 +262,37 @@ export default function NuevaLlamadaPage() {
   const CHAR_LIMIT = limits.maxChars;
   const canSubmit = (isPresencialSession ? !needsStageChoice : (selectedSource !== "" && !missingConfig)) && wordCount >= MIN_WORDS && charCount <= CHAR_LIMIT && status === "idle" && !isTranscribing && !stageNoScorecard;
 
+  const inputModeLabel: string = (() => {
+    if (rec.recMode === "recording") return "Grabando en vivo...";
+    if (rec.recMode === "paused") return "Grabación pausada";
+    if (isTranscribing) return "Transcribiendo audio...";
+    if (transcription.trim() === "") return `Elige cómo capturar la ${sessionNoun(isPresencialSession)}: grabar, subir archivo o pegar texto`;
+    if (transcriptionSource === "audio") return "Audio transcrito ✓ (puedes editar)";
+    return "Texto pegado manualmente";
+  })();
+
+  const missingForSubmit: string[] = [];
+  if (status === "idle" && !isTranscribing) {
+    if (needsStageChoice) {
+      missingForSubmit.push("Elegí la etapa del embudo");
+    }
+    if (!isPresencialSession && orgHasTelefonico(funnelStages) && selectedSource === "") {
+      missingForSubmit.push("Elegí la fuente del lead");
+    }
+    if (transcription.trim().length === 0) {
+      missingForSubmit.push(`Agregá la transcripción de la ${sessionNoun(isPresencialSession)} (grabá, subí o pegá)`);
+    } else if (wordCount < MIN_WORDS) {
+      missingForSubmit.push(`Faltan palabras para análisis (${wordCount}/${MIN_WORDS})`);
+    }
+    if (charCount > CHAR_LIMIT) {
+      missingForSubmit.push(`La transcripción excede el límite (${charCount.toLocaleString()}/${CHAR_LIMIT.toLocaleString()} caracteres)`);
+    }
+    if (stageNoScorecard) {
+      missingForSubmit.push("Esta etapa no tiene scorecard configurado — pedile a tu admin que lo configure");
+    }
+  }
+  const showMissingBlock = !canSubmit && missingForSubmit.length > 0;
+
   useEffect(() => {
     setMobile(isMobile());
     async function init() {
@@ -1163,6 +1194,9 @@ export default function NuevaLlamadaPage() {
           <label htmlFor="transcription" className="input-label">
             Transcripción de la {sessionNoun(isPresencialSession)} *
           </label>
+          <div className="c2-mode-badge" role="status" aria-live="polite">
+            {inputModeLabel}
+          </div>
           <div
             className={`c2-drop-zone ${dragging ? "c2-drop-active" : ""}`}
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
@@ -1204,6 +1238,13 @@ export default function NuevaLlamadaPage() {
             )}
             {charCount > CHAR_LIMIT && (
               <span className="c2-char-error" style={{ display: "block", fontSize: 11, marginTop: 2 }}>Limite excedido — recorta la transcripcion para continuar</span>
+            )}
+            {wordCount > 0 && wordCount < MIN_WORDS && (
+              <span className="c2-min-words-hint" style={{ display: "block", fontSize: 11, marginTop: 2, color: "var(--ink-light)" }}>
+                {transcriptionSource === "manual"
+                  ? "Las transcripciones pegadas requieren más texto para análisis confiable. Si tu llamada fue corta, mejor usá grabar o subir audio."
+                  : `El audio fue muy corto. Mínimo ${MIN_WORDS} palabras para analizar.`}
+              </span>
             )}
           </div>
         </div>
@@ -1369,6 +1410,17 @@ export default function NuevaLlamadaPage() {
                 Subir otro audio
               </button>
             )}
+          </div>
+        )}
+
+        {showMissingBlock && (
+          <div className="c2-missing-block" role="status" aria-live="polite">
+            <p className="c2-missing-block-title">Para poder analizar, completá:</p>
+            <ul className="c2-missing-block-list">
+              {missingForSubmit.map((msg, i) => (
+                <li key={i}>{msg}</li>
+              ))}
+            </ul>
           </div>
         )}
 
