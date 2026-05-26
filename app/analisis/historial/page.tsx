@@ -27,6 +27,8 @@ interface Analysis {
   lead_outcome: string | null;
   prospect_name: string | null;
   prospect_zone: string | null;
+  status: string | null;
+  error_message: string | null;
 }
 
 const PAGE_SIZE = 20;
@@ -113,8 +115,9 @@ function HistorialPage() {
 
       const [analysesRes, stagesRes] = await Promise.all([
         supabase.from("analyses")
-          .select("id, score_general, clasificacion, created_at, funnel_stage_id, categoria_descalificacion, lead_quality, lead_outcome, prospect_name, prospect_zone")
-          .eq("user_id", session.userId).eq("organization_id", session.organizationId).eq("status", "completado")
+          .select("id, score_general, clasificacion, created_at, funnel_stage_id, categoria_descalificacion, lead_quality, lead_outcome, prospect_name, prospect_zone, status, error_message")
+          .eq("user_id", session.userId).eq("organization_id", session.organizationId)
+          .in("status", ["completado", "procesando", "rechazado", "error"])
           .order("created_at", { ascending: false }),
         supabase.from("funnel_stages").select("id, name")
           .eq("organization_id", session.organizationId).eq("active", true),
@@ -160,13 +163,15 @@ function HistorialPage() {
     setShowCustom(false);
   };
 
-  // Client-side filtering
+  // Client-side filtering. Procesando/rechazado/error rows bypass los filtros
+  // de score/quality/outcome (no aplican porque no tienen esos campos populados).
+  // Sort: procesando arriba, después por created_at DESC.
   const filtered = useMemo(() => {
-    return analyses.filter(a => {
-      // Date filter
+    const f = analyses.filter(a => {
+      // Date filter (aplica a todos los status)
       if (rangeParam === "custom" && fromParam && toParam) {
         const from = fromISODate(fromParam);
-        const to = new Date(fromISODate(toParam).getTime() + 86400000); // inclusive end
+        const to = new Date(fromISODate(toParam).getTime() + 86400000);
         const d = new Date(a.created_at);
         if (d < from || d >= to) return false;
       } else if (rangeParam !== "all" && rangeParam !== "custom") {
@@ -177,28 +182,10 @@ function HistorialPage() {
         }
       }
 
-      // Score filter
-      if (scoreParam === "high" && (a.score_general === null || a.score_general < 80)) return false;
-      if (scoreParam === "mid" && (a.score_general === null || a.score_general < 60 || a.score_general >= 80)) return false;
-      if (scoreParam === "low" && (a.score_general === null || a.score_general >= 60)) return false;
-
-      // Stage filter
+      // Stage filter (aplica a todos)
       if (stageParam !== "all" && a.funnel_stage_id !== stageParam) return false;
 
-      // Outcome filter
-      if (outcomeParam !== "all") {
-        const validOutcomes = OUTCOME_GROUPS[outcomeParam];
-        if (validOutcomes && !validOutcomes.includes(a.lead_outcome || "")) return false;
-      }
-
-      // Quality filter
-      if (qualityParam !== "all") {
-        if (qualityParam === "calificados" && a.lead_quality !== "calificado") return false;
-        if (qualityParam === "indeterminados" && a.lead_quality !== "indeterminado") return false;
-        if (qualityParam === "descalificados" && a.lead_quality !== "descalificado") return false;
-      }
-
-      // Text search
+      // Text search (aplica a todos)
       if (searchParam) {
         const q = searchParam.toLowerCase();
         const name = (a.prospect_name || "").toLowerCase();
@@ -206,7 +193,39 @@ function HistorialPage() {
         if (!name.includes(q) && !zone.includes(q)) return false;
       }
 
+      // Filtros que solo aplican a completados — non-completed pasan sin checkearlos
+      const isCompleted = a.status === "completado";
+      if (isCompleted) {
+        if (scoreParam === "high" && (a.score_general === null || a.score_general < 80)) return false;
+        if (scoreParam === "mid" && (a.score_general === null || a.score_general < 60 || a.score_general >= 80)) return false;
+        if (scoreParam === "low" && (a.score_general === null || a.score_general >= 60)) return false;
+
+        if (outcomeParam !== "all") {
+          const validOutcomes = OUTCOME_GROUPS[outcomeParam];
+          if (validOutcomes && !validOutcomes.includes(a.lead_outcome || "")) return false;
+        }
+
+        if (qualityParam !== "all") {
+          if (qualityParam === "calificados" && a.lead_quality !== "calificado") return false;
+          if (qualityParam === "indeterminados" && a.lead_quality !== "indeterminado") return false;
+          if (qualityParam === "descalificados" && a.lead_quality !== "descalificado") return false;
+        }
+      } else {
+        // Si user filtró por score/outcome/quality específico, ocultar non-completed
+        // (no tienen esos campos populados, así que mostrarlos confunde).
+        if (scoreParam !== "all" || outcomeParam !== "all" || qualityParam !== "all") return false;
+      }
+
       return true;
+    });
+
+    // Re-sort: procesando primero, luego por fecha DESC
+    return f.sort((a, b) => {
+      const aIsProc = a.status === "procesando";
+      const bIsProc = b.status === "procesando";
+      if (aIsProc && !bIsProc) return -1;
+      if (!aIsProc && bIsProc) return 1;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
   }, [analyses, rangeParam, fromParam, toParam, scoreParam, stageParam, outcomeParam, qualityParam, searchParam]);
 
@@ -349,6 +368,68 @@ function HistorialPage() {
               const stageName = a.funnel_stage_id ? stages[a.funnel_stage_id] : null;
               const outcomeBadge = a.lead_outcome ? OUTCOME_BADGE[a.lead_outcome] : null;
               const qualityColor = a.lead_quality ? QUALITY_DOT[a.lead_quality] : null;
+
+              // F19: non-completed status get a semantic pill instead of normal render
+              const isProcesando = a.status === "procesando";
+              const isRechazado = a.status === "rechazado";
+              const isError = a.status === "error";
+              const isInFlight = isProcesando || isRechazado || isError;
+
+              if (isInFlight) {
+                const href = isError ? "/analisis/nueva" : `/analisis/${a.id}`;
+                return (
+                  <div key={a.id}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                      <Link href={href} className="c4-item" style={{ flex: 1 }}>
+                        <div className="c4-item-left">
+                          <span className="c4-item-date">
+                            <EditableField analysisId={a.id} field="prospect_name" currentValue={a.prospect_name} placeholder="Sin nombre" onSave={(n) => updateField(a.id, "prospect_name", n)} />
+                          </span>
+                          <span className="c4-item-source">
+                            {dateStr} · {timeStr}
+                            {stageName && <> · {stageName}</>}
+                            {" · "}
+                            {isProcesando && (
+                              <span className="c4-pill-processing" title="Tu análisis está en proceso">
+                                <span className="c4-pill-processing-spinner" />
+                                Procesando...
+                              </span>
+                            )}
+                            {isRechazado && (
+                              <span className="c4-pill-rejected" title={a.error_message || "Audio no apto para análisis"}>
+                                Rechazado
+                              </span>
+                            )}
+                            {isError && (
+                              <span className="c4-pill-error" title={a.error_message || "No se pudo completar"}>
+                                Error
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      </Link>
+                      {isSuperAdmin && (
+                        <button
+                          className="historial-delete-btn"
+                          onClick={(e) => { e.preventDefault(); setPendingDeleteId(a.id); }}
+                          title="Eliminar análisis"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                      )}
+                    </div>
+                    {pendingDeleteId === a.id && (
+                      <div style={{ padding: "10px 16px", background: "#fff4f4", borderRadius: 6, marginBottom: 4, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                        <p style={{ margin: 0, color: "#991b1b", fontSize: 13 }}>Eliminar este analisis? No se puede deshacer.</p>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button onClick={() => setPendingDeleteId(null)} style={{ background: "none", border: "1px solid #d4d4d4", borderRadius: 6, padding: "6px 12px", cursor: "pointer", fontFamily: "inherit", fontSize: 13 }}>Cancelar</button>
+                          <button onClick={confirmDelete} style={{ background: "#dc2626", color: "#fff", border: "none", borderRadius: 6, padding: "6px 12px", cursor: "pointer", fontFamily: "inherit", fontSize: 13 }}>Confirmar</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
 
               return (
                 <div key={a.id}>

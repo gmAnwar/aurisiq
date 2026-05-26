@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
 import { computeEditPercentage } from "../../../lib/text";
@@ -21,6 +22,17 @@ interface LeadSource {
 }
 
 type Status = "idle" | "analyzing" | "error" | "rechazado";
+type ErrorKind = null | "polling_timeout" | "backend_error" | "rejected" | "submit_error";
+type PollPhase = "normal" | "long" | "exceeded";
+
+// Status terminales que invalidan resume del polling.
+// Comparación case-insensitive porque vocabulario difiere entre
+// background_jobs (inglés) y analyses (español).
+const TERMINAL_STATUSES = ["completed", "completado", "rejected", "rechazado", "error", "cancelled"];
+function isTerminalStatus(s: string | null): boolean {
+  if (!s) return false;
+  return TERMINAL_STATUSES.includes(s.toLowerCase());
+}
 
 interface FunnelStage {
   id: string;
@@ -76,6 +88,12 @@ export default function NuevaLlamadaPage() {
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const router = useRouter();
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [lastSeenStatus, setLastSeenStatus] = useState<string | null>(null);
+  const [errorKind, setErrorKind] = useState<ErrorKind>(null);
+  const [pollPhase, setPollPhase] = useState<PollPhase>("normal");
+  const [extraWaitCount, setExtraWaitCount] = useState(0);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guidePhases, setGuidePhases] = useState<GuidePhase[]>([]);
   const [guideLoading, setGuideLoading] = useState(false);
@@ -671,6 +689,167 @@ export default function NuevaLlamadaPage() {
     }, 600);
   };
 
+  // ─── Shared: progress ticker (extracted from handleSubmit) ─
+  const startProgressTicker = () => {
+    if (progressRef.current) clearInterval(progressRef.current);
+    const phases = [
+      { at: 0, text: "Enviando transcripción..." },
+      { at: 15, text: "Analizando con IA..." },
+      { at: 40, text: "Evaluando fases del scorecard..." },
+      { at: 85, text: "Generando coaching personalizado..." },
+      { at: 95, text: "Listo — redirigiendo a resultados..." },
+    ];
+    let pct = 0;
+    const startTime = Date.now();
+    progressRef.current = setInterval(() => {
+      const elapsed = (Date.now() - startTime) / 1000;
+      pct = Math.min(94, Math.floor(elapsed * 1.2));
+      if (elapsed > 60) {
+        setAnalysisPhase("Estamos puliendo el análisis, un momento más...");
+      } else {
+        const current = [...phases].reverse().find(p => pct >= p.at);
+        if (current) setAnalysisPhase(current.text);
+      }
+      setAnalysisPct(pct);
+    }, 500);
+  };
+
+  // ─── Shared: arm Edge Function polling (background_jobs) ──
+  const armEdgePolling = (jobId: string, opts: { softMs?: number; hardMs: number }) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const { data } = await supabase
+          .from("background_jobs")
+          .select("status, result, error_message")
+          .eq("id", jobId)
+          .single();
+
+        if (!data) return;
+        const statusLower = (data.status || "").toLowerCase();
+        setLastSeenStatus(data.status);
+
+        if (statusLower === "completed" || statusLower === "completado") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          if (progressRef.current) clearInterval(progressRef.current);
+          const analysisId = (data.result as { analysis_id: string })?.analysis_id;
+          if (analysisId) {
+            await redirectToResult(analysisId);
+          } else {
+            setStatus("error");
+            setErrorKind("backend_error");
+            setErrorMsg("Análisis completado pero no se encontró el resultado. Revisa Mis análisis.");
+          }
+        } else if (statusLower === "rejected" || statusLower === "rechazado") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          if (progressRef.current) clearInterval(progressRef.current);
+          setStatus("rechazado");
+          setErrorKind("rejected");
+          setErrorMsg(data.error_message || `El audio no parece ser una ${sessionNoun(isPresencialSession)} válida. Intenta con otro audio.`);
+        } else if (statusLower === "error" || statusLower === "cancelled") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          if (progressRef.current) clearInterval(progressRef.current);
+          setStatus("error");
+          setErrorKind("backend_error");
+          const detail = data.error_message ? ` Detalle: ${data.error_message}` : "";
+          setErrorMsg(statusLower === "cancelled"
+            ? "Análisis cancelado."
+            : `El análisis no se pudo completar. Intentá de nuevo.${detail}`);
+        }
+      } catch {
+        // Network error on poll — keep trying
+      }
+    }, 3000);
+
+    if (opts.softMs) {
+      const softId = setTimeout(() => {
+        setPollPhase("long");
+        setAnalysisPhase("Tu análisis está tomando más tiempo. Podés verlo aparecer en Mis análisis cuando esté listo.");
+      }, opts.softMs);
+      timeoutRefs.current.push(softId);
+    }
+
+    const hardId = setTimeout(() => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      setStatus((current) => {
+        if (current === "analyzing") {
+          if (progressRef.current) clearInterval(progressRef.current);
+          setPollPhase("exceeded");
+          setErrorKind("polling_timeout");
+          setErrorMsg("Tu análisis sigue procesándose en background. Lo encontrarás en Mis análisis en unos minutos.");
+          console.log("[F19] hard_timeout_reached", { jobId, hardMs: opts.hardMs, elapsedMs: opts.hardMs });
+          return "error";
+        }
+        return current;
+      });
+    }, opts.hardMs);
+    timeoutRefs.current.push(hardId);
+  };
+
+  // ─── Shared: arm Worker polling (analyses status endpoint) ─
+  const armWorkerPolling = (analysisId: string, submitOrgId: string, opts: { softMs?: number; hardMs: number }) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const statusRes = await fetch(WORKER_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "status", analysis_id: analysisId, organization_id: submitOrgId }),
+        });
+        const statusData = await statusRes.json();
+        const statusLower = (statusData.status || "").toLowerCase();
+        setLastSeenStatus(statusData.status);
+
+        if (statusLower === "completado" || statusLower === "completed") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          if (progressRef.current) clearInterval(progressRef.current);
+          await redirectToResult(analysisId);
+        } else if (statusLower === "rejected" || statusLower === "rechazado") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          if (progressRef.current) clearInterval(progressRef.current);
+          setStatus("rechazado");
+          setErrorKind("rejected");
+          setErrorMsg(statusData.error_message || `El audio no parece ser una ${sessionNoun(isPresencialSession)} válida. Intenta con otro audio.`);
+        } else if (statusLower === "error" || statusLower === "cancelled") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          if (progressRef.current) clearInterval(progressRef.current);
+          setStatus("error");
+          setErrorKind("backend_error");
+          const detail = statusData.error_message ? ` Detalle: ${statusData.error_message}` : "";
+          setErrorMsg(statusLower === "cancelled"
+            ? "Análisis cancelado."
+            : `El análisis no se pudo completar. Intentá de nuevo.${detail}`);
+        }
+      } catch {
+        // Network error on poll — keep trying
+      }
+    }, 3000);
+
+    if (opts.softMs) {
+      const softId = setTimeout(() => {
+        setPollPhase("long");
+        setAnalysisPhase("Tu análisis está tomando más tiempo. Podés verlo aparecer en Mis análisis cuando esté listo.");
+      }, opts.softMs);
+      timeoutRefs.current.push(softId);
+    }
+
+    const hardId = setTimeout(() => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      setStatus((current) => {
+        if (current === "analyzing") {
+          if (progressRef.current) clearInterval(progressRef.current);
+          setPollPhase("exceeded");
+          setErrorKind("polling_timeout");
+          setErrorMsg("Tu análisis sigue procesándose en background. Lo encontrarás en Mis análisis en unos minutos.");
+          console.log("[F19] hard_timeout_reached", { analysisId, hardMs: opts.hardMs, elapsedMs: opts.hardMs });
+          return "error";
+        }
+        return current;
+      });
+    }, opts.hardMs);
+    timeoutRefs.current.push(hardId);
+  };
+
   // ─── Path A: Cloudflare Worker (existing, flag=false) ────
   const submitViaWorker = async (submitOrgId: string, scorecardId: string) => {
     const res = await fetch(WORKER_URL, {
@@ -704,43 +883,10 @@ export default function NuevaLlamadaPage() {
     }
 
     const analysisId = data.analysis_id;
-
-    if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = setInterval(async () => {
-      try {
-        const statusRes = await fetch(WORKER_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "status", analysis_id: analysisId, organization_id: submitOrgId }),
-        });
-        const statusData = await statusRes.json();
-
-        if (statusData.status === "completado") {
-          if (pollRef.current) clearInterval(pollRef.current);
-          if (progressRef.current) clearInterval(progressRef.current);
-          await redirectToResult(analysisId);
-        } else if (statusData.status === "error") {
-          if (pollRef.current) clearInterval(pollRef.current);
-          if (progressRef.current) clearInterval(progressRef.current);
-          setStatus("error");
-          setErrorMsg(statusData.error_message || `Hubo un problema al analizar tu ${sessionNoun(isPresencialSession)}. Intenta de nuevo.`);
-        }
-      } catch {
-        // Network error on poll — keep trying
-      }
-    }, 3000);
-
-    const timeoutId1 = setTimeout(() => {
-      if (pollRef.current) clearInterval(pollRef.current);
-      setStatus((current) => {
-        if (current === "analyzing") {
-          setErrorMsg("El análisis está tomando más tiempo de lo esperado. Intenta de nuevo en unos minutos.");
-          return "error";
-        }
-        return current;
-      });
-    }, 120000);
-    timeoutRefs.current.push(timeoutId1);
+    setActiveJobId(analysisId);
+    setLastSeenStatus("procesando");
+    setPollPhase("normal");
+    armWorkerPolling(analysisId, submitOrgId, { softMs: 90000, hardMs: 180000 });
   };
 
   // ─── Path B: Supabase Edge Function (flag=true) ──────────
@@ -779,65 +925,10 @@ export default function NuevaLlamadaPage() {
     }
 
     const jobId = job.id;
-    let softWarningShown = false;
-
-    if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = setInterval(async () => {
-      try {
-        const { data } = await supabase
-          .from("background_jobs")
-          .select("status, result, error_message")
-          .eq("id", jobId)
-          .single();
-
-        if (data?.status === "completed") {
-          if (pollRef.current) clearInterval(pollRef.current);
-          if (progressRef.current) clearInterval(progressRef.current);
-          const analysisId = (data.result as { analysis_id: string })?.analysis_id;
-          if (analysisId) {
-            await redirectToResult(analysisId);
-          } else {
-            setStatus("error");
-            setErrorMsg("Análisis completado pero no se encontró el resultado. Revisa tu historial.");
-          }
-        } else if (data?.status === "rejected") {
-          if (pollRef.current) clearInterval(pollRef.current);
-          if (progressRef.current) clearInterval(progressRef.current);
-          setStatus("rechazado");
-          setErrorMsg(data.error_message || `El audio no parece ser una ${sessionNoun(isPresencialSession)} válida. Intenta con otro audio.`);
-        } else if (data?.status === "error" || data?.status === "cancelled") {
-          if (pollRef.current) clearInterval(pollRef.current);
-          if (progressRef.current) clearInterval(progressRef.current);
-          setStatus("error");
-          setErrorMsg(data.error_message || `Hubo un problema al analizar tu ${sessionNoun(isPresencialSession)}. Intenta de nuevo.`);
-        }
-      } catch {
-        // Network error on poll — keep trying
-      }
-    }, 3000);
-
-    // Soft warning at 90s — don't kill anything
-    const softTimeoutId = setTimeout(() => {
-      if (!softWarningShown) {
-        softWarningShown = true;
-        setAnalysisPhase("El análisis está tardando más de lo esperado. Puedes cerrar esta pantalla y revisar tu historial en unos minutos.");
-      }
-    }, 90000);
-    timeoutRefs.current.push(softTimeoutId);
-
-    // Hard timeout at 180s — stop polling, show error
-    const hardTimeoutId = setTimeout(() => {
-      if (pollRef.current) clearInterval(pollRef.current);
-      setStatus((current) => {
-        if (current === "analyzing") {
-          if (progressRef.current) clearInterval(progressRef.current);
-          setErrorMsg("Timeout esperando análisis. Consulta tu historial en unos minutos.");
-          return "error";
-        }
-        return current;
-      });
-    }, 180000);
-    timeoutRefs.current.push(hardTimeoutId);
+    setActiveJobId(jobId);
+    setLastSeenStatus("pending");
+    setPollPhase("normal");
+    armEdgePolling(jobId, { softMs: 90000, hardMs: 180000 });
   };
 
   // ─── Global cleanup on unmount ────────────────────────────
@@ -857,28 +948,15 @@ export default function NuevaLlamadaPage() {
 
     setStatus("analyzing");
     setErrorMsg("");
+    setErrorKind(null);
+    setPollPhase("normal");
+    setActiveJobId(null);
+    setLastSeenStatus(null);
+    setExtraWaitCount(0);
     setAnalysisPct(0);
     setAnalysisPhase("Enviando transcripción...");
 
-    const phases = [
-      { at: 0, text: "Enviando transcripción..." },
-      { at: 15, text: "Analizando con IA..." },
-      { at: 40, text: "Evaluando fases del scorecard..." },
-      { at: 85, text: "Generando coaching personalizado..." },
-      { at: 95, text: "Listo — redirigiendo a resultados..." },
-    ];
-    let pct = 0;
-    const startTime = Date.now();
-    progressRef.current = setInterval(() => {
-      const elapsed = (Date.now() - startTime) / 1000;
-      pct = Math.min(94, Math.floor(elapsed * 1.2));
-      if (elapsed > 60) setAnalysisPhase("Tomando más de lo esperado...");
-      else {
-        const current = [...phases].reverse().find(p => pct >= p.at);
-        if (current) setAnalysisPhase(current.text);
-      }
-      setAnalysisPct(pct);
-    }, 500);
+    startProgressTicker();
 
     try {
       const submitOrgId = orgId;
@@ -893,6 +971,7 @@ export default function NuevaLlamadaPage() {
     } catch (err: unknown) {
       if (progressRef.current) clearInterval(progressRef.current);
       setStatus("error");
+      setErrorKind("submit_error");
       const message = err instanceof Error ? err.message : "error";
       if (message === "scorecard") {
         setErrorMsg("Tu organización aún no tiene un scorecard configurado. Contacta a tu gerente.");
@@ -906,9 +985,61 @@ export default function NuevaLlamadaPage() {
     }
   };
 
+  // F34: handleRetry reusa activeJobId si el job sigue in-flight,
+  // evitando duplicar el call a Anthropic. Solo crea nuevo job si
+  // el último status visto fue terminal o no hay jobId.
   const handleRetry = () => {
-    setStatus("idle");
+    const useEdgeFunction = process.env.NEXT_PUBLIC_USE_EDGE_FUNCTION === "true";
+    const canResume = !!activeJobId && !isTerminalStatus(lastSeenStatus);
+
+    if (canResume && activeJobId) {
+      console.log("[F34] resume_polling", { jobId: activeJobId, lastSeenStatus });
+      setStatus("analyzing");
+      setErrorMsg("");
+      setErrorKind(null);
+      setPollPhase("normal");
+      setAnalysisPct(0);
+      setAnalysisPhase("Reconectando con el análisis...");
+      startProgressTicker();
+      if (useEdgeFunction) {
+        armEdgePolling(activeJobId, { hardMs: 60000 });
+      } else if (orgId) {
+        armWorkerPolling(activeJobId, orgId, { hardMs: 60000 });
+      }
+    } else {
+      console.log("[F34] new_submit", { activeJobId, lastSeenStatus });
+      setStatus("idle");
+      setErrorMsg("");
+      setErrorKind(null);
+      setPollPhase("normal");
+      setActiveJobId(null);
+      setLastSeenStatus(null);
+      setExtraWaitCount(0);
+    }
+  };
+
+  // F19: "Esperar más" — re-arma polling 60s adicional, max 2 veces.
+  const handleWaitMore = () => {
+    if (!activeJobId || extraWaitCount >= 2) return;
+    const useEdgeFunction = process.env.NEXT_PUBLIC_USE_EDGE_FUNCTION === "true";
+    console.log("[F19] wait_more", { jobId: activeJobId, count: extraWaitCount + 1 });
+    setExtraWaitCount(n => n + 1);
+    setStatus("analyzing");
     setErrorMsg("");
+    setErrorKind(null);
+    setPollPhase("long");
+    setAnalysisPhase("Esperando un momento más...");
+    startProgressTicker();
+    if (useEdgeFunction) {
+      armEdgePolling(activeJobId, { hardMs: 60000 });
+    } else if (orgId) {
+      armWorkerPolling(activeJobId, orgId, { hardMs: 60000 });
+    }
+  };
+
+  // F19: navegación a Mis análisis (incluye procesando/error/rechazado).
+  const handleViewHistorial = () => {
+    router.push("/analisis/historial");
   };
 
   const handleNewAudio = () => {
@@ -916,6 +1047,11 @@ export default function NuevaLlamadaPage() {
     if (progressRef.current) clearInterval(progressRef.current);
     setStatus("idle");
     setErrorMsg("");
+    setErrorKind(null);
+    setPollPhase("normal");
+    setActiveJobId(null);
+    setLastSeenStatus(null);
+    setExtraWaitCount(0);
     setTranscription("");
     setTranscriptionOriginal(null);
     setTranscriptionSource("manual");
@@ -1394,22 +1530,55 @@ export default function NuevaLlamadaPage() {
               <div className="c2-progress-fill" style={{ width: `${analysisPct}%` }} />
             </div>
             <p className="c2-progress-phase">{analysisPhase}</p>
+            {pollPhase === "long" && (
+              <button
+                className="c2-retry-btn c2-retry-btn-secondary"
+                onClick={handleViewHistorial}
+                style={{ marginTop: 10 }}
+              >
+                Ver Mis análisis
+              </button>
+            )}
           </div>
         )}
 
         {errorMsg && (
           <div className="message-box message-error">
             <p>{errorMsg}</p>
-            {status === "error" && (
-              <button className="c2-retry-btn" onClick={handleRetry}>
-                Reintentar
-              </button>
-            )}
-            {status === "rechazado" && (
-              <button className="c2-retry-btn" onClick={handleNewAudio}>
-                Subir otro audio
-              </button>
-            )}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+              {errorKind === "polling_timeout" && (
+                <>
+                  <button className="c2-retry-btn" onClick={handleViewHistorial}>
+                    Ver Mis análisis
+                  </button>
+                  {extraWaitCount < 2 && activeJobId && !isTerminalStatus(lastSeenStatus) && (
+                    <button className="c2-retry-btn c2-retry-btn-secondary" onClick={handleWaitMore}>
+                      Esperar más
+                    </button>
+                  )}
+                </>
+              )}
+              {errorKind === "backend_error" && status === "error" && (
+                <>
+                  <button className="c2-retry-btn" onClick={handleRetry}>
+                    {activeJobId && !isTerminalStatus(lastSeenStatus) ? "Esperar de nuevo" : "Reintentar"}
+                  </button>
+                  <button className="c2-retry-btn c2-retry-btn-secondary" onClick={handleViewHistorial}>
+                    Ver Mis análisis
+                  </button>
+                </>
+              )}
+              {errorKind === "submit_error" && status === "error" && (
+                <button className="c2-retry-btn" onClick={handleRetry}>
+                  Reintentar
+                </button>
+              )}
+              {status === "rechazado" && (
+                <button className="c2-retry-btn" onClick={handleNewAudio}>
+                  Subir otro audio
+                </button>
+              )}
+            </div>
           </div>
         )}
 
