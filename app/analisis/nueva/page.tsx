@@ -278,7 +278,12 @@ export default function NuevaLlamadaPage() {
   const charCount = transcription.length;
   const limits = isPresencialSession ? TRANSCRIPT_LIMITS.presencial : TRANSCRIPT_LIMITS.telefonica;
   const CHAR_LIMIT = limits.maxChars;
-  const canSubmit = (isPresencialSession ? !needsStageChoice : (selectedSource !== "" && !missingConfig)) && wordCount >= MIN_WORDS && charCount <= CHAR_LIMIT && status === "idle" && !isTranscribing && !stageNoScorecard;
+  // formIsValid: form-level validity, status-agnostic. Used by handleSubmit
+  // gate so callers (handleRejectionRetry) can re-fire submit without stale
+  // canSubmit closure problem. canSubmit keeps status check for UI gating
+  // (disabled prop on Analizar button + showMissingBlock hint).
+  const formIsValid = (isPresencialSession ? !needsStageChoice : (selectedSource !== "" && !missingConfig)) && wordCount >= MIN_WORDS && charCount <= CHAR_LIMIT && !isTranscribing && !stageNoScorecard;
+  const canSubmit = formIsValid && status === "idle";
 
   const inputModeLabel: string = (() => {
     if (rec.recMode === "recording") return "Grabando en vivo...";
@@ -944,7 +949,10 @@ export default function NuevaLlamadaPage() {
   // ─── Main submit handler ─────────────────────────────────
   const handleSubmit = async () => {
     setSubmitAttempted(true);
-    if (!canSubmit || !userId || !orgId) return;
+    // formIsValid (not canSubmit) — status gating delegated to callers via
+    // button disabled props. Enables handleRejectionRetry to re-fire from
+    // rejection state without closure-captured stale canSubmit.
+    if (!formIsValid || !userId || !orgId) return;
 
     setStatus("analyzing");
     setErrorMsg("");
@@ -1059,6 +1067,18 @@ export default function NuevaLlamadaPage() {
     setMethod("none");
     setFileMsg("");
     clearSessionData();
+  };
+
+  // F25: re-fire submit from rejection state preserving transcripción + provenance.
+  // Status no se preset porque handleSubmit transiciona a "analyzing" en línea 949.
+  // formIsValid (no canSubmit) ahora gobierna la guard de handleSubmit, evitando
+  // el problema de closure stale donde canSubmit captured era false por status="rechazado".
+  const handleRejectionRetry = () => {
+    setErrorMsg("");
+    setErrorKind(null);
+    setPollPhase("normal");
+    setExtraWaitCount(0);
+    handleSubmit();
   };
 
   if (loading) {
@@ -1574,9 +1594,18 @@ export default function NuevaLlamadaPage() {
                 </button>
               )}
               {status === "rechazado" && (
-                <button className="c2-retry-btn" onClick={handleNewAudio}>
-                  Subir otro audio
-                </button>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>
+                  <button
+                    className="c2-retry-btn"
+                    onClick={handleRejectionRetry}
+                    disabled={isTranscribing}
+                  >
+                    Reintentar con esta transcripción
+                  </button>
+                  <button className="c2-retry-btn c2-retry-btn-secondary" onClick={handleNewAudio}>
+                    {transcriptionSource === "audio" ? "Borrar y subir otro audio" : "Borrar y pegar otra transcripción"}
+                  </button>
+                </div>
               )}
             </div>
           </div>
