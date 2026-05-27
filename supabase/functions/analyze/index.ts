@@ -31,32 +31,9 @@ import { RejectedAnalysisError } from "../_shared/errors.ts";
 import { mapRejectionToHumanText } from "../_shared/rejection-reasons.ts";
 import { alertSlack, type AlertContext } from "../_shared/alert.ts";
 
-// F21 smoke token — REMOVER en Commit B post-smoke.
-// Hardcoded UUID v4 generado para esta sesión. Validar match con Worker
-// (worker/src/index.js handler /f21-smoke).
-const F21_SMOKE_TOKEN = "83c13455-fe51-4d6f-bbef-faf67f2b5504";
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders() });
-  }
-
-  // TEMPORARY: F21 smoke endpoint — REMOVER en Commit B post-smoke
-  const url = new URL(req.url);
-  if (
-    url.searchParams.get("test_alert") === "1" &&
-    url.searchParams.get("token") === F21_SMOKE_TOKEN
-  ) {
-    const errorCode = url.searchParams.get("code") || String(Date.now());
-    const result = await alertSlack({
-      service: "smoke_test",
-      error_code: errorCode,
-      error_message: "F21 smoke test from edge_function",
-      runtime: "edge_function",
-      organization_id: "a0000000-0000-0000-0000-000000000001",
-      user_id: null,
-    });
-    return jsonResponse(result, 200);
   }
 
   if (req.method !== "POST") {

@@ -1877,11 +1877,6 @@ async function handleStripeWebhook(request, env) {
 
 // ─── Entry points ──────────────────────────────────────────
 
-// F21 smoke token — REMOVER en Commit B post-smoke.
-// Hardcoded UUID v4 generado para esta sesión. Validar match con Edge Function
-// (supabase/functions/analyze/index.ts F21_SMOKE_TOKEN).
-const F21_SMOKE_TOKEN = '83c13455-fe51-4d6f-bbef-faf67f2b5504';
-
 export default {
   async fetch(request, env, ctx) {
     const origin = request.headers.get('Origin') || '';
@@ -1890,23 +1885,6 @@ export default {
     // CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
-    }
-
-    // TEMPORARY: F21 smoke endpoint — REMOVER en Commit B post-smoke
-    if (url.pathname === '/f21-smoke' && url.searchParams.get('token') === F21_SMOKE_TOKEN) {
-      const errorCode = url.searchParams.get('code') || String(Date.now());
-      const result = await alertSlack(env, {
-        service: 'smoke_test',
-        error_code: errorCode,
-        error_message: 'F21 smoke test from worker',
-        runtime: 'worker',
-        organization_id: 'a0000000-0000-0000-0000-000000000001',
-        user_id: null,
-      });
-      return new Response(JSON.stringify(result), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
     }
 
     // Zadarma webhook — form-urlencoded, no CORS, path-based routing
