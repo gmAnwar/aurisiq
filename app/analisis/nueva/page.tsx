@@ -282,7 +282,9 @@ export default function NuevaLlamadaPage() {
   // gate so callers (handleRejectionRetry) can re-fire submit without stale
   // canSubmit closure problem. canSubmit keeps status check for UI gating
   // (disabled prop on Analizar button + showMissingBlock hint).
-  const formIsValid = (isPresencialSession ? !needsStageChoice : (selectedSource !== "" && !missingConfig)) && wordCount >= MIN_WORDS && charCount <= CHAR_LIMIT && !isTranscribing && !stageNoScorecard;
+  const formIsValid = !needsStageChoice
+    && (isPresencialSession ? true : (selectedSource !== "" && !missingConfig))
+    && wordCount >= MIN_WORDS && charCount <= CHAR_LIMIT && !isTranscribing && !stageNoScorecard;
   const canSubmit = formIsValid && status === "idle";
 
   const inputModeLabel: string = (() => {
@@ -987,6 +989,9 @@ export default function NuevaLlamadaPage() {
         setErrorMsg("Se alcanzó el límite de análisis del mes. Contacta a tu gerente para actualizar el plan.");
       } else if (message === "readonly") {
         setErrorMsg("Tu organización está en modo lectura. Contacta a tu gerente.");
+      } else if (message === "Selecciona una etapa antes de analizar") {
+        // F37: surface real cause if form gate bypassed (race / programmatic call).
+        setErrorMsg(message);
       } else {
         setErrorMsg(`No pudimos procesar tu ${sessionNoun(isPresencialSession)}. Intenta de nuevo.`);
       }
