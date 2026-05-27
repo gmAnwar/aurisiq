@@ -8,12 +8,13 @@ SUPABASE_URL = "https://ekvvsosbwkfyhawywgpn.supabase.co"
 ZADARMA_KEY = ""
 ZADARMA_SECRET = ""
 
-# Secrets (set via `wrangler secret put`):
+# Secrets (set via `(cd worker && npx wrangler secret put <NAME>)`):
 # CLAUDE_API_KEY
 # SUPABASE_SERVICE_ROLE_KEY
 # ASSEMBLYAI_API_KEY
 # ZADARMA_KEY (override del var vacío)
 # ZADARMA_SECRET (override del var vacío)
+# SLACK_ALERT_WEBHOOK_URL (F21 alerting — empty/unset → guard short-circuit silencioso)
 
 # Cron: timeout recovery every 5 minutes
 [triggers]

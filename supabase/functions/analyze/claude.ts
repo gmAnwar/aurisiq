@@ -1,6 +1,10 @@
 import { ANTHROPIC_API_KEY, CLAUDE_MODEL, CLAUDE_API_URL, CLAUDE_MAX_TOKENS } from "../_shared/env.ts";
 import type { Scorecard, ScorecardStructure, DescalCategory, FunnelStage } from "./types.ts";
 import { type RejectionReason, isRejectionReason } from "../_shared/rejection-reasons.ts";
+import { alertSlack, parseAnthropicError, type AlertContext } from "../_shared/alert.ts";
+
+// Re-export AlertContext so callers can import it from a single module.
+export type { AlertContext };
 
 export interface ClaudeResponse {
   type: "analyzed" | "rejected";
@@ -233,7 +237,11 @@ export function buildFullPrompt(
 
 // ─── Call Anthropic API ────────────────────────────────────
 
-export async function callClaude(systemPrompt: string, userMessage: string): Promise<ClaudeResponse> {
+export async function callClaude(
+  systemPrompt: string,
+  userMessage: string,
+  alertCtx: AlertContext | null = null,
+): Promise<ClaudeResponse> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120_000); // 120s timeout
 
@@ -258,6 +266,17 @@ export async function callClaude(systemPrompt: string, userMessage: string): Pro
 
     if (!res.ok) {
       const err = await res.text();
+      // F21: alert on 4xx/5xx EXCEPT 429 (rate limit, transient/expected).
+      if (alertCtx && res.status !== 429) {
+        await alertSlack({
+          service: "anthropic",
+          error_code: String(res.status),
+          error_message: parseAnthropicError(err),
+          runtime: "edge_function",
+          organization_id: alertCtx.organization_id,
+          user_id: alertCtx.user_id,
+        });
+      }
       throw new Error(`Claude API error: ${res.status} ${err}`);
     }
 
@@ -354,6 +373,7 @@ export async function callClaudeForHighlights(
   transcription: string,
   trackers: TrackerInput[],
   ctx: AnalysisContext,
+  alertCtx: AlertContext | null = null,
 ): Promise<HighlightResult[]> {
   if (trackers.length === 0) return [];
 
@@ -416,6 +436,18 @@ Clasificación: ${ctx.clasificacion || "N/A"}
 
     if (!res.ok) {
       console.warn(`[highlights] Claude API error: ${res.status}`);
+      // F21: alert on highlights failures with separate dedupe key
+      // (anthropic_highlights:*) to avoid masking critical callClaude alerts.
+      if (alertCtx && res.status !== 429) {
+        await alertSlack({
+          service: "anthropic_highlights",
+          error_code: String(res.status),
+          error_message: `highlights non-critical failure: ${res.status}`,
+          runtime: "edge_function",
+          organization_id: alertCtx.organization_id,
+          user_id: alertCtx.user_id,
+        });
+      }
       return [];
     }
 

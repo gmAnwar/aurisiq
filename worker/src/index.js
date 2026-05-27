@@ -165,9 +165,91 @@ function computeEditPct(original, edited) {
   return Math.min(100, Math.round((changed / m) * 100));
 }
 
+// ─── F21: Slack alerting con dedupe Postgres ──────────────
+// Espejo del helper Deno (supabase/functions/_shared/alert.ts). Mismo contrato.
+// Fail closed: si webhook no configured o RPC down → skip alert silencioso.
+
+async function alertSlack(env, payload) {
+  if (!env.SLACK_ALERT_WEBHOOK_URL) {
+    console.log('[F21] webhook_not_configured, skipping');
+    return { sent: false, reason: 'not_configured' };
+  }
+
+  const errorType = `${payload.service}:${payload.error_code}`;
+
+  let shouldAlert = true;
+  let orgSlug = null;
+  try {
+    const rpcRes = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/try_alert`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({
+        _error_type: errorType,
+        _runtime: payload.runtime,
+        _organization_id: payload.organization_id || null,
+      }),
+    });
+    if (!rpcRes.ok) {
+      console.error('[F21] dedupe_rpc_failed', rpcRes.status);
+      return { sent: false, reason: 'dedupe_rpc_failed' };
+    }
+    const rows = await rpcRes.json();
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    shouldAlert = !!row?.should_alert;
+    orgSlug = row?.organization_slug || null;
+  } catch (err) {
+    console.error('[F21] dedupe_exception', err.message);
+    return { sent: false, reason: 'dedupe_exception' };
+  }
+
+  if (!shouldAlert) {
+    console.log(`[F21] dedupe_hit ${errorType} runtime=${payload.runtime}`);
+    return { sent: false, reason: 'deduped' };
+  }
+
+  const ts = new Date().toLocaleString('sv-SE', { timeZone: 'America/Mexico_City' });
+  const text = `🚨 F21 ${errorType} (${payload.runtime})
+org: ${orgSlug || payload.organization_id || 'unknown'}
+user: ${payload.user_id || 'unknown'}
+time: ${ts} CST
+detail: ${(payload.error_message || 'no detail').slice(0, 500)}`;
+
+  try {
+    const slackRes = await fetch(env.SLACK_ALERT_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (!slackRes.ok) {
+      console.error('[F21] slack_post_failed', slackRes.status);
+      return { sent: false, reason: 'slack_error' };
+    }
+    return { sent: true };
+  } catch (err) {
+    console.error('[F21] slack_post_exception', err.message);
+    return { sent: false, reason: 'slack_exception' };
+  }
+}
+
+function parseAnthropicError(rawText) {
+  try {
+    const parsed = JSON.parse(rawText);
+    if (parsed?.error?.type && parsed?.error?.message) {
+      return `${parsed.error.type}: ${parsed.error.message}`;
+    }
+  } catch {
+    // not JSON
+  }
+  return rawText;
+}
+
 // ─── Claude API ────────────────────────────────────────────
 
-async function callClaude(env, systemPrompt, userMessage) {
+async function callClaude(env, systemPrompt, userMessage, alertContext = null) {
   const res = await fetch(CLAUDE_API_URL, {
     method: 'POST',
     headers: {
@@ -185,6 +267,17 @@ async function callClaude(env, systemPrompt, userMessage) {
 
   if (!res.ok) {
     const err = await res.text();
+    // F21: alert on 4xx/5xx EXCEPT 429.
+    if (alertContext && res.status !== 429) {
+      await alertSlack(env, {
+        service: 'anthropic',
+        error_code: String(res.status),
+        error_message: parseAnthropicError(err),
+        runtime: 'worker',
+        organization_id: alertContext.organization_id || null,
+        user_id: alertContext.user_id || null,
+      });
+    }
     throw new Error(`Claude API error: ${res.status} ${err}`);
   }
 
@@ -676,7 +769,10 @@ PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en l
     // Highlights instruction — appended to both paths
     promptWithDescal += `\n\n---\nHIGHLIGHTS DE LA TRANSCRIPCIÓN\nIdentifica fragmentos EXACTOS de la transcripción que correspondan a momentos críticos o patrones de error. Copia el texto LITERAL de la transcripción, sin parafrasear.\n\nAl final de tu respuesta, incluye un bloque con el formato:\nHIGHLIGHTS: [{"type":"momento_critico","snippet":"<texto exacto copiado literal de la transcripción>","description":"<por qué es crítico>"},{"type":"patron_error","snippet":"<texto exacto>","description":"<qué patrón detectó>"}]\n\nReglas:\n- El snippet DEBE ser copiado literal de la transcripción, sin parafrasear ni resumir.\n- Máximo 3 highlights de tipo momento_critico y 3 de tipo patron_error.\n- Si no encuentras un fragmento relevante para algún tipo, omítelo.\n- Cada snippet debe tener entre 10 y 150 caracteres.`;
 
-    const rawOutput = await callClaude(env, promptWithDescal, transcription);
+    const rawOutput = await callClaude(env, promptWithDescal, transcription, {
+      organization_id,
+      user_id,
+    });
     console.log(`[debug-claude-raw] len=${rawOutput.length} tail=${rawOutput.slice(-2000)}`);
     const parsed = parseClaudeOutput(rawOutput, dbExtractionPatterns);
     const phasesWithIds = matchPhaseIds(parsed.phases, scorecard.phases || []);
@@ -1064,6 +1160,17 @@ async function handleTranscribe(body, env, origin) {
 
   if (!uploadRes.ok) {
     const err = await uploadRes.text();
+    // F21: alert on 4xx/5xx EXCEPT 429.
+    if (uploadRes.status !== 429) {
+      await alertSlack(env, {
+        service: 'assemblyai',
+        error_code: String(uploadRes.status),
+        error_message: `upload failed: ${err}`.slice(0, 500),
+        runtime: 'worker',
+        organization_id: organization_id || null,
+        user_id: body.user_id || null,
+      });
+    }
     throw new Error(`AssemblyAI upload failed: ${uploadRes.status} ${err}`);
   }
 
@@ -1081,6 +1188,16 @@ async function handleTranscribe(body, env, origin) {
 
   if (!transcriptRes.ok) {
     const err = await transcriptRes.text();
+    if (transcriptRes.status !== 429) {
+      await alertSlack(env, {
+        service: 'assemblyai',
+        error_code: String(transcriptRes.status),
+        error_message: `transcript request failed: ${err}`.slice(0, 500),
+        runtime: 'worker',
+        organization_id: organization_id || null,
+        user_id: body.user_id || null,
+      });
+    }
     throw new Error(`AssemblyAI transcript request failed: ${transcriptRes.status} ${err}`);
   }
 
@@ -1210,7 +1327,10 @@ Las frases deben sonar como una conversación real, no como un formulario. Adáp
 Responde SOLO con JSON válido, sin texto adicional:
 {"phases": [{"phase_name": "nombre exacto de la fase del scorecard", "transition": "frase de transición natural", "fields": [{"field_name": "nombre del campo", "phrases": ["frase1", "frase2", "frase3"]}, ...]}, ...]}`;
 
-  const rawOutput = await callClaude(env, systemPrompt, userPrompt);
+  const rawOutput = await callClaude(env, systemPrompt, userPrompt, {
+    organization_id: organization_id || null,
+    user_id: body.user_id || null,
+  });
 
   let result;
   try {
@@ -1459,6 +1579,7 @@ async function requestZadarmaRecording(callId, env) {
 }
 
 // Transcribe binary audio buffer via AssemblyAI — same pattern as handleTranscribe.
+// Used by processZadarmaCall (EnPagos org hardcoded).
 async function transcribeAudioBuffer(audioBuffer, env) {
   const uploadRes = await fetch(`${ASSEMBLYAI_URL}/upload`, {
     method: 'POST',
@@ -1469,7 +1590,19 @@ async function transcribeAudioBuffer(audioBuffer, env) {
     body: audioBuffer,
   });
   if (!uploadRes.ok) {
-    throw new Error(`AssemblyAI upload failed: ${uploadRes.status} ${await uploadRes.text()}`);
+    const errBody = await uploadRes.text();
+    // F21: alert on 4xx/5xx EXCEPT 429. Zadarma hardcoded a EnPagos.
+    if (uploadRes.status !== 429) {
+      await alertSlack(env, {
+        service: 'assemblyai',
+        error_code: String(uploadRes.status),
+        error_message: `zadarma upload failed: ${errBody}`.slice(0, 500),
+        runtime: 'worker',
+        organization_id: ZADARMA_ENPAGOS_ORG_ID,
+        user_id: ZADARMA_ENPAGOS_SYSTEM_USER_ID,
+      });
+    }
+    throw new Error(`AssemblyAI upload failed: ${uploadRes.status} ${errBody}`);
   }
   const { upload_url } = await uploadRes.json();
 
@@ -1482,7 +1615,18 @@ async function transcribeAudioBuffer(audioBuffer, env) {
     body: JSON.stringify({ audio_url: upload_url, language_code: 'es', speech_models: ['universal-3-pro'] }),
   });
   if (!transcriptRes.ok) {
-    throw new Error(`AssemblyAI transcript request failed: ${transcriptRes.status} ${await transcriptRes.text()}`);
+    const errBody = await transcriptRes.text();
+    if (transcriptRes.status !== 429) {
+      await alertSlack(env, {
+        service: 'assemblyai',
+        error_code: String(transcriptRes.status),
+        error_message: `zadarma transcript request failed: ${errBody}`.slice(0, 500),
+        runtime: 'worker',
+        organization_id: ZADARMA_ENPAGOS_ORG_ID,
+        user_id: ZADARMA_ENPAGOS_SYSTEM_USER_ID,
+      });
+    }
+    throw new Error(`AssemblyAI transcript request failed: ${transcriptRes.status} ${errBody}`);
   }
   const { id: transcriptId } = await transcriptRes.json();
 
@@ -1733,6 +1877,11 @@ async function handleStripeWebhook(request, env) {
 
 // ─── Entry points ──────────────────────────────────────────
 
+// F21 smoke token — REMOVER en Commit B post-smoke.
+// Hardcoded UUID v4 generado para esta sesión. Validar match con Edge Function
+// (supabase/functions/analyze/index.ts F21_SMOKE_TOKEN).
+const F21_SMOKE_TOKEN = '83c13455-fe51-4d6f-bbef-faf67f2b5504';
+
 export default {
   async fetch(request, env, ctx) {
     const origin = request.headers.get('Origin') || '';
@@ -1741,6 +1890,23 @@ export default {
     // CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    }
+
+    // TEMPORARY: F21 smoke endpoint — REMOVER en Commit B post-smoke
+    if (url.pathname === '/f21-smoke' && url.searchParams.get('token') === F21_SMOKE_TOKEN) {
+      const errorCode = url.searchParams.get('code') || String(Date.now());
+      const result = await alertSlack(env, {
+        service: 'smoke_test',
+        error_code: errorCode,
+        error_message: 'F21 smoke test from worker',
+        runtime: 'worker',
+        organization_id: 'a0000000-0000-0000-0000-000000000001',
+        user_id: null,
+      });
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Zadarma webhook — form-urlencoded, no CORS, path-based routing

@@ -29,10 +29,34 @@ import { parseClaudeOutput, matchPhaseIds } from "./parser.ts";
 import { ASSEMBLYAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from "../_shared/env.ts";
 import { RejectedAnalysisError } from "../_shared/errors.ts";
 import { mapRejectionToHumanText } from "../_shared/rejection-reasons.ts";
+import { alertSlack, type AlertContext } from "../_shared/alert.ts";
+
+// F21 smoke token — REMOVER en Commit B post-smoke.
+// Hardcoded UUID v4 generado para esta sesión. Validar match con Worker
+// (worker/src/index.js handler /f21-smoke).
+const F21_SMOKE_TOKEN = "83c13455-fe51-4d6f-bbef-faf67f2b5504";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders() });
+  }
+
+  // TEMPORARY: F21 smoke endpoint — REMOVER en Commit B post-smoke
+  const url = new URL(req.url);
+  if (
+    url.searchParams.get("test_alert") === "1" &&
+    url.searchParams.get("token") === F21_SMOKE_TOKEN
+  ) {
+    const errorCode = url.searchParams.get("code") || String(Date.now());
+    const result = await alertSlack({
+      service: "smoke_test",
+      error_code: errorCode,
+      error_message: "F21 smoke test from edge_function",
+      runtime: "edge_function",
+      organization_id: "a0000000-0000-0000-0000-000000000001",
+      user_id: null,
+    });
+    return jsonResponse(result, 200);
   }
 
   if (req.method !== "POST") {
@@ -100,16 +124,23 @@ async function processJobAsync(jobId: string) {
     );
 
     // 7. Resolve transcription — either from payload or by transcribing audio from Storage
+    // F21: alertCtx propagado a callClaude + callClaudeForHighlights +
+    // transcribeFromStorage para alerting on non-transient 4xx/5xx.
+    const alertCtx: AlertContext = {
+      organization_id: job.organization_id,
+      user_id: job.user_id,
+    };
+
     let transcription: string;
     if (payload.audio_storage_path && !payload.transcription_text) {
       console.log(`[analyze v23] Transcribing audio from Storage: ${payload.audio_storage_path}`);
-      transcription = await transcribeFromStorage(payload.audio_storage_path);
+      transcription = await transcribeFromStorage(payload.audio_storage_path, alertCtx);
       console.log(`[analyze v23] Transcription complete: ${transcription.length} chars`);
     } else {
       transcription = payload.transcription_edited || payload.transcription_original || payload.transcription_text;
     }
     console.log(`[analyze v23] Calling Claude for job ${jobId}, transcription length: ${transcription.length}`);
-    const claudeResponse = await callClaude(systemPrompt, transcription);
+    const claudeResponse = await callClaude(systemPrompt, transcription, alertCtx);
 
     // 7b. Branch: LLM signaled rejection via tool_use (early return before parse + highlights)
     if (claudeResponse.type === "rejected") {
@@ -165,12 +196,17 @@ async function processJobAsync(jobId: string) {
     try {
       console.log(`[analyze] Starting highlights call for job ${jobId}`);
       const trackers = await getOrgTrackers(job.organization_id);
-      const highlights = await callClaudeForHighlights(transcription, trackers, {
-        score_general: parsed.score_general ?? 0,
-        clasificacion: parsed.clasificacion,
-        patron_error: parsed.patron_error,
-        objecion_principal: parsed.objecion_principal,
-      });
+      const highlights = await callClaudeForHighlights(
+        transcription,
+        trackers,
+        {
+          score_general: parsed.score_general ?? 0,
+          clasificacion: parsed.clasificacion,
+          patron_error: parsed.patron_error,
+          objecion_principal: parsed.objecion_principal,
+        },
+        alertCtx,
+      );
       if (highlights.length > 0) {
         await updateAnalysisHighlights(analysisId, highlights);
         console.log(`[analyze] Wrote ${highlights.length} highlights for job ${jobId}`);
@@ -210,7 +246,10 @@ async function processJobAsync(jobId: string) {
 
 // ─── Transcribe audio from Supabase Storage via AssemblyAI ──
 
-async function transcribeFromStorage(storagePath: string): Promise<string> {
+async function transcribeFromStorage(
+  storagePath: string,
+  alertCtx: AlertContext | null = null,
+): Promise<string> {
   // 1. Download audio from Supabase Storage using service role
   const storageUrl = `${SUPABASE_URL}/storage/v1/object/recordings/${storagePath}`;
   const downloadRes = await fetch(storageUrl, {
@@ -236,6 +275,17 @@ async function transcribeFromStorage(storagePath: string): Promise<string> {
     body: audioBytes,
   });
   if (!uploadRes.ok) {
+    // F21: alert on 4xx/5xx EXCEPT 429.
+    if (alertCtx && uploadRes.status !== 429) {
+      await alertSlack({
+        service: "assemblyai",
+        error_code: String(uploadRes.status),
+        error_message: `upload failed: ${uploadRes.status}`,
+        runtime: "edge_function",
+        organization_id: alertCtx.organization_id,
+        user_id: alertCtx.user_id,
+      });
+    }
     throw new Error(`AssemblyAI upload failed: ${uploadRes.status}`);
   }
   const { upload_url } = await uploadRes.json();
@@ -250,6 +300,16 @@ async function transcribeFromStorage(storagePath: string): Promise<string> {
     body: JSON.stringify({ audio_url: upload_url, language_code: "es", speech_models: ["universal-3-pro"] }),
   });
   if (!transcriptRes.ok) {
+    if (alertCtx && transcriptRes.status !== 429) {
+      await alertSlack({
+        service: "assemblyai",
+        error_code: String(transcriptRes.status),
+        error_message: `transcript request failed: ${transcriptRes.status}`,
+        runtime: "edge_function",
+        organization_id: alertCtx.organization_id,
+        user_id: alertCtx.user_id,
+      });
+    }
     throw new Error(`AssemblyAI transcript request failed: ${transcriptRes.status}`);
   }
   const { id: transcriptId } = await transcriptRes.json();
@@ -261,6 +321,20 @@ async function transcribeFromStorage(storagePath: string): Promise<string> {
     const pollRes = await fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, {
       headers: { authorization: ASSEMBLYAI_API_KEY },
     });
+    if (!pollRes.ok) {
+      // HTTP 4xx/5xx en polling endpoint — diferente de pollData.status='error'.
+      if (alertCtx && pollRes.status !== 429) {
+        await alertSlack({
+          service: "assemblyai",
+          error_code: String(pollRes.status),
+          error_message: `polling endpoint failed: ${pollRes.status}`,
+          runtime: "edge_function",
+          organization_id: alertCtx.organization_id,
+          user_id: alertCtx.user_id,
+        });
+      }
+      throw new Error(`AssemblyAI polling failed: ${pollRes.status}`);
+    }
     const pollData = await pollRes.json();
     if (pollData.status === "completed") {
       if (!pollData.text || pollData.text.trim().length === 0) {
@@ -269,6 +343,9 @@ async function transcribeFromStorage(storagePath: string): Promise<string> {
       return pollData.text;
     }
     if (pollData.status === "error") {
+      // NO alert — pollData.status='error' es per-audio failure (audio corrupt
+      // o no procesable), no infra. Plan G captura esto downstream como
+      // analyses.status='rechazado'.
       throw new Error(`AssemblyAI error: ${pollData.error || "unknown"}`);
     }
   }
