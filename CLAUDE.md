@@ -32,7 +32,7 @@ En caso de conflicto entre este CLAUDE.md y el TÉCNICO, el TÉCNICO tiene prior
 ## Stack técnico crítico
 - Worker Cloudflare actual: optix-proxy.anwarhsg.workers.dev (compartido con Optix — separar en Etapa 1)
 - ⚠️ API key se llama CLAUDE_API_KEY, NO ANTHROPIC_API_KEY
-- Modelo: claude-sonnet-4-20250514
+- Modelo: claude-sonnet-4-6
 - Deploy: Vercel (repo privado en GitHub)
 - Dominio: aurisiq.io — URL de producción: app.aurisiq.io
 - Supabase Pro: proyecto a crear en Sesión 1.1

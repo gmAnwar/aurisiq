@@ -51,7 +51,7 @@ export async function analizar({ empresa, producto, vendedor, duracion, transcri
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 2000,
       system: scorecard.system_prompt,
       messages: [{ role: 'user', content: scorecard.buildUserPrompt(empresa, producto, vendedor, duracion, transcripcion) }]

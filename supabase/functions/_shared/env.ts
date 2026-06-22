@@ -3,7 +3,7 @@ export const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 export const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 export const ASSEMBLYAI_API_KEY = Deno.env.get("ASSEMBLYAI_API_KEY") ?? "";
 
-export const CLAUDE_MODEL = "claude-sonnet-4-20250514";
+export const CLAUDE_MODEL = "claude-sonnet-4-6";
 export const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
 export const CLAUDE_MAX_TOKENS = 4096;
 
