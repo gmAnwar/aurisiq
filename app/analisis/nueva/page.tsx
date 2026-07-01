@@ -65,7 +65,6 @@ export default function NuevaLlamadaPage() {
   const [prospectPhone, setProspectPhone] = useState("");
   const [dragging, setDragging] = useState(false);
   const [fileMsg, setFileMsg] = useState("");
-  const [method, setMethod] = useState<"none" | "record" | "upload" | "paste">("none");
   const [checkedItems, setCheckedItems] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
     try { return new Set(JSON.parse(sessionStorage.getItem("c2_checked_items") || "[]")); } catch { return new Set(); }
@@ -1069,7 +1068,6 @@ export default function NuevaLlamadaPage() {
     setTranscriptionOriginal(null);
     setTranscriptionSource("manual");
     setEditPct(0);
-    setMethod("none");
     setFileMsg("");
     clearSessionData();
   };
