@@ -1598,7 +1598,7 @@ export default function NuevaLlamadaPage() {
                   Reintentar
                 </button>
               )}
-              {status === "rechazado" && (
+              {errorKind === "rejected" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>
                   <button
                     className="c2-retry-btn"
