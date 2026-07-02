@@ -64,9 +64,15 @@ export function parseClaudeOutput(
   let match;
   while ((match = phaseRegex.exec(rawText)) !== null) {
     const scoreRaw = match[2].trim();
+    const isNumericScore = /^\d+$/.test(scoreRaw);
+    if (!isNumericScore) {
+      // F42: sin este warn no se distingue un 0 genuino del LLM de un texto
+      // no numérico que mapeamos a 0.
+      console.warn(`[parser] non-numeric phase score mapped to 0: ${scoreRaw || "(vacío)"}`);
+    }
     result.phases.push({
       phase_name: match[1].trim(),
-      score: /^\d+$/.test(scoreRaw) ? parseInt(scoreRaw, 10) : 0,
+      score: isNumericScore ? parseInt(scoreRaw, 10) : 0,
       score_max: parseInt(match[3], 10),
     });
   }
@@ -113,18 +119,23 @@ export function parseClaudeOutput(
   // (funciona como último bloque del output — el terminador original no tenía $).
   const QUALITY_ENUM = ["calificado", "descalificado", "indeterminado"];
   const OUTCOME_ENUM = ["cerrado_completo", "cerrado_parcial", "pospuesto_con_agenda", "pospuesto_sin_agenda", "descalificado", "perdido"];
-  const sanitizeEnum = (raw: string) => raw.toLowerCase().replace(/[^a-záéíóú_]/g, "");
+  // F42 fix final: normalizar ANTES de validar y matchear el enum al INICIO del
+  // valor sobre la línea completa — tolera "Calificado", "CALIFICADO",
+  // "calificado — pendiente confirmar saldo" y "cerrado completo" (espacio en
+  // vez de underscore). NUNCA acepta un valor que no empiece con un enum válido.
+  const matchEnumStart = (raw: string, allowed: string[]): string | null => {
+    const val = raw.toLowerCase().trim()
+      .replace(/^[^a-záéíóúñ]+/, "") // markdown/bold/puntuación antes del valor
+      .replace(/\s+/g, "_");         // "cerrado completo" → "cerrado_completo"
+    return [...allowed].sort((a, b) => b.length - a.length).find((e) => val.startsWith(e)) ?? null;
+  };
   const scanQuality = (text: string): string | null => {
-    const m = text.match(/Calidad\s+del\s+lead\s*\*{0,2}\s*:\s*\*{0,2}\s*(\S+)/i);
-    if (!m) return null;
-    const val = sanitizeEnum(m[1]);
-    return QUALITY_ENUM.includes(val) ? val : null;
+    const m = text.match(/Calidad\s+del\s+lead\s*\*{0,2}\s*:\s*([^\n]+)/i);
+    return m ? matchEnumStart(m[1], QUALITY_ENUM) : null;
   };
   const scanOutcome = (text: string): string | null => {
-    const m = text.match(/Resultado\s+de\s+esta\s+conversaci[oó]n\s*\*{0,2}\s*:\s*\*{0,2}\s*(\S+)/i);
-    if (!m) return null;
-    const val = sanitizeEnum(m[1]);
-    return OUTCOME_ENUM.includes(val) ? val : null;
+    const m = text.match(/Resultado\s+de\s+esta\s+conversaci[oó]n\s*\*{0,2}\s*:\s*([^\n]+)/i);
+    return m ? matchEnumStart(m[1], OUTCOME_ENUM) : null;
   };
   const estadoBlock = rawText.match(/\n(?:-{3,}|\*{3,})\s*\n+#{0,4}\s*\*{0,2}\s*ESTADO\s+DEL\s+LEAD\s*\*{0,2}\s*\n+([\s\S]+?)(?:\n(?:-{3,}|\*{3,})|\n#{0,4}\s*\*{0,2}(?:SCORE|DIAGN|PATR[OÓ]N|MOMENTO|OBJECI|SIGUIENTE|ACCI[OÓ]N|DESCALIF|ETAPA|CHECKLIST|PROSPECTO)|\n*$)/i);
   if (estadoBlock) {

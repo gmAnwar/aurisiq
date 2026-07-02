@@ -115,3 +115,39 @@ Deno.test("valor fuera de enum en Calidad del lead → null (no basura a DB)", (
   assertEquals(parsed.lead_quality, null);
   assertEquals(parsed.lead_outcome, "pospuesto_con_agenda");
 });
+
+// F42 fix final: normalización de enum (capitalización, mayúsculas, trailing text)
+
+Deno.test("enum: 'Calificado' capitalizado → calificado", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}`.replace(
+    "Calidad del lead: calificado",
+    "Calidad del lead: Calificado",
+  );
+  assertFullExtraction(raw, "enum-capitalizado");
+});
+
+Deno.test("enum: trailing text 'calificado — pendiente confirmar saldo'", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}`.replace(
+    "Calidad del lead: calificado",
+    "Calidad del lead: calificado — pendiente confirmar saldo",
+  );
+  assertFullExtraction(raw, "enum-trailing");
+});
+
+Deno.test("enum: 'CALIFICADO' en mayúsculas totales", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}`.replace(
+    "Calidad del lead: calificado",
+    "Calidad del lead: CALIFICADO",
+  );
+  assertFullExtraction(raw, "enum-mayusculas");
+});
+
+Deno.test("enum outcome: 'cerrado completo' con espacio → cerrado_completo", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}`.replace(
+    "Resultado de esta conversación: pospuesto_con_agenda",
+    "Resultado de esta conversación: Cerrado completo",
+  );
+  const parsed = parseClaudeOutput(raw, null);
+  assertEquals(parsed.lead_outcome, "cerrado_completo");
+  assertEquals(parsed.lead_quality, "calificado");
+});
