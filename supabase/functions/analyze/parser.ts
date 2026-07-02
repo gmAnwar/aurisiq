@@ -57,12 +57,16 @@ export function parseClaudeOutput(
   }
 
   // Phases — case-insensitive, tolerates **Phase Name** (5/10):
-  const phaseRegex = /\*{0,2}\s*([A-ZÁÉÍÓÚa-záéíóúñÑü][A-ZÁÉÍÓÚa-záéíóúñÑü ]{2,50}?)\s*\*{0,2}\s*\((\d+)\/(\d+)\)\s*:?/gi;
+  // F42: also tolerates spaces "(12 / 15)" and non-numeric scores like
+  // "(No evaluado/15)" → score 0 (una fase no ejecutada ES un 0, no una fila ausente).
+  // El max sigue siendo dígitos estrictos — es lo que ancla el patrón a una fase real.
+  const phaseRegex = /\*{0,2}\s*([A-ZÁÉÍÓÚa-záéíóúñÑü][A-ZÁÉÍÓÚa-záéíóúñÑü ]{2,50}?)\s*\*{0,2}\s*\(\s*([^()\n]*?)\s*\/\s*(\d+)\s*\)\s*:?/gi;
   let match;
   while ((match = phaseRegex.exec(rawText)) !== null) {
+    const scoreRaw = match[2].trim();
     result.phases.push({
       phase_name: match[1].trim(),
-      score: parseInt(match[2], 10),
+      score: /^\d+$/.test(scoreRaw) ? parseInt(scoreRaw, 10) : 0,
       score_max: parseInt(match[3], 10),
     });
   }
@@ -104,23 +108,36 @@ export function parseClaudeOutput(
   const leadMatch = rawText.match(new RegExp(`${hc("Estado del lead")}(converted|lost_captadora|lost_external|pending)`, "i"));
   if (leadMatch) result.lead_status = leadMatch[1].toLowerCase();
 
-  // Lead quality + outcome — top-level block "ESTADO DEL LEAD" between --- separators
+  // Lead quality + outcome — top-level block "ESTADO DEL LEAD" between separators.
+  // F42 hardening: tolerates *** separators, markdown # headers, and end-of-string
+  // (funciona como último bloque del output — el terminador original no tenía $).
   const QUALITY_ENUM = ["calificado", "descalificado", "indeterminado"];
   const OUTCOME_ENUM = ["cerrado_completo", "cerrado_parcial", "pospuesto_con_agenda", "pospuesto_sin_agenda", "descalificado", "perdido"];
-  const estadoBlock = rawText.match(/\n---\n+\*{0,2}\s*ESTADO\s+DEL\s+LEAD\s*\*{0,2}\s*\n+([\s\S]+?)(?:\n---|\n\*{0,2}(?:SCORE|DIAGN|PATR[OÓ]N|MOMENTO|OBJECI|SIGUIENTE|ACCI[OÓ]N|DESCALIF|ETAPA|CHECKLIST|PROSPECTO))/i);
+  const sanitizeEnum = (raw: string) => raw.toLowerCase().replace(/[^a-záéíóú_]/g, "");
+  const scanQuality = (text: string): string | null => {
+    const m = text.match(/Calidad\s+del\s+lead\s*\*{0,2}\s*:\s*\*{0,2}\s*(\S+)/i);
+    if (!m) return null;
+    const val = sanitizeEnum(m[1]);
+    return QUALITY_ENUM.includes(val) ? val : null;
+  };
+  const scanOutcome = (text: string): string | null => {
+    const m = text.match(/Resultado\s+de\s+esta\s+conversaci[oó]n\s*\*{0,2}\s*:\s*\*{0,2}\s*(\S+)/i);
+    if (!m) return null;
+    const val = sanitizeEnum(m[1]);
+    return OUTCOME_ENUM.includes(val) ? val : null;
+  };
+  const estadoBlock = rawText.match(/\n(?:-{3,}|\*{3,})\s*\n+#{0,4}\s*\*{0,2}\s*ESTADO\s+DEL\s+LEAD\s*\*{0,2}\s*\n+([\s\S]+?)(?:\n(?:-{3,}|\*{3,})|\n#{0,4}\s*\*{0,2}(?:SCORE|DIAGN|PATR[OÓ]N|MOMENTO|OBJECI|SIGUIENTE|ACCI[OÓ]N|DESCALIF|ETAPA|CHECKLIST|PROSPECTO)|\n*$)/i);
   if (estadoBlock) {
-    const block = estadoBlock[1];
-    const qualityMatch = block.match(/Calidad\s+del\s+lead\s*:\s*(\S+)/i);
-    if (qualityMatch) {
-      const val = qualityMatch[1].toLowerCase().replace(/[^a-záéíóú_]/g, "");
-      if (QUALITY_ENUM.includes(val)) result.lead_quality = val;
-    }
-    const outcomeMatch = block.match(/Resultado\s+de\s+esta\s+conversaci[oó]n\s*:\s*(\S+)/i);
-    if (outcomeMatch) {
-      const val = outcomeMatch[1].toLowerCase().replace(/[^a-záéíóú_]/g, "");
-      if (OUTCOME_ENUM.includes(val)) result.lead_outcome = val;
-    }
+    result.lead_quality = scanQuality(estadoBlock[1]);
+    result.lead_outcome = scanOutcome(estadoBlock[1]);
   }
+  // F42 desambiguación: si el LLM fusionó los bloques casi homónimos ("Estado del
+  // lead:" dentro de SIGUIENTE PASO vs header "ESTADO DEL LEAD"), el header no
+  // existe pero las líneas-label sí — extraer por label global. Los labels
+  // "Calidad del lead"/"Resultado de esta conversación" son únicos en el output
+  // y los valores se validan contra enum, así que el scan global es seguro.
+  if (result.lead_quality === null) result.lead_quality = scanQuality(rawText);
+  if (result.lead_outcome === null) result.lead_outcome = scanOutcome(rawText);
 
   // Prospect extraction — DB-driven or legacy
   if (Array.isArray(extractionPatterns) && extractionPatterns.length > 0) {

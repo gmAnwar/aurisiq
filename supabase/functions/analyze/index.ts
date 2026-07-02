@@ -155,6 +155,28 @@ async function processJobAsync(jobId: string) {
     const phasesWithIds = matchPhaseIds(parsed.phases, scorecard.phases || []);
     console.log(`[analyze v23] Parsed ${parsed.phases.length} phases, matched ${phasesWithIds.length}, phase_ids: ${JSON.stringify(phasesWithIds.map(p => p.phase_id))}`);
 
+    // F42: detector de extracción parcial. El análisis SE COMPLETA igual (data
+    // parcial > error para la captadora), pero deja de ser silencioso.
+    // Logging condicional: el raw output completo va a logs SOLO en este caso —
+    // cero PII en logs de análisis sanos.
+    const expectedPhases = (scorecard.phases || []).length;
+    const promptHasEstado = systemPrompt.includes("ESTADO DEL LEAD");
+    const missingLead = promptHasEstado && (parsed.lead_quality === null || parsed.lead_outcome === null);
+    if (phasesWithIds.length < expectedPhases || missingLead) {
+      const detail = `phases=${phasesWithIds.length}/${expectedPhases} lead_quality=${parsed.lead_quality} lead_outcome=${parsed.lead_outcome} scorecard=${job.payload?.scorecard_id}`;
+      console.error(`[F42] partial_extraction job=${jobId} ${detail} RAW_OUTPUT: ${rawOutput}`);
+      try {
+        await alertSlack({
+          service: "parser",
+          error_code: "partial_extraction",
+          error_message: detail,
+          runtime: "edge_function",
+          organization_id: job.organization_id,
+          user_id: job.user_id,
+        });
+      } catch { /* alerting nunca bloquea el análisis */ }
+    }
+
     // Diagnostic: low score with no descalification — write to background_jobs.error_message for visibility
     if (parsed.score_general !== null && parsed.score_general < 50 && parsed.descalificacion.length === 0) {
       const rawTail = (lastRawOutput || "").slice(-2500).replace(/\s+/g, " ");
