@@ -1,0 +1,3 @@
+-- No-op placeholder. Applied via Supabase MCP on 2026-07-01 as incremental grant fix;
+-- final state consolidated in 20260701222631. File exists to keep schema_migrations
+-- and repo history aligned.
