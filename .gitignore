@@ -18,3 +18,9 @@ wrangler.jsonc
 
 # Local env file for Edge Function development (never commit)
 supabase/functions/.env
+
+# META-1 agent drafts (v1 con problemas conocidos — no commitear hasta v2)
+.claude/agents/
+
+# QA screenshots locales (artefactos de sesiones visuales)
+_legacy/screenshots/
