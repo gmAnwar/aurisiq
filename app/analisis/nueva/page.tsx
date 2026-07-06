@@ -47,6 +47,9 @@ function isMobile(): boolean {
   return window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
+// Compartido entre "Buscar archivo" (telefónico) y el hero de subida (presencial)
+const FILE_ACCEPT = ".txt,.doc,.docx,.mp3,.m4a,.wav,.ogg,.opus,.webm,.mp4,audio/ogg,audio/opus";
+
 interface ChecklistField { slug: string; label: string; }
 
 export default function NuevaLlamadaPage() {
@@ -94,6 +97,7 @@ export default function NuevaLlamadaPage() {
   const [pollPhase, setPollPhase] = useState<PollPhase>("normal");
   const [extraWaitCount, setExtraWaitCount] = useState(0);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [showPasteBox, setShowPasteBox] = useState(false);
   const [guidePhases, setGuidePhases] = useState<GuidePhase[]>([]);
   const [guideLoading, setGuideLoading] = useState(false);
   const [missedFields, setMissedFields] = useState<string[]>([]);
@@ -285,6 +289,10 @@ export default function NuevaLlamadaPage() {
     && (isPresencialSession ? true : (selectedSource !== "" && !missingConfig))
     && wordCount >= MIN_WORDS && charCount <= CHAR_LIMIT && !isTranscribing && !stageNoScorecard;
   const canSubmit = formIsValid && status === "idle";
+
+  // V5B upload-first: en presencial el textarea arranca colapsado SOLO si no hay
+  // draft restaurado de sessionStorage (persiste entre pills) ni transcripción en curso.
+  const showTranscriptBox = !isPresencialSession || transcription.length > 0 || isTranscribing || showPasteBox;
 
   const inputModeLabel: string = (() => {
     if (rec.recMode === "recording") return "Grabando en vivo...";
@@ -1108,6 +1116,9 @@ export default function NuevaLlamadaPage() {
             </div>
             <span className="ear-timer">{formatTime(rec.recElapsed)}</span>
             <WaveformCanvas analyserNode={rec.analyserNode} isRecording={rec.recMode === "recording"} />
+            {isPresencialSession && (
+              <p className="c2-rec-hint" style={{ marginTop: 4, textAlign: "center" }}>Coloca el celular sobre la mesa o cerca del prospecto.</p>
+            )}
             {rec.recElapsed > 1800 && (
               <p className="ear-long-warning">Llevas más de 30 minutos grabando. Transcripciones muy largas pueden tardar más en analizar.</p>
             )}
@@ -1253,7 +1264,7 @@ export default function NuevaLlamadaPage() {
         <h1 className="c2-title">Nueva {sessionNoun(isPresencialSession)}</h1>
         <p className="c2-subtitle">Graba en vivo, sube un audio o pega la transcripción, aurisIQ se encarga del resto.</p>
         {isPresencialSession && (
-          <p className="c2-subtitle" style={{ fontSize: 13, marginTop: 2 }}>Modo {sessionNoun(isPresencialSession)} — solo graba y analiza</p>
+          <p className="c2-subtitle" style={{ fontSize: 13, marginTop: 2 }}>Modo {sessionNoun(isPresencialSession)} — sube tu grabación y analiza</p>
         )}
       </div>
 
@@ -1349,6 +1360,41 @@ export default function NuevaLlamadaPage() {
         </div>
         )}
 
+        {/* V5B upload-first hero — solo sesiones presenciales */}
+        {isPresencialSession && (
+          <div
+            className={`grabar-hero${dragging ? " c2-drop-active" : ""}`}
+            style={{ padding: "12px 0 4px" }}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={handleDrop}
+          >
+            <label className="grabar-btn" style={{ cursor: "pointer" }}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              <input type="file" accept={FILE_ACCEPT} onChange={handleFileInput} hidden disabled={status === "analyzing" || isTranscribing} />
+            </label>
+            <span className="grabar-btn-label">Subir grabación de la {sessionNoun(isPresencialSession)}</span>
+            {!showTranscriptBox && (
+              <div className="grabar-secondary">
+                <button
+                  type="button"
+                  onClick={() => setShowPasteBox(true)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", textDecoration: "underline", fontSize: 14, fontFamily: "inherit" }}
+                  disabled={status === "analyzing" || isTranscribing}
+                >
+                  Pegar transcripción
+                </button>
+              </div>
+            )}
+            {fileMsg && <span className="c2-file-msg">{fileMsg}</span>}
+          </div>
+        )}
+
+        {showTranscriptBox && (
         <div className="input-group">
           <label htmlFor="transcription" className="input-label">
             Transcripción de la {sessionNoun(isPresencialSession)} *
@@ -1407,8 +1453,10 @@ export default function NuevaLlamadaPage() {
             )}
           </div>
         </div>
+        )}
 
         {/* Secondary input: record or upload */}
+        {!isPresencialSession && (
         <div className="c2-file-row" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <button
             className="btn-submit"
@@ -1421,18 +1469,35 @@ export default function NuevaLlamadaPage() {
           </button>
           <label className="c2-file-btn">
             Buscar archivo
-            <input type="file" accept=".txt,.doc,.docx,.mp3,.m4a,.wav,.ogg,.opus,.webm,.mp4,audio/ogg,audio/opus" onChange={handleFileInput} hidden disabled={status === "analyzing" || isTranscribing} />
+            <input type="file" accept={FILE_ACCEPT} onChange={handleFileInput} hidden disabled={status === "analyzing" || isTranscribing} />
           </label>
           {fileMsg && <span className="c2-file-msg">{fileMsg}</span>}
           {rec.recError && <p className="c2-rec-error">{rec.recError}</p>}
         </div>
+        )}
+        {!isPresencialSession && (
         <p className="c2-rec-hint" style={{ marginTop: 4 }}>
-          {isPresencialSession
-            ? "Coloca el celular sobre la mesa o cerca y presiona grabar."
-            : mobile
-              ? "Pon tu llamada en altavoz y presiona grabar."
-              : "Selecciona la pestaña de tu llamada cuando se abra el selector."}
+          {mobile
+            ? "Pon tu llamada en altavoz y presiona grabar."
+            : "Selecciona la pestaña de tu llamada cuando se abra el selector."}
         </p>
+        )}
+        {/* V5B: grabar en browser degradado a terciario — visitas de 40-60 min
+            van mejor con grabadora nativa + subir archivo */}
+        {isPresencialSession && (
+          <div style={{ marginTop: 8 }}>
+            <button
+              type="button"
+              className="c2-guide-link"
+              style={{ fontSize: 13 }}
+              onClick={() => orgId && rec.startRecording(orgId)}
+              disabled={status === "analyzing" || isTranscribing || transcription.length > 0}
+            >
+              Grabar en el navegador
+            </button>
+            {rec.recError && <p className="c2-rec-error">{rec.recError}</p>}
+          </div>
+        )}
         {!isPresencialSession && (
           <button
             className="c2-guide-link"
@@ -1465,12 +1530,12 @@ export default function NuevaLlamadaPage() {
 
         {/* Collapsible reference panels */}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {/* 1. Mi Speech — only shown when phases are loaded */}
-          {guidePhases.length > 0 && (
-          <div className="c2-collapse" style={{ border: "1px solid var(--border, #e5e5e5)", borderRadius: 8, overflow: "hidden" }}>
-            <div className="c2-collapse-summary" style={{ padding: "10px 14px", fontWeight: 600, fontSize: 14 }}>Mi Speech</div>
-            {guidePhases.map((phase, i) => (
-              <details key={i} open={i === 0} className="c2-speech-phase">
+          {/* 1. Mi Speech — only shown when phases are loaded.
+              Presencial: <details> colapsado por default. Telefónico: siempre
+              visible con primera fase abierta (comportamiento original). */}
+          {guidePhases.length > 0 && (() => {
+            const phaseItems = guidePhases.map((phase, i) => (
+              <details key={i} open={!isPresencialSession && i === 0} className="c2-speech-phase">
                 <summary className="c2-speech-phase-summary">{phase.phase_name}</summary>
                 <div className="c2-speech-phase-body">
                   {phase.transition && <p className="c2-hint" style={{ margin: "0 0 6px" }}>{phase.transition}</p>}
@@ -1482,9 +1547,19 @@ export default function NuevaLlamadaPage() {
                   ))}
                 </div>
               </details>
-            ))}
-          </div>
-          )}
+            ));
+            return isPresencialSession ? (
+              <details className="c2-collapse" style={{ border: "1px solid var(--border, #e5e5e5)", borderRadius: 8, overflow: "hidden" }}>
+                <summary className="c2-collapse-summary" style={{ padding: "10px 14px", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>Mi Speech</summary>
+                {phaseItems}
+              </details>
+            ) : (
+              <div className="c2-collapse" style={{ border: "1px solid var(--border, #e5e5e5)", borderRadius: 8, overflow: "hidden" }}>
+                <div className="c2-collapse-summary" style={{ padding: "10px 14px", fontWeight: 600, fontSize: 14 }}>Mi Speech</div>
+                {phaseItems}
+              </div>
+            );
+          })()}
 
           {/* 2. Checklist — full list with missed-field highlights (hidden in presencial pre-recording) */}
           {!isPresencialSession && (
