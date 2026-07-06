@@ -298,13 +298,13 @@ export default function NuevaLlamadaPage() {
   const missingForSubmit: string[] = [];
   if (status === "idle" && !isTranscribing) {
     if (needsStageChoice) {
-      missingForSubmit.push("Elegí la etapa del embudo");
+      missingForSubmit.push("Elige la etapa del embudo");
     }
     if (!isPresencialSession && orgHasTelefonico(funnelStages) && selectedSource === "") {
-      missingForSubmit.push("Elegí la fuente del lead");
+      missingForSubmit.push("Elige la fuente del lead");
     }
     if (transcription.trim().length === 0) {
-      missingForSubmit.push(`Agregá la transcripción de la ${sessionNoun(isPresencialSession)} (grabá, subí o pegá)`);
+      missingForSubmit.push(`Agrega la transcripción de la ${sessionNoun(isPresencialSession)} (graba, sube o pega)`);
     } else if (wordCount < MIN_WORDS) {
       missingForSubmit.push(`Faltan palabras para análisis (${wordCount}/${MIN_WORDS})`);
     }
@@ -760,7 +760,7 @@ export default function NuevaLlamadaPage() {
           const detail = data.error_message ? ` Detalle: ${data.error_message}` : "";
           setErrorMsg(statusLower === "cancelled"
             ? "Análisis cancelado."
-            : `El análisis no se pudo completar. Intentá de nuevo.${detail}`);
+            : `El análisis no se pudo completar. Intenta de nuevo.${detail}`);
         }
       } catch {
         // Network error on poll — keep trying
@@ -770,7 +770,7 @@ export default function NuevaLlamadaPage() {
     if (opts.softMs) {
       const softId = setTimeout(() => {
         setPollPhase("long");
-        setAnalysisPhase("Tu análisis está tomando más tiempo. Podés verlo aparecer en Mis análisis cuando esté listo.");
+        setAnalysisPhase("Tu análisis está tomando más tiempo. Puedes verlo aparecer en Mis análisis cuando esté listo.");
       }, opts.softMs);
       timeoutRefs.current.push(softId);
     }
@@ -824,7 +824,7 @@ export default function NuevaLlamadaPage() {
           const detail = statusData.error_message ? ` Detalle: ${statusData.error_message}` : "";
           setErrorMsg(statusLower === "cancelled"
             ? "Análisis cancelado."
-            : `El análisis no se pudo completar. Intentá de nuevo.${detail}`);
+            : `El análisis no se pudo completar. Intenta de nuevo.${detail}`);
         }
       } catch {
         // Network error on poll — keep trying
@@ -834,7 +834,7 @@ export default function NuevaLlamadaPage() {
     if (opts.softMs) {
       const softId = setTimeout(() => {
         setPollPhase("long");
-        setAnalysisPhase("Tu análisis está tomando más tiempo. Podés verlo aparecer en Mis análisis cuando esté listo.");
+        setAnalysisPhase("Tu análisis está tomando más tiempo. Puedes verlo aparecer en Mis análisis cuando esté listo.");
       }, opts.softMs);
       timeoutRefs.current.push(softId);
     }
@@ -1401,7 +1401,7 @@ export default function NuevaLlamadaPage() {
             {wordCount > 0 && wordCount < MIN_WORDS && (
               <span className="c2-min-words-hint" style={{ display: "block", fontSize: 11, marginTop: 2, color: "var(--ink-light)" }}>
                 {transcriptionSource === "manual"
-                  ? "Las transcripciones pegadas requieren más texto para análisis confiable. Si tu llamada fue corta, mejor usá grabar o subir audio."
+                  ? "Las transcripciones pegadas requieren más texto para análisis confiable. Si tu llamada fue corta, mejor usa grabar o subir audio."
                   : `El audio fue muy corto. Mínimo ${MIN_WORDS} palabras para analizar.`}
               </span>
             )}
@@ -1616,7 +1616,7 @@ export default function NuevaLlamadaPage() {
 
         {showMissingBlock && (
           <div className="c2-missing-block" role="status" aria-live="polite">
-            <p className="c2-missing-block-title">Para poder analizar, completá:</p>
+            <p className="c2-missing-block-title">Para poder analizar, completa:</p>
             <ul className="c2-missing-block-list">
               {missingForSubmit.map((msg, i) => (
                 <li key={i}>{msg}</li>
