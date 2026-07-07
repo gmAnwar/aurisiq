@@ -1,45 +1,55 @@
-# AurisIQ — Configuración Maestra Claude Code
+# AurisIQ — Claude Code
 
-## Qué es este proyecto
-AurisIQ analiza conversaciones de ventas con IA para equipos comerciales.
-Producto independiente de Optix. Repo: github.com/gmAnwar/aurisiq.
-Stack: Vercel + Supabase Pro + Cloudflare Worker + AssemblyAI (Etapa 3).
+## Qué es
+SaaS de inteligencia conversacional para equipos de venta LATAM. Graba/transcribe/analiza llamadas con IA y da coaching. Next.js (Vercel) + Supabase Pro ekvvsosbwkfyhawywgpn + Cloudflare Worker aurisiq-worker + AssemblyAI. Prod: app.aurisiq.io. Repo PRIVADO gmAnwar/aurisiq, rama main.
 
-## Regla de prioridad de fuentes
-El canvas TÉCNICO (F0ALYPV5D16) es la fuente de verdad para todo lo técnico.
-En caso de conflicto entre este CLAUDE.md y el TÉCNICO, el TÉCNICO tiene prioridad.
+## División de trabajo (no negociable)
+- El chat web de Claude es el PM: estrategia, prioridades, canvases de Slack, datos de prod vía MCP.
+- Claude Code (tú) ejecuta: código, tests, commits, push, deploys cuando se instruyen.
+- NUNCA escribas/actualices canvases de Slack. Tu único output a Slack es postear mensajes en #aurisiq (C0AL7UWC1SM): hashes, reportes, hallazgos.
+- Si un prompt trae STOP rule (parar tras Fase 0), se respeta LITERAL. Continuar sin OK explícito es la falla más grave.
 
-## Reglas de interpretación del TÉCNICO
-- Si encuentras múltiples definiciones de la misma tabla o sección, usa SIEMPRE la más completa (la que tiene más campos).
-- Antes de implementar cualquier función RPC, lee la sección "Gaps conocidos" del TÉCNICO — tiene correcciones al código del cuerpo principal.
-- Si hay conflicto entre el cuerpo del TÉCNICO y la sección Gaps, la sección Gaps tiene prioridad.
-- Si algo no está claro, pregunta antes de decidir. No implementes suposiciones silenciosas.
+## Fuentes de verdad (en este orden)
+1. PENDIENTES F0AKR4HNNEB — estado operacional, reglas vigentes, producción actual. Léelo si necesitas contexto que el prompt no trae.
+2. TÉCNICO F0ALYPV5D16 — arquitectura y schema.
+3. SCORECARDS F0AK5T984FM — prompts de análisis.
+IDs viejos F0AL1FB4XAN (pendientes) y F0ALHCSA449 (sesiones) están MUERTOS — nunca escribas ahí.
 
-## Canvases de Slack — IDs fijos
-- TÉCNICO: F0ALYPV5D16 — stack, schema, decisiones. FUENTE PRIMARIA.
-- PENDIENTES: F0AKR4HNNEB — next steps activos
-- SESIONES: F0ALHCSA449 — changelog de sesiones
-- RIESGOS: F0APJ3P59S4 — checklist de riesgos completo
-- SCORECARDS: F0AK5T984FM — prompts maestros V5A, V5B, v1
-- ROADMAP: F0ANYRKF0QJ — etapas y fechas
-- PANTALLAS: F0APJ15LFEG — arquitectura completa de UI por rol y sesión
-- AGENTES: F0AQBP4TQ64 — este canvas (sistema multi-agente)
-- MCPs: F0AP872K8FL — configuración de Supabase + GitHub + Vercel MCPs
+Al leer el TÉCNICO: si hay múltiples definiciones de la misma tabla, usa la más completa; la sección "Gaps conocidos" corrige al cuerpo principal y tiene prioridad. Los supuestos sobre schema/funciones/CHECKs se verifican contra la DB VIVA vía MCP, no contra drafts (`supabase/migrations/_drafts/` no es fuente).
 
-## Canal Slack
-#aurisiq — ID: C0AL7UWC1SM
+Canvases secundarios (solo lectura para ti): SESIONES v2 F0AU55QKPK3 · RIESGOS F0APJ3P59S4 · ROADMAP F0ANYRKF0QJ · PANTALLAS F0APJ15LFEG · AGENTES F0AQBP4TQ64 · MCPs F0AP872K8FL.
 
-## Stack técnico crítico
-- Worker Cloudflare actual: optix-proxy.anwarhsg.workers.dev (compartido con Optix — separar en Etapa 1)
-- ⚠️ API key se llama CLAUDE_API_KEY, NO ANTHROPIC_API_KEY
-- Modelo: claude-sonnet-4-6
-- Deploy: Vercel (repo privado en GitHub)
-- Dominio: aurisiq.io — URL de producción: app.aurisiq.io
-- Supabase Pro: proyecto a crear en Sesión 1.1
+## Stack — datos duros
+- Modelo Claude canónico: claude-sonnet-4-6 (en worker/src/index.js y supabase/functions/_shared/env.ts). Un string distinto es bug.
+- La API key se llama CLAUDE_API_KEY, no ANTHROPIC_API_KEY.
+- Worker deploy: SIEMPRE (cd worker && npx wrangler deploy -c wrangler.toml) — el wrangler.jsonc untracked de la raíz toma precedencia si omites el flag.
+- Edge Function deploy: tras CUALQUIER deploy de analyze, recuérdale a Anwar el ritual verify_jwt (Dashboard → Settings → OFF → Save → F5). No es tuyo, es de él, pero tu trabajo es recordarlo.
+- Vercel auto-deploya en push a main. Edge Functions y Worker NUNCA se deployan sin instrucción explícita.
 
-## Clientes activos (founders — 50 análisis/mes indefinidos)
-- Inmobili Internacional — scorecards V5A + V5B — org: immobili_prod / immobili_test
-- EnPagos — scorecard v1
+## Clientes y orgs
+- immobili (Inmobili Internacional, UNA M): V5A telefónico, V5B presencial, V5C seguimiento.
+- enpagos: 3 scorecards, sin uso (churn risk).
+- bodygreen: onboarding, org smoke canónica para tests (427e2d16...).
+- Demo: carone, los-dentistas, momentum-quiro.
+- NUNCA insertar datos de prueba en immobili. Smokes van a bodygreen.
+
+## Reglas duras de código
+- typecheck + build ANTES de cada commit. Sin excepción.
+- Strings de UI: español México (tú, tienes), CON acentos, CERO voseo (elegí/completá = bug).
+- Multi-tenant: toda query nueva filtra organization_id o se apoya en RLS documentada. Roles canónicos: ['gerente','direccion','agencia','super_admin'].
+- Toda función SECURITY DEFINER nueva incluye su REVOKE (PUBLIC, anon, authenticated según caso) en la MISMA migración — el proyecto no tiene default-deny.
+- Migraciones aplicadas vía MCP generan su propio timestamp — reconciliar nombres de archivo con la versión registrada.
+- Orden FK para borrar análisis: xp_events → analysis_phases → analysis_jobs → background_jobs → analyses, en transacción.
+- quota_consumed en background_jobs NUNCA se resetea al cambiar estados de jobs.
+- Aritmética de scores en CÓDIGO, no en el LLM: score_general vía deriveScoreFromPhases, clasificacion vía deriveClasificacion (fuentes únicas — no crear copias inline).
+- Cambios a prompts de scorecards: NUNCA "exactamente N bloques" sin enumerar los N completos incluyendo ESTADO DEL LEAD (causa raíz de F42, pérdida silenciosa de datos).
+- Paridad Edge/Worker: si tocas lógica de scoring o escritura que existe en ambos paths, replica en ambos o declara la divergencia explícita en tu reporte.
+- Secrets: nunca en código, commits ni logs (hooks.slack.com/services, tokens sbp_, service_role keys). Nunca console.log con transcripciones, nombres de prospectos o PII.
+- Deuda conocida (no "arreglar" de paso sin instrucción): el Worker recibe organization_id/user_id del body sin verificar JWT.
+
+## Reglas de UI
+- REGLA DE IDIOMA — UI STRINGS: Todo texto visible al usuario se escribe en español mexicano neutro con tuteo (completa, agrega, elige, sube). NUNCA voseo argentino (completá, agregá, elegí, subí, podés, tenés). Antes de cada commit que agregue o modifique strings de UI, verificar contra esta regla.
+- La ÚNICA fuente del proyecto es DM Sans (400, 500, 600, 700). No se permite ninguna otra fuente. Nunca usar Syne, Playfair, Montserrat, ni ninguna fuente display o decorativa.
 
 ## Decisiones cerradas — no reabrir
 - localStorage: descartado, todo va a Supabase desde día uno
@@ -54,49 +64,31 @@ En caso de conflicto entre este CLAUDE.md y el TÉCNICO, el TÉCNICO tiene prior
 - founder equivale a pro en features. Check: plan IN ('growth','pro','scale','enterprise','founder')
 - Stripe período de gracia: 7 días
 - Retención de audios: 7 días
-- Límite transcripción texto manual: 15,000 caracteres
+- Límites de transcripción (F45): frontend telefónico 20,000 chars / 25 min; presencial 60,000 chars / 90 min. El Worker legacy conserva su gate de 15,000 chars (path flag=false, no aplica a presencial que va por Edge).
 - organizations.access_status: campo canónico (active/grace/read_only) — no inferir del plan
 - organizations tiene: stripe_customer_id TEXT nullable, stripe_grace_started_at TIMESTAMPTZ nullable
 - Límites de tier en Worker (hardcoded): {starter:50, growth:200, pro:500, scale:1500, enterprise:null, founder:50}
 - Enterprise tier_limit = null → función RPC retorna TRUE (IF tier_limit IS NULL THEN RETURN TRUE)
 - current_focus_phase: promedio de últimos 5 análisis del usuario
-- analyses.clasificacion: CHECK (excelente/buena/regular/deficiente)
+- analyses.clasificacion: CHECK (excelente/buena/regular/deficiente) — umbrales canónicos 85/65/45 solo en código (deriveClasificacion)
 - Queries de analytics: SIEMPRE filtrar WHERE status = 'completado'
 - organizations.timezone: canónico para reportes; funnel_config.timezone solo para streak
 - conversion_discrepancy: comparar lead_status del output de Claude contra avanzo_a_siguiente_etapa
 - Dominio: aurisiq.io (comprado 28 Mar 2026) — app en app.aurisiq.io
 
-## Reglas de UI
-- REGLA DE IDIOMA — UI STRINGS: Todo texto visible al usuario se escribe en español mexicano neutro con tuteo (completa, agrega, elige, sube). NUNCA voseo argentino (completá, agregá, elegí, subí, podés, tenés). Antes de cada commit que agregue o modifique strings de UI, verificar contra esta regla.
-- La ÚNICA fuente del proyecto es DM Sans (400, 500, 600, 700). No se permite ninguna otra fuente. Nunca usar Syne, Playfair, Montserrat, ni ninguna fuente display o decorativa.
-
 ## Reglas operacionales críticas
 - NUNCA borrar de auth.users directamente — solo users.active = false
 - NUNCA guardar el name de fuente_lead directamente — siempre UUID reference
 - NUNCA separar check de cuota y decremento en dos llamadas — usar función RPC atómica
-- El Worker no verifica JWT hoy — organization_id y user_id vienen del body (MVP, deuda documentada)
 - Después de cada commit, hacer git push origin main ANTES de reportar el hash en Slack — el hash local no sirve si no está en remote y Vercel no despliega sin push
 
-## Al arrancar una sesión — protocolo obligatorio
-1. Verificar que MCPs de Supabase, GitHub y Vercel estén conectados
-2. Lanzar pm-agent: genera briefing de sesión desde canvases
-3. Si hay código nuevo: lanzar architecture-qa antes de escribir
-4. Al cerrar: lanzar code-qa si hubo commits, actualizar canvases SESIONES y PENDIENTES
+## Al arrancar una sesión — protocolo
+1. Lanzar pm-agent: verifica drift entre estado documentado (canvases) y estado real (git). No decide prioridades.
+2. Si el cambio toca schema, funciones de DB, pipeline de análisis o paths duales Edge/Worker: lanzar architecture-qa ANTES de escribir código.
+3. Antes del commit final de una sesión con código: lanzar code-qa sobre los archivos modificados.
 
-## Al cerrar sesión — obligatorio sin preguntar
-1. Actualizar SESIONES (F0ALHCSA449) con prepend — nueva entrada arriba
-2. Actualizar PENDIENTES (F0AKR4HNNEB) con replace — mover completados
-3. Postear resumen en #aurisiq (C0AL7UWC1SM)
-
-## Criterios de aceptación — Sesión 1.1 (Schema Supabase)
-La sesión está completa SOLO cuando:
-1. Las 19 tablas existen en Supabase en el orden documentado en el TÉCNICO
-2. organizations tiene access_status, stripe_customer_id, stripe_grace_started_at
-3. analyses.clasificacion tiene CHECK (excelente/buena/regular/deficiente)
-4. La función RPC check_and_increment_analysis_count existe y maneja tier_limit = NULL
-5. Los índices documentados en el TÉCNICO existen
-6. Dos usuarios de organizaciones distintas no pueden ver datos del otro (prueba básica de RLS)
-7. Las tablas vacías de gamificación y objetivos existen
+## Al terminar cualquier tarea
+Commit descriptivo con prefijo del feature (ej. "F45: ..."), push si se instruyó, postear hash + resumen breve en #aurisiq, y PARAR. No encadenes tareas no pedidas.
 
 ## Herramientas disponibles y autonomía de Claude Code
 
@@ -119,7 +111,7 @@ La sesión está completa SOLO cuando:
 - Cambios en RLS policies o security-sensitive code
 
 ## MCPs — variables de entorno requeridas
-⚠️ El repo es PÚBLICO. Credenciales en variables de entorno del sistema, nunca en este archivo.
+Credenciales en variables de entorno del sistema, nunca en este archivo.
 Seguir canvas MCPs (F0AP872K8FL) para configuración completa.
 
 {
