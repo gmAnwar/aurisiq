@@ -3,7 +3,7 @@
 // o derivado del diagnóstico F42 Fase 0. El parser endurecido debe extraer
 // COMPLETO en todos: 5/5 fases + lead_quality + lead_outcome.
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { matchPhaseIds, parseClaudeOutput } from "./parser.ts";
+import { deriveScoreFromPhases, matchPhaseIds, parseClaudeOutput } from "./parser.ts";
 
 const SCORECARD_PHASES = [
   { phase_id: "rapport_primera_impresion", score_max: 10, phase_name: "Rapport y Primera Impresión" },
@@ -150,4 +150,59 @@ Deno.test("enum outcome: 'cerrado completo' con espacio → cerrado_completo", (
   const parsed = parseClaudeOutput(raw, null);
   assertEquals(parsed.lead_outcome, "cerrado_completo");
   assertEquals(parsed.lead_quality, "calificado");
+});
+
+// ─── F44: score_general derivado de la suma de fases ────────
+
+const P = (id: string, score: number, max: number) => ({ phase_id: id, score, score_max: max });
+
+Deno.test("F44 completo con suma != llm_score → sobrescribe y re-clasifica", () => {
+  const phases = [P("a", 5, 10), P("b", 15, 25), P("c", 15, 25), P("d", 16, 25), P("e", 10, 15)]; // suma 61
+  const r = deriveScoreFromPhases(82, "buena", phases, 5);
+  assertEquals(r.score, 61);
+  assertEquals(r.clasificacion, "regular"); // 61 < 65
+  assertEquals(r.phaseSum, 61);
+  assertEquals(r.overridden, true);
+});
+
+Deno.test("F44 extracción parcial (4/5) → conserva el valor del LLM", () => {
+  const phases = [P("a", 8, 10), P("b", 20, 25), P("c", 21, 25), P("d", 22, 25)];
+  const r = deriveScoreFromPhases(82, "buena", phases, 5);
+  assertEquals(r.score, 82);
+  assertEquals(r.clasificacion, "buena");
+  assertEquals(r.phaseSum, null);
+  assertEquals(r.overridden, false);
+});
+
+Deno.test("F44 suma == llm_score → no-op (visible en log via overridden=false + phaseSum)", () => {
+  const phases = [P("a", 8, 10), P("b", 20, 25), P("c", 21, 25), P("d", 21, 25), P("e", 12, 15)]; // suma 82
+  const r = deriveScoreFromPhases(82, "buena", phases, 5);
+  assertEquals(r.score, 82);
+  assertEquals(r.clasificacion, "buena");
+  assertEquals(r.phaseSum, 82);
+  assertEquals(r.overridden, false);
+});
+
+Deno.test("F44 frontera de clasificación: llm 87 (excelente) / suma 84 → buena", () => {
+  const phases = [P("a", 9, 10), P("b", 21, 25), P("c", 21, 25), P("d", 21, 25), P("e", 12, 15)]; // suma 84
+  const r = deriveScoreFromPhases(87, "excelente", phases, 5);
+  assertEquals(r.score, 84);
+  assertEquals(r.clasificacion, "buena"); // 84 < 85
+  assertEquals(r.overridden, true);
+});
+
+Deno.test("F44 phase_ids duplicados → no completa, conserva el LLM", () => {
+  const phases = [P("a", 8, 10), P("a", 20, 25), P("c", 21, 25), P("d", 21, 25), P("e", 12, 15)];
+  const r = deriveScoreFromPhases(82, "buena", phases, 5);
+  assertEquals(r.score, 82);
+  assertEquals(r.overridden, false);
+});
+
+Deno.test("F44 suma con scores clampeados (30/25 cuenta como 25)", () => {
+  const phases = [P("a", 10, 10), P("b", 30, 25), P("c", 25, 25), P("d", 25, 25), P("e", 15, 15)]; // clampeado: 100
+  const r = deriveScoreFromPhases(90, "excelente", phases, 5);
+  assertEquals(r.score, 100);
+  assertEquals(r.phaseSum, 100);
+  assertEquals(r.clasificacion, "excelente");
+  assertEquals(r.overridden, true);
 });

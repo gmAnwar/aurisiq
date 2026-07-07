@@ -50,10 +50,7 @@ export function parseClaudeOutput(
   if (clasMatch) {
     result.clasificacion = clasMatch[1].toLowerCase();
   } else if (result.score_general !== null) {
-    if (result.score_general >= 85) result.clasificacion = "excelente";
-    else if (result.score_general >= 65) result.clasificacion = "buena";
-    else if (result.score_general >= 45) result.clasificacion = "regular";
-    else result.clasificacion = "deficiente";
+    result.clasificacion = deriveClasificacion(result.score_general);
   }
 
   // Phases — case-insensitive, tolerates **Phase Name** (5/10):
@@ -264,6 +261,41 @@ export function matchPhaseIds(
       score_max: parsed.score_max,
     };
   });
+}
+
+// ─── F44: score_general derivado de la suma de fases ───────
+
+// Umbrales canónicos de clasificación. El CHECK de analyses.clasificacion
+// (migración 001) solo restringe los VALORES; los cortes numéricos viven aquí.
+export function deriveClasificacion(score: number): string {
+  if (score >= 85) return "excelente";
+  if (score >= 65) return "buena";
+  if (score >= 45) return "regular";
+  return "deficiente";
+}
+
+// La aritmética del LLM deriva (66% de análisis V5A con delta, hasta +22).
+// Los score_max de cada scorecard suman 100 → score_general ES la suma de fases.
+// Solo sobrescribe con extracción COMPLETA (count exacto + phase_ids únicos);
+// extracción parcial → conserva el valor del LLM, no inventa.
+export function deriveScoreFromPhases(
+  llmScore: number | null,
+  llmClasificacion: string | null,
+  phases: { phase_id: string; score: number; score_max: number }[],
+  expectedCount: number,
+): { score: number | null; clasificacion: string | null; phaseSum: number | null; overridden: boolean } {
+  const uniqueIds = new Set(phases.map((p) => p.phase_id));
+  const complete = expectedCount > 0 && phases.length === expectedCount && uniqueIds.size === phases.length;
+  if (!complete || llmScore === null) {
+    return { score: llmScore, clasificacion: llmClasificacion, phaseSum: null, overridden: false };
+  }
+  // Suma de scores CLAMPEADOS — los mismos valores que quedan en analysis_phases
+  const phaseSum = phases.reduce((acc, p) => acc + Math.min(p.score, p.score_max), 0);
+  const corrected = Math.min(phaseSum, 100);
+  if (corrected === llmScore) {
+    return { score: llmScore, clasificacion: llmClasificacion, phaseSum, overridden: false };
+  }
+  return { score: corrected, clasificacion: deriveClasificacion(corrected), phaseSum, overridden: true };
 }
 
 // ─── Conversion discrepancy detection ──────────────────────

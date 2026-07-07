@@ -323,10 +323,7 @@ function parseClaudeOutput(rawText, extractionPatterns) {
     result.clasificacion = clasMatch[1].toLowerCase();
   } else if (result.score_general !== null) {
     // Fallback: derive from score when Claude uses non-standard labels
-    if (result.score_general >= 85) result.clasificacion = 'excelente';
-    else if (result.score_general >= 65) result.clasificacion = 'buena';
-    else if (result.score_general >= 45) result.clasificacion = 'regular';
-    else result.clasificacion = 'deficiente';
+    result.clasificacion = deriveClasificacion(result.score_general);
   }
 
   // Phases — space only in name (no newlines)
@@ -457,6 +454,32 @@ function parseClaudeOutput(rawText, extractionPatterns) {
   result.siguiente_accion = cleanField(result.siguiente_accion);
 
   return result;
+}
+
+// F44 (espejo de supabase/functions/analyze/parser.ts): umbrales canónicos de
+// clasificación — el CHECK de analyses.clasificacion solo restringe valores.
+function deriveClasificacion(score) {
+  if (score >= 85) return 'excelente';
+  if (score >= 65) return 'buena';
+  if (score >= 45) return 'regular';
+  return 'deficiente';
+}
+
+// F44 (espejo de parser.ts): score_general = suma de scores de fases CLAMPEADOS
+// (los mismos valores que quedan en analysis_phases) cuando la extracción está
+// completa (count exacto + phase_ids únicos). Parcial → conserva el del LLM.
+function deriveScoreFromPhases(llmScore, llmClasificacion, phases, expectedCount) {
+  const uniqueIds = new Set(phases.map((p) => p.phase_id));
+  const complete = expectedCount > 0 && phases.length === expectedCount && uniqueIds.size === phases.length;
+  if (!complete || llmScore === null) {
+    return { score: llmScore, clasificacion: llmClasificacion, phaseSum: null, overridden: false };
+  }
+  const phaseSum = phases.reduce((acc, p) => acc + Math.min(p.score, p.score_max), 0);
+  const corrected = Math.min(phaseSum, 100);
+  if (corrected === llmScore) {
+    return { score: llmScore, clasificacion: llmClasificacion, phaseSum, overridden: false };
+  }
+  return { score: corrected, clasificacion: deriveClasificacion(corrected), phaseSum, overridden: true };
 }
 
 function matchPhaseIds(parsedPhases, scorecardPhases) {
@@ -837,6 +860,24 @@ PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en l
       });
       return;
     }
+
+    // F44: score_general = suma de fases clampeadas cuando la extracción está
+    // completa; parcial → conserva el del LLM. Log de drift siempre.
+    const scoreDerivation = deriveScoreFromPhases(
+      parsed.score_general,
+      parsed.clasificacion,
+      phasesWithIds,
+      (scorecard.phases || []).length,
+    );
+    console.log(`[F44] score_drift ${JSON.stringify({
+      analysis_id: analysisId,
+      llm_score: parsed.score_general,
+      phase_sum: scoreDerivation.phaseSum,
+      delta: scoreDerivation.phaseSum === null || parsed.score_general === null ? null : parsed.score_general - scoreDerivation.phaseSum,
+      overridden: scoreDerivation.overridden,
+    })}`);
+    parsed.score_general = scoreDerivation.score;
+    parsed.clasificacion = scoreDerivation.clasificacion;
 
     console.log(`[debug-final] analysis=${analysisId} score=${parsed.score_general} clas=${parsed.clasificacion} descal=[${validDescal.join(',')}]`);
 

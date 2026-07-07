@@ -25,7 +25,7 @@ import {
   writeJobDiagnostic,
 } from "./db.ts";
 import { buildFullPrompt, callClaude, callClaudeForHighlights } from "./claude.ts";
-import { parseClaudeOutput, matchPhaseIds } from "./parser.ts";
+import { parseClaudeOutput, matchPhaseIds, deriveScoreFromPhases } from "./parser.ts";
 import { ASSEMBLYAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from "../_shared/env.ts";
 import { RejectedAnalysisError } from "../_shared/errors.ts";
 import { mapRejectionToHumanText } from "../_shared/rejection-reasons.ts";
@@ -154,6 +154,24 @@ async function processJobAsync(jobId: string) {
 
     const phasesWithIds = matchPhaseIds(parsed.phases, scorecard.phases || []);
     console.log(`[analyze v23] Parsed ${parsed.phases.length} phases, matched ${phasesWithIds.length}, phase_ids: ${JSON.stringify(phasesWithIds.map(p => p.phase_id))}`);
+
+    // F44: score_general = suma de fases clampeadas cuando la extracción está
+    // completa; parcial → conserva el del LLM. Log de drift siempre.
+    const scoreDerivation = deriveScoreFromPhases(
+      parsed.score_general,
+      parsed.clasificacion,
+      phasesWithIds,
+      (scorecard.phases || []).length,
+    );
+    console.log(`[F44] score_drift ${JSON.stringify({
+      analysis_id: analysisId,
+      llm_score: parsed.score_general,
+      phase_sum: scoreDerivation.phaseSum,
+      delta: scoreDerivation.phaseSum === null || parsed.score_general === null ? null : parsed.score_general - scoreDerivation.phaseSum,
+      overridden: scoreDerivation.overridden,
+    })}`);
+    parsed.score_general = scoreDerivation.score;
+    parsed.clasificacion = scoreDerivation.clasificacion;
 
     // F42: detector de extracción parcial. El análisis SE COMPLETA igual (data
     // parcial > error para la captadora), pero deja de ser silencioso.
