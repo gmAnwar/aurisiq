@@ -111,7 +111,7 @@ export default function NuevaLlamadaPage() {
   const MIN_WORDS = transcriptionSource === "audio" ? 50 : 200;
 
   const TRANSCRIPT_LIMITS = {
-    presencial: { maxChars: 40000, maxRecordingMin: 50, warnAtChars: 25000 },
+    presencial: { maxChars: 60000, maxRecordingMin: 90, warnAtChars: 25000 },
     telefonica: { maxChars: 20000, maxRecordingMin: 25, warnAtChars: 12000 },
   } as const;
 

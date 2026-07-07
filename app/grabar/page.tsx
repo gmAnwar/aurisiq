@@ -58,7 +58,7 @@ export default function GrabarPage() {
   // Waveform handled by <WaveformCanvas /> component
 
   // /grabar assumes presencial visit by design; telefónico flows route to /analisis/nueva.
-  const maxRecordingMin = 50;
+  const maxRecordingMin = 90;
   const maxRecordingSec = maxRecordingMin * 60;
 
   // Unique scorecards for toggle
