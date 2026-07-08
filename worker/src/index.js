@@ -278,7 +278,8 @@ async function callClaude(env, systemPrompt, userMessage, alertContext = null) {
         user_id: alertContext.user_id || null,
       });
     }
-    throw new Error(`Claude API error: ${res.status} ${err}`);
+    // F40 1b: status HTTP estructurado para clasificar error_kind en el catch
+    throw new ApiStatusError(res.status, 'anthropic', `Claude API error: ${res.status} ${err}`);
   }
 
   const data = await res.json();
@@ -454,6 +455,30 @@ function parseClaudeOutput(rawText, extractionPatterns) {
   result.siguiente_accion = cleanField(result.siguiente_accion);
 
   return result;
+}
+
+// F40 1b (espejo de _shared/errors.ts): error de API externa con status HTTP
+// ESTRUCTURADO — antes el status viajaba embebido en err.message.
+class ApiStatusError extends Error {
+  constructor(statusCode, service, message) {
+    super(message);
+    this.name = 'ApiStatusError';
+    this.statusCode = statusCode;
+    this.service = service;
+  }
+}
+
+// F40 1b (espejo de _shared/errors.ts classifyError): mapeo canónico
+// condición → error_kind. Ambiguo → infra_transient (default conservador).
+// El Worker no tiene los paths RejectedAnalysisError/AudioContentError del
+// Edge (features v22+), por eso este espejo solo clasifica ApiStatusError.
+function classifyError(err) {
+  if (err instanceof ApiStatusError) {
+    if (err.statusCode === 429) return 'quota';
+    if (err.statusCode === 404 || err.statusCode === 400) return 'needs_deploy';
+    return 'infra_transient';
+  }
+  return 'infra_transient';
 }
 
 // F44 (espejo de supabase/functions/analyze/parser.ts): umbrales canónicos de
@@ -953,7 +978,11 @@ PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en l
       }
     }
   } catch (err) {
-    console.error(`Analysis ${analysisId} failed:`, err.message);
+    // F40 1b: clasificación en origen. Divergencia declarada: el path del
+    // Worker escribe analyses/analysis_jobs, que NO tienen columna error_kind
+    // (solo background_jobs la tiene) — el kind queda en logs para diagnóstico.
+    const errorKind = classifyError(err);
+    console.error(`Analysis ${analysisId} failed:`, err.message, `error_kind=${errorKind}`);
     await supabaseUpdate(env, 'analyses', 'id', analysisId, { status: 'error' });
     await supabaseUpdate(env, 'analysis_jobs', 'analysis_id', analysisId, {
       status: 'error',

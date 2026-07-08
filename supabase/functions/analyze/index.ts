@@ -27,7 +27,7 @@ import {
 import { buildFullPrompt, callClaude, callClaudeForHighlights } from "./claude.ts";
 import { parseClaudeOutput, matchPhaseIds, deriveScoreFromPhases } from "./parser.ts";
 import { ASSEMBLYAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from "../_shared/env.ts";
-import { RejectedAnalysisError } from "../_shared/errors.ts";
+import { RejectedAnalysisError, ApiStatusError, AudioContentError, classifyError } from "../_shared/errors.ts";
 import { mapRejectionToHumanText } from "../_shared/rejection-reasons.ts";
 import { alertSlack, type AlertContext } from "../_shared/alert.ts";
 
@@ -69,7 +69,7 @@ async function processJobAsync(jobId: string) {
     if (!job.quota_consumed) {
       const quotaOk = await checkQuota(job.organization_id);
       if (!quotaOk) {
-        await failJob(jobId, "Monthly analysis quota exceeded", job.retry_count, 0);
+        await failJob(jobId, "Monthly analysis quota exceeded", job.retry_count, 0, "quota");
         return;
       }
       await markQuotaConsumed(jobId);
@@ -248,7 +248,9 @@ async function processJobAsync(jobId: string) {
     }
 
     const msg = err instanceof Error ? err.message : "Unknown error";
-    console.error(`[analyze] Error processing job ${jobId}: ${msg}`);
+    // F40 1b: clasificación en origen — el tipo del error sobrevive hasta aquí
+    const errorKind = classifyError(err);
+    console.error(`[analyze] Error processing job ${jobId}: ${msg} error_kind=${errorKind}`);
 
     if (analysisId) {
       try { await failAnalysis(analysisId, msg); } catch { /* best effort */ }
@@ -256,7 +258,7 @@ async function processJobAsync(jobId: string) {
 
     try {
       const job = await getJob(jobId);
-      await failJob(jobId, msg, job.retry_count, job.max_retries);
+      await failJob(jobId, msg, job.retry_count, job.max_retries, errorKind);
     } catch { /* can't even read job */ }
   }
 }
@@ -303,7 +305,7 @@ async function transcribeFromStorage(
         user_id: alertCtx.user_id,
       });
     }
-    throw new Error(`AssemblyAI upload failed: ${uploadRes.status}`);
+    throw new ApiStatusError(uploadRes.status, "assemblyai", `AssemblyAI upload failed: ${uploadRes.status}`);
   }
   const { upload_url } = await uploadRes.json();
 
@@ -327,7 +329,7 @@ async function transcribeFromStorage(
         user_id: alertCtx.user_id,
       });
     }
-    throw new Error(`AssemblyAI transcript request failed: ${transcriptRes.status}`);
+    throw new ApiStatusError(transcriptRes.status, "assemblyai", `AssemblyAI transcript request failed: ${transcriptRes.status}`);
   }
   const { id: transcriptId } = await transcriptRes.json();
 
@@ -350,12 +352,12 @@ async function transcribeFromStorage(
           user_id: alertCtx.user_id,
         });
       }
-      throw new Error(`AssemblyAI polling failed: ${pollRes.status}`);
+      throw new ApiStatusError(pollRes.status, "assemblyai", `AssemblyAI polling failed: ${pollRes.status}`);
     }
     const pollData = await pollRes.json();
     if (pollData.status === "completed") {
       if (!pollData.text || pollData.text.trim().length === 0) {
-        throw new Error("No se detectó audio hablado en la grabación");
+        throw new AudioContentError("No se detectó audio hablado en la grabación");
       }
       return pollData.text;
     }
@@ -363,7 +365,7 @@ async function transcribeFromStorage(
       // NO alert — pollData.status='error' es per-audio failure (audio corrupt
       // o no procesable), no infra. Plan G captura esto downstream como
       // analyses.status='rechazado'.
-      throw new Error(`AssemblyAI error: ${pollData.error || "unknown"}`);
+      throw new AudioContentError(`AssemblyAI error: ${pollData.error || "unknown"}`);
     }
   }
   throw new Error("AssemblyAI transcription timed out (180s)");

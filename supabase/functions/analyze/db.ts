@@ -408,13 +408,16 @@ export async function completeJob(jobId: string, analysisId: string) {
   }).eq("id", jobId);
 }
 
-export async function failJob(jobId: string, errorMessage: string, retryCount: number, maxRetries: number) {
+export async function failJob(jobId: string, errorMessage: string, retryCount: number, maxRetries: number, errorKind: string | null = null) {
   const isRetryable = retryCount < maxRetries;
   const backoffSeconds = [10, 60, 300][Math.min(retryCount, 2)];
 
   await db().from("background_jobs").update({
     status: isRetryable ? "pending" : "error",
     error_message: errorMessage,
+    // F40 1b: kind del último fallo — se escribe también en retries para que
+    // un kill posterior del cron huérfano pueda preservarlo (COALESCE).
+    error_kind: errorKind,
     retry_count: retryCount + 1,
     next_retry_at: isRetryable ? new Date(Date.now() + backoffSeconds * 1000).toISOString() : null,
     completed_at: isRetryable ? null : new Date().toISOString(),
@@ -425,6 +428,8 @@ export async function rejectJob(jobId: string, reason: string) {
   await db().from("background_jobs").update({
     status: "rejected",
     error_message: reason,
+    // F40 1b: rechazo = problema de contenido por definición
+    error_kind: "content",
     completed_at: new Date().toISOString(),
     next_retry_at: null,
   }).eq("id", jobId);

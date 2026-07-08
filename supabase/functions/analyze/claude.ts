@@ -2,6 +2,7 @@ import { ANTHROPIC_API_KEY, CLAUDE_MODEL, CLAUDE_API_URL, CLAUDE_MAX_TOKENS } fr
 import type { Scorecard, ScorecardStructure, DescalCategory, FunnelStage } from "./types.ts";
 import { type RejectionReason, isRejectionReason } from "../_shared/rejection-reasons.ts";
 import { alertSlack, parseAnthropicError, type AlertContext } from "../_shared/alert.ts";
+import { ApiStatusError } from "../_shared/errors.ts";
 
 // Re-export AlertContext so callers can import it from a single module.
 export type { AlertContext };
@@ -277,7 +278,8 @@ export async function callClaude(
           user_id: alertCtx.user_id,
         });
       }
-      throw new Error(`Claude API error: ${res.status} ${err}`);
+      // F40 1b: status HTTP estructurado para clasificar error_kind en el catch
+      throw new ApiStatusError(res.status, "anthropic", `Claude API error: ${res.status} ${err}`);
     }
 
     const data = await res.json();
