@@ -126,9 +126,25 @@ export function parseClaudeOutput(
       .replace(/\s+/g, "_");         // "cerrado completo" → "cerrado_completo"
     return [...allowed].sort((a, b) => b.length - a.length).find((e) => val.startsWith(e)) ?? null;
   };
+  // F42b: el valor de calidad suele venir envuelto en prosa — startsWith lo
+  // rechazaba. Match por token con word-boundary, longest-first (descalificado
+  // antes que calificado, evita el substring trap) + guarda de negación.
+  const matchQualityEnum = (raw: string): string | null => {
+    const val = raw.toLowerCase();
+    for (const e of [...QUALITY_ENUM].sort((a, b) => b.length - a.length)) {
+      const re = new RegExp(`(^|[^a-záéíóúñ])${e}([^a-záéíóúñ]|$)`, "i");
+      if (re.test(val)) {
+        const before = val.slice(0, val.indexOf(e)).trim();
+        if (e === "calificado" && /\b(no|aun no|aún no|sin)\s*$/.test(before)) return "indeterminado";
+        return e;
+      }
+    }
+    return null;
+  };
   const scanQuality = (text: string): string | null => {
-    const m = text.match(/Calidad\s+del\s+lead\s*\*{0,2}\s*:\s*([^\n]+)/i);
-    return m ? matchEnumStart(m[1], QUALITY_ENUM) : null;
+    const m = text.match(/Calidad\s+(?:del?\s+lead)?\s*\*{0,2}\s*:\s*([^\n]+)/i)
+          || text.match(/Calidad\s*\*{0,2}\s*:\s*([^\n]+)/i);
+    return m ? matchQualityEnum(m[1]) : null;
   };
   const scanOutcome = (text: string): string | null => {
     const m = text.match(/Resultado\s+de\s+esta\s+conversaci[oó]n\s*\*{0,2}\s*:\s*([^\n]+)/i);
