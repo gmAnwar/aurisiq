@@ -206,3 +206,45 @@ Deno.test("F44 suma con scores clampeados (30/25 cuenta como 25)", () => {
   assertEquals(r.clasificacion, "excelente");
   assertEquals(r.overridden, true);
 });
+
+// ─── F42b: lead_quality en prosa, negación, substring y label-variantes ─────
+
+Deno.test("F42b prosa: 'El lead es calificado' → calificado", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}`.replace(
+    "Calidad del lead: calificado",
+    "Calidad del lead: El lead es calificado",
+  );
+  assertEquals(parseClaudeOutput(raw, null).lead_quality, "calificado");
+});
+
+Deno.test("F42b prefijo: 'Pendiente, pero calificado' → calificado", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}`.replace(
+    "Calidad del lead: calificado",
+    "Calidad del lead: Pendiente, pero calificado",
+  );
+  assertEquals(parseClaudeOutput(raw, null).lead_quality, "calificado");
+});
+
+Deno.test("F42b negación: 'no calificado aún' → indeterminado", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}`.replace(
+    "Calidad del lead: calificado",
+    "Calidad del lead: no calificado aún",
+  );
+  assertEquals(parseClaudeOutput(raw, null).lead_quality, "indeterminado");
+});
+
+Deno.test("F42b substring trap: 'descalificado por gravamen' → descalificado (NO calificado)", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}`.replace(
+    "Calidad del lead: calificado",
+    "Calidad del lead: descalificado por gravamen",
+  );
+  assertEquals(parseClaudeOutput(raw, null).lead_quality, "descalificado");
+});
+
+Deno.test("F42b label-variante: 'Calidad: calificado' (sin 'del lead') → calificado", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}`.replace(
+    "Calidad del lead: calificado",
+    "Calidad: calificado",
+  );
+  assertEquals(parseClaudeOutput(raw, null).lead_quality, "calificado");
+});
