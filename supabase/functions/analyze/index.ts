@@ -23,13 +23,20 @@ import {
   rejectAnalysis,
   markQuotaConsumed,
   writeJobDiagnostic,
+  writeParserDebug,
 } from "./db.ts";
 import { buildFullPrompt, callClaude, callClaudeForHighlights } from "./claude.ts";
 import { parseClaudeOutput, matchPhaseIds, deriveScoreFromPhases } from "./parser.ts";
+import { buildParserDebug } from "./parser-debug.ts";
 import { ASSEMBLYAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from "../_shared/env.ts";
 import { RejectedAnalysisError, ApiStatusError, AudioContentError, classifyError } from "../_shared/errors.ts";
 import { mapRejectionToHumanText } from "../_shared/rejection-reasons.ts";
 import { alertSlack, type AlertContext } from "../_shared/alert.ts";
+
+// F46: marcador interno de versión del código (fuente: header del archivo). NO
+// es el contador de deployment de Supabase (que va por su cuenta). Se persiste
+// en analysis_parser_debug.edge_version para correlacionar el diagnóstico.
+const EDGE_VERSION = "v23";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -179,10 +186,28 @@ async function processJobAsync(jobId: string) {
     // cero PII en logs de análisis sanos.
     const expectedPhases = (scorecard.phases || []).length;
     const promptHasEstado = systemPrompt.includes("ESTADO DEL LEAD");
-    const missingLead = promptHasEstado && (parsed.lead_quality === null || parsed.lead_outcome === null);
-    if (phasesWithIds.length < expectedPhases || missingLead) {
-      const detail = `phases=${phasesWithIds.length}/${expectedPhases} lead_quality=${parsed.lead_quality} lead_outcome=${parsed.lead_outcome} scorecard=${job.payload?.scorecard_id}`;
+    // F46: buildParserDebug es la fuente única de "¿extracción parcial?" — null =
+    // camino feliz (cero escritura). Non-null = disparó una de las dos ramas.
+    const parserDebug = buildParserDebug({
+      rawOutput,
+      rawEstadoBlock: parsed.raw_estado_block,
+      leadQuality: parsed.lead_quality,
+      leadOutcome: parsed.lead_outcome,
+      promptHasEstado,
+      phasesFoundIds: phasesWithIds.map((p) => p.phase_id),
+      phasesExpected: expectedPhases,
+      edgeVersion: EDGE_VERSION,
+    });
+    if (parserDebug) {
+      const detail = `phases=${parserDebug.phases_found}/${parserDebug.phases_expected} lead_quality=${parsed.lead_quality} lead_outcome=${parsed.lead_outcome} trigger=${parserDebug.trigger} scorecard=${job.payload?.scorecard_id}`;
       console.error(`[F42] partial_extraction job=${jobId} ${detail} RAW_OUTPUT: ${rawOutput}`);
+      // F46: persistir el diagnóstico (incluye raw crudo con PII) en tabla aparte.
+      // try/catch propio: un fallo de diagnóstico JAMÁS degrada un análisis completado.
+      try {
+        await writeParserDebug(analysisId, parserDebug);
+      } catch (dbgErr) {
+        console.error(`[F46] parser_debug write failed job=${jobId}: ${dbgErr instanceof Error ? dbgErr.message : "unknown"}`);
+      }
       try {
         await alertSlack({
           service: "parser",
@@ -191,6 +216,8 @@ async function processJobAsync(jobId: string) {
           runtime: "edge_function",
           organization_id: job.organization_id,
           user_id: job.user_id,
+          // F46: solo el id — el raw_estado con PII se diagnostica contra la DB, NO a Slack.
+          analysis_id: analysisId,
         });
       } catch { /* alerting nunca bloquea el análisis */ }
     }

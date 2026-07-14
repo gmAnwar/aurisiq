@@ -2,6 +2,7 @@ import { getServiceClient } from "../_shared/supabase-client.ts";
 import { TIER_LIMITS } from "../_shared/env.ts";
 import type { BackgroundJob, ParsedOutput, MatchedPhase, DescalCategory, FunnelStage } from "./types.ts";
 import { detectConversionDiscrepancy } from "./parser.ts";
+import type { ParserDebugRow } from "./parser-debug.ts";
 
 // Inlined from supabase/functions/_shared/phone.ts to bypass Edge Function
 // bundle issue (Bug B, 2026-04-27). Canonical SoT lives in the file linked
@@ -398,6 +399,28 @@ export async function writeJobDiagnostic(jobId: string, message: string) {
   try {
     await db().from("background_jobs").update({ error_message: message }).eq("id", jobId);
   } catch { /* non-blocking */ }
+}
+
+// F46: persiste el diagnóstico de partial_extraction en tabla aparte (RLS
+// deny-all). INSERT append-only, NO update — un redrive que vuelve a fallar deja
+// historial, y no hay riesgo de que el UPDATE de completado pise el diagnóstico.
+// La fila ya viene con los strings PII saneados de null bytes (buildParserDebug).
+// Tira en error para que el call-site loguee; NUNCA debe tumbar el análisis.
+export async function writeParserDebug(analysisId: string, row: ParserDebugRow) {
+  const { error } = await db().from("analysis_parser_debug").insert({
+    analysis_id: analysisId,
+    trigger: row.trigger,
+    missing_fields: row.missing_fields,
+    phases_expected: row.phases_expected,
+    phases_found: row.phases_found,
+    phases_found_ids: row.phases_found_ids,
+    raw_estado: row.raw_estado,
+    estado_header_missing: row.estado_header_missing,
+    raw_output_capture: row.raw_output_capture,
+    raw_output_truncated: row.raw_output_truncated,
+    edge_version: row.edge_version,
+  });
+  if (error) throw new Error(`parser_debug insert failed: ${error.message}`);
 }
 
 export async function completeJob(jobId: string, analysisId: string) {

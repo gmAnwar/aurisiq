@@ -27,6 +27,7 @@ export function parseClaudeOutput(
     lead_status: null,
     lead_quality: null,
     lead_outcome: null,
+    raw_estado_block: null,
     descalificacion: [],
     prospect_name: null,
     prospect_zone: null,
@@ -152,6 +153,9 @@ export function parseClaudeOutput(
   };
   const estadoBlock = rawText.match(/\n(?:-{3,}|\*{3,})\s*\n+#{0,4}\s*\*{0,2}\s*ESTADO\s+DEL\s+LEAD\s*\*{0,2}\s*\n+([\s\S]+?)(?:\n(?:-{3,}|\*{3,})|\n#{0,4}\s*\*{0,2}(?:SCORE|DIAGN|PATR[OÓ]N|MOMENTO|OBJECI|SIGUIENTE|ACCI[OÓ]N|DESCALIF|ETAPA|CHECKLIST|PROSPECTO)|\n*$)/i);
   if (estadoBlock) {
+    // F46: preservar el bloque crudo para diagnóstico de partial_extraction.
+    // Solo se persiste (tabla analysis_parser_debug) cuando el detector F42 dispara.
+    result.raw_estado_block = estadoBlock[1];
     result.lead_quality = scanQuality(estadoBlock[1]);
     result.lead_outcome = scanOutcome(estadoBlock[1]);
   }

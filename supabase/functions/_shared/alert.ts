@@ -12,12 +12,15 @@ export interface AlertContext {
 }
 
 export interface AlertPayload {
-  service: string; // 'anthropic' | 'anthropic_highlights' | 'assemblyai' | 'smoke_test'
+  service: string; // 'anthropic' | 'anthropic_highlights' | 'assemblyai' | 'smoke_test' | 'parser'
   error_code: string;
   error_message: string;
   runtime: "edge_function";
   organization_id?: string | null;
   user_id?: string | null;
+  // F46: solo lo consume parser:partial_extraction — id para diagnosticar contra
+  // la DB (analysis_parser_debug). NUNCA mandar raw/PII a Slack, solo el id.
+  analysis_id?: string | null;
 }
 
 interface AlertResult {
@@ -70,9 +73,12 @@ export async function alertSlack(payload: AlertPayload): Promise<AlertResult> {
 
   // sv-SE locale produce "YYYY-MM-DD HH:MM:SS" iso-like.
   const ts = new Date().toLocaleString("sv-SE", { timeZone: "America/Mexico_City" });
+  // F46: línea propia (no dentro de detail, que trunca a 500). Solo aparece
+  // cuando el payload la trae — no ensucia alertas anthropic/assemblyai.
+  const analysisLine = payload.analysis_id ? `\nanalysis: ${payload.analysis_id}` : "";
   const text = `🚨 F21 ${errorType} (${payload.runtime})
 org: ${orgSlug || payload.organization_id || "unknown"}
-user: ${payload.user_id || "unknown"}
+user: ${payload.user_id || "unknown"}${analysisLine}
 time: ${ts} CST
 detail: ${(payload.error_message || "no detail").slice(0, 500)}`;
 
