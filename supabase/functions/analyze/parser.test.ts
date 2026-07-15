@@ -248,3 +248,31 @@ Deno.test("F42b label-variante: 'Calidad: calificado' (sin 'del lead') → calif
   );
   assertEquals(parseClaudeOutput(raw, null).lead_quality, "calificado");
 });
+
+// ─── F42c: label "Calidad del prospecto" (drift inducido por TONE_BLOCK) ────
+
+Deno.test("F42c caso real ee7104f7: 'Calidad del prospecto: indeterminado' → indeterminado", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}`.replace(
+    "Calidad del lead: calificado",
+    "Calidad del prospecto: indeterminado\nRazonamiento de calidad: La propiedad existe, tiene escrituras y el crédito fue cancelado, pero no puede captarse porque las escrituras no están a nombre de la propietaria.",
+  );
+  const parsed = parseClaudeOutput(raw, null);
+  assertEquals(parsed.lead_quality, "indeterminado");
+  assertEquals(parsed.lead_outcome, "pospuesto_con_agenda");
+});
+
+Deno.test("F42c guarda de negación viva con label prospecto: 'no calificado' → indeterminado", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}`.replace(
+    "Calidad del lead: calificado",
+    "Calidad del prospecto: no calificado por el momento",
+  );
+  assertEquals(parseClaudeOutput(raw, null).lead_quality, "indeterminado");
+});
+
+Deno.test("F42c longest-first vivo con label prospecto: 'descalificado' NO matchea calificado", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}`.replace(
+    "Calidad del lead: calificado",
+    "Calidad del prospecto: descalificado por gravamen irresoluble",
+  );
+  assertEquals(parseClaudeOutput(raw, null).lead_quality, "descalificado");
+});

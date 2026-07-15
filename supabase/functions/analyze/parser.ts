@@ -143,7 +143,10 @@ export function parseClaudeOutput(
     return null;
   };
   const scanQuality = (text: string): string | null => {
-    const m = text.match(/Calidad\s+(?:del?\s+lead)?\s*\*{0,2}\s*:\s*([^\n]+)/i)
+    // F42c: el TONE_BLOCK prohíbe "lead" (anglicismo → "prospecto") y el modelo
+    // aplica esa regla al LABEL del template → emite "Calidad del prospecto:".
+    // Cubrir ambos sustantivos. matchQualityEnum ya reconocía los 3 valores.
+    const m = text.match(/Calidad\s+(?:del?\s+(?:lead|prospecto))?\s*\*{0,2}\s*:\s*([^\n]+)/i)
           || text.match(/Calidad\s*\*{0,2}\s*:\s*([^\n]+)/i);
     return m ? matchQualityEnum(m[1]) : null;
   };
