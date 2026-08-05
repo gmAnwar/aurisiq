@@ -3,6 +3,7 @@ import { TIER_LIMITS } from "../_shared/env.ts";
 import type { BackgroundJob, ParsedOutput, MatchedPhase, DescalCategory, FunnelStage } from "./types.ts";
 import { detectConversionDiscrepancy } from "./parser.ts";
 import { buildParserDebugInsertRow, type ParserDebugRow } from "./parser-debug.ts";
+import { buildAnalysisUpdatePayload } from "./analysis-payload.ts";
 
 // Inlined from supabase/functions/_shared/phone.ts to bypass Edge Function
 // bundle issue (Bug B, 2026-04-27). Canonical SoT lives in the file linked
@@ -239,30 +240,18 @@ export async function writeAnalysisResults(
     console.warn(`[phone] invalid phone format, defaulting to null: ${String(rawPhone).slice(0, 20)}`);
   }
 
-  const updatePayload: Record<string, unknown> = {
-    score_general: Math.min(parsed.score_general!, 100),
-    clasificacion: parsed.clasificacion,
-    momento_critico: parsed.momento_critico,
-    patron_error: parsed.patron_error,
-    objecion_principal: parsed.objecion_principal,
-    siguiente_accion: parsed.siguiente_accion,
-    conversion_discrepancy: discrepancy,
-    lead_quality: parsed.lead_quality,
-    lead_outcome: parsed.lead_outcome,
-    categoria_descalificacion: validDescal,
-    prospect_name: parsed.prospect_name,
-    prospect_zone: parsed.prospect_zone,
-    property_type: parsed.property_type,
-    business_type: parsed.business_type,
-    equipment_type: parsed.equipment_type,
-    sale_reason: parsed.sale_reason,
-    prospect_phone: normalizedPhone,
-    checklist_results: parsed.checklist_results,
-    notes: job.payload.call_notes || null,
-    related_analysis_id: relatedId,
-    highlights: parsed.highlights.length > 0 ? parsed.highlights : [],
-    status: "completado",
-  };
+  // Payload construido en analysis-payload.ts (puro) — el guard de la suite
+  // verifica ahí el contrato EXTRACTION_WRITABLE_COLUMNS ⊆ payload. Los
+  // valores con I/O (relatedId) o atados a este módulo (normalizePhone, Bug B
+  // del bundle) entran ya resueltos.
+  const updatePayload: Record<string, unknown> = buildAnalysisUpdatePayload({
+    parsed,
+    callNotes: job.payload.call_notes || null,
+    discrepancy,
+    relatedId,
+    normalizedPhone,
+    validDescal,
+  });
 
   // Only override funnel_stage_id if user didn't send one
   if (detectedStageId && !job.payload.funnel_stage_id) {

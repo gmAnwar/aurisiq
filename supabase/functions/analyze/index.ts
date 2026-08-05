@@ -38,6 +38,13 @@ import { alertSlack, type AlertContext } from "../_shared/alert.ts";
 // en analysis_parser_debug.edge_version para correlacionar el diagnóstico.
 const EDGE_VERSION = "v23";
 
+// Config inválida de extraction_patterns ya alertada por este isolate —
+// dedupe en memoria: primera aparición del scorecard → alerta F21; después
+// solo console.warn. Es un error ESTÁTICO de configuración (no cambia entre
+// análisis): alertar por análisis sería flood determinista. El reciclado de
+// isolates produce re-avisos ocasionales — balance deseado, cero estado en DB.
+const alertedInvalidConfigScorecards = new Set<string>();
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders() });
@@ -179,6 +186,26 @@ async function processJobAsync(jobId: string) {
     })}`);
     parsed.score_general = scoreDerivation.score;
     parsed.clasificacion = scoreDerivation.clasificacion;
+
+    // Persistencia: columns declaradas que el pipeline no puede escribir
+    // (fuera de EXTRACTION_WRITABLE_COLUMNS) — warn siempre, alerta deduplicada.
+    if (parsed.unsupported_extraction_columns.length > 0) {
+      const scorecardId = String(payload.scorecard_id ?? "unknown");
+      console.warn(`[parser] extraction_config_invalid scorecard=${scorecardId} columns=${parsed.unsupported_extraction_columns.join(",")}`);
+      if (!alertedInvalidConfigScorecards.has(scorecardId)) {
+        alertedInvalidConfigScorecards.add(scorecardId);
+        try {
+          await alertSlack({
+            service: "parser",
+            error_code: "extraction_config_invalid",
+            error_message: `columns no persistibles en extraction_patterns: ${parsed.unsupported_extraction_columns.join(",")} scorecard=${scorecardId}`,
+            runtime: "edge_function",
+            organization_id: job.organization_id,
+            user_id: job.user_id,
+          });
+        } catch { /* alerting nunca bloquea el análisis */ }
+      }
+    }
 
     // F42: detector de extracción parcial. El análisis SE COMPLETA igual (data
     // parcial > error para la captadora), pero deja de ser silencioso.

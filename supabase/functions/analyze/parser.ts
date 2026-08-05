@@ -11,6 +11,25 @@ function hc(keyword: string): string {
   return `\\*{0,2}\\s*${keyword}\\s*:?\\s*\\*{0,2}\\s*:?\\s*`;
 }
 
+// Fuente única de la capa de persistencia: las columns de extraction_patterns
+// que el pipeline REALMENTE escribe — intersección ParsedOutput ∩
+// buildAnalysisUpdatePayload (el guard de la suite verifica ambos lados en
+// runtime, sin listas espejo). Una column declarada fuera de este set se
+// ignora en el data path y se reporta como config inválida
+// (extraction_config_invalid) — NUNCA como miss F47: el problema es la
+// config del scorecard, no el output del modelo.
+export const EXTRACTION_WRITABLE_COLUMNS: ReadonlySet<string> = new Set([
+  "prospect_name",
+  "prospect_zone",
+  "property_type",
+  "business_type",
+  "equipment_type",
+  "sale_reason",
+  "prospect_phone",
+  "vehicle_interest",
+  "financing_type",
+]);
+
 // ─── Parse Claude output ───────────────────────────────────
 
 export function parseClaudeOutput(
@@ -57,6 +76,8 @@ export function parseClaudeOutput(
     property_type: null,
     business_type: null,
     equipment_type: null,
+    vehicle_interest: null,
+    financing_type: null,
     sale_reason: null,
     detected_stage_name: null,
     prospect_phone: null,
@@ -64,6 +85,7 @@ export function parseClaudeOutput(
     highlights: [],
     phases: [],
     extraction_label_misses: [],
+    unsupported_extraction_columns: [],
   };
 
   // Score — tolerates **SCORE GENERAL:** 85
@@ -215,6 +237,13 @@ export function parseClaudeOutput(
       ? extractionPatterns
       : LEGACY_EXTRACTION_PATTERNS;
   for (const pat of activePatterns) {
+    if (!EXTRACTION_WRITABLE_COLUMNS.has(pat.column)) {
+      // Config inválida del scorecard: destino no persistible — fuera del
+      // data path y jamás como miss F47 (el caller alerta
+      // extraction_config_invalid con dedupe por scorecard).
+      result.unsupported_extraction_columns.push(pat.column);
+      continue;
+    }
     const re = new RegExp(`${hc(pat.key)}(.+?)(?:\\n|$)`, "i");
     const m = rawText.match(re);
     if (!m) {

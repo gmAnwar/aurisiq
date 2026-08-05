@@ -95,6 +95,8 @@ export interface ParsedOutput {
   property_type: string | null;
   business_type: string | null;
   equipment_type: string | null;
+  vehicle_interest: string | null;
+  financing_type: string | null;
   sale_reason: string | null;
   detected_stage_name: string | null;
   prospect_phone: string | null;
@@ -105,6 +107,10 @@ export interface ParsedOutput {
   // los filtra contra el systemPrompt (filterExpectedMisses) antes del
   // detector — un pattern que el prompt nunca pidió no cuenta como pérdida.
   extraction_label_misses: { key: string; column: string }[];
+  // Persistencia: columns declaradas en extraction_patterns que NO están en
+  // EXTRACTION_WRITABLE_COLUMNS — config inválida del scorecard, se ignoran
+  // en el data path y disparan la alerta extraction_config_invalid.
+  unsupported_extraction_columns: string[];
 }
 
 export interface MatchedPhase {

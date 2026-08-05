@@ -412,3 +412,42 @@ Deno.test("F47-B array vacío legítimo → [] (sin causal, calificado)", () => 
   const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}\n\nDESCALIFICACION: []`;
   assertEquals(parseClaudeOutput(raw, null).descalificacion, []);
 });
+
+// ─── Persistencia: set canónico y columns no escribibles ────────────────────
+
+Deno.test("persistencia: VEHICULO_INTERES y TIPO_FINANCIAMIENTO se extraen a campos reales", () => {
+  const patterns = [
+    { key: "VEHICULO_INTERES", regex: "", column: "vehicle_interest" },
+    { key: "TIPO_FINANCIAMIENTO", regex: "", column: "financing_type" },
+  ];
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}\n\nVEHICULO_INTERES: SUV Equinox 2024\nTIPO_FINANCIAMIENTO: Crédito bancario 48 meses`;
+  const parsed = parseClaudeOutput(raw, patterns);
+  assertEquals(parsed.vehicle_interest, "SUV Equinox 2024");
+  assertEquals(parsed.financing_type, "Crédito bancario 48 meses");
+  assertEquals(parsed.extraction_label_misses, []);
+  assertEquals(parsed.unsupported_extraction_columns, []);
+});
+
+Deno.test("persistencia: column fuera del set se ignora — ni miss F47, ni key stray", () => {
+  const patterns = [
+    { key: "PROSPECTO_NOMBRE", regex: "", column: "prospect_name" },
+    { key: "MOTIVO_CONSULTA", regex: "", column: "notes" },
+  ];
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}\n\nPROSPECTO_NOMBRE: Laura\nMOTIVO_CONSULTA: dolor de muela`;
+  const parsed = parseClaudeOutput(raw, patterns);
+  assertEquals(parsed.unsupported_extraction_columns, ["notes"]);
+  assertEquals(parsed.extraction_label_misses, []);
+  assertEquals(parsed.prospect_name, "Laura");
+  assertEquals("notes" in parsed, false, "la column inválida no debe escribirse ni como key stray");
+});
+
+Deno.test("persistencia: column fuera del set con label AUSENTE → tampoco cuenta como miss", () => {
+  const patterns = [
+    { key: "PROSPECTO_NOMBRE", regex: "", column: "prospect_name" },
+    { key: "CAMPO_FANTASMA", regex: "", column: "columna_inexistente" },
+  ];
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}\n\nPROSPECTO_NOMBRE: Laura`;
+  const parsed = parseClaudeOutput(raw, patterns);
+  assertEquals(parsed.unsupported_extraction_columns, ["columna_inexistente"]);
+  assertEquals(parsed.extraction_label_misses, [], "config inválida jamás se disfraza de miss F47, esté o no el label");
+});
