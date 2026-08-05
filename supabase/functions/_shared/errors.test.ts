@@ -38,7 +38,7 @@ Deno.test("F40 1b: ambiguo → infra_transient (default conservador)", () => {
 // redrive por 'infra_transient' resucitaría los kills del cron huérfano.
 Deno.test("F40 1b: redrive SQL — exclusión orphan incondicional, separada del filtro por kind", async () => {
   const sql = await Deno.readTextFile(
-    new URL("../../migrations/20260708014646_f40_fase1b_error_kind_classification.sql", import.meta.url),
+    new URL("../../migrations/20260708022428_f40_fase1b_error_kind_classification.sql", import.meta.url),
   );
   const lines = sql.split("\n");
   const exclusionLine = lines.find((l) =>
