@@ -4,11 +4,13 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
 import { getOrgTimezone, weekStart as getWeekStart, prevWeekStart as getPrevWeekStart } from "../../lib/dates";
+import { descalState, qualifiedStats } from "../../lib/descal-metrics";
 
 interface SourceStat {
   name: string;
   total: number;
   qualified: number;
+  unknown: number;
   rate: number;
   delta: number | null;
 }
@@ -22,6 +24,7 @@ interface DescalFreq {
 
 export default function AgenciaDashboardPage() {
   const [qualRate, setQualRate] = useState(0);
+  const [qualUnknown, setQualUnknown] = useState(0);
   const [totalWeek, setTotalWeek] = useState(0);
   const [sources, setSources] = useState<SourceStat[]>([]);
   const [descalFreqs, setDescalFreqs] = useState<DescalFreq[]>([]);
@@ -67,9 +70,11 @@ export default function AgenciaDashboardPage() {
       const descalMap: Record<string, string> = {};
       for (const c of descalRes.data || []) descalMap[c.code] = c.label;
 
-      // Qualification rate
-      const qualified = week.filter(a => !a.categoria_descalificacion || a.categoria_descalificacion.length === 0).length;
-      setQualRate(week.length > 0 ? Math.round((qualified / week.length) * 100) : 0);
+      // Qualification rate — F47: NULL = descalificacion ilegible → fuera del
+      // denominador (ni calificado ni descalificado) y visible como "sin dato".
+      const weekStats = qualifiedStats(week);
+      setQualRate(weekStats.denominator > 0 ? Math.round((weekStats.qualified / weekStats.denominator) * 100) : 0);
+      setQualUnknown(weekStats.unknown);
 
       // Descalification frequencies — separate primary (pos 0) from secondary
       const primaryCounts: Record<string, number> = {};
@@ -103,31 +108,39 @@ export default function AgenciaDashboardPage() {
       setDescalFreqs(freqs);
 
       // Source stats with delta
-      const sourceThisWeek: Record<string, { total: number; qualified: number }> = {};
-      const sourcePrevWeek: Record<string, { total: number; qualified: number }> = {};
+      const sourceThisWeek: Record<string, { total: number; qualified: number; unknown: number }> = {};
+      const sourcePrevWeek: Record<string, { total: number; qualified: number; unknown: number }> = {};
 
       for (const a of week) {
         const sid = a.fuente_lead_id || "_none";
-        if (!sourceThisWeek[sid]) sourceThisWeek[sid] = { total: 0, qualified: 0 };
+        if (!sourceThisWeek[sid]) sourceThisWeek[sid] = { total: 0, qualified: 0, unknown: 0 };
         sourceThisWeek[sid].total++;
-        if (!a.categoria_descalificacion || a.categoria_descalificacion.length === 0) sourceThisWeek[sid].qualified++;
+        const st = descalState(a.categoria_descalificacion);
+        if (st === "qualified") sourceThisWeek[sid].qualified++;
+        else if (st === "unknown") sourceThisWeek[sid].unknown++;
       }
 
       for (const a of prev) {
         const sid = a.fuente_lead_id || "_none";
-        if (!sourcePrevWeek[sid]) sourcePrevWeek[sid] = { total: 0, qualified: 0 };
+        if (!sourcePrevWeek[sid]) sourcePrevWeek[sid] = { total: 0, qualified: 0, unknown: 0 };
         sourcePrevWeek[sid].total++;
-        if (!a.categoria_descalificacion || a.categoria_descalificacion.length === 0) sourcePrevWeek[sid].qualified++;
+        const st = descalState(a.categoria_descalificacion);
+        if (st === "qualified") sourcePrevWeek[sid].qualified++;
+        else if (st === "unknown") sourcePrevWeek[sid].unknown++;
       }
 
       const sourceStats: SourceStat[] = Object.entries(sourceThisWeek).map(([sid, s]) => {
-        const thisRate = s.total > 0 ? Math.round((s.qualified / s.total) * 100) : 0;
+        // F47: el denominador por fuente también excluye los "sin dato"
+        const denom = s.total - s.unknown;
+        const thisRate = denom > 0 ? Math.round((s.qualified / denom) * 100) : 0;
         const prevS = sourcePrevWeek[sid];
-        const prevRate = prevS && prevS.total > 0 ? Math.round((prevS.qualified / prevS.total) * 100) : null;
+        const prevDenom = prevS ? prevS.total - prevS.unknown : 0;
+        const prevRate = prevS && prevDenom > 0 ? Math.round((prevS.qualified / prevDenom) * 100) : null;
         return {
           name: sourceMap[sid] || "Sin fuente",
           total: s.total,
           qualified: s.qualified,
+          unknown: s.unknown,
           rate: thisRate,
           delta: prevRate !== null ? thisRate - prevRate : null,
         };
@@ -166,7 +179,7 @@ export default function AgenciaDashboardPage() {
         {/* Big number */}
         <div className="d2-hero">
           <span className="d2-hero-value">{qualRate}%</span>
-          <span className="d2-hero-label">Tasa de calificación ({totalWeek} leads analizados)</span>
+          <span className="d2-hero-label">Tasa de calificación ({totalWeek} leads analizados{qualUnknown > 0 ? `, ${qualUnknown} sin dato` : ""})</span>
         </div>
 
         {/* Descalification reasons — primary visually differentiated */}
@@ -201,7 +214,7 @@ export default function AgenciaDashboardPage() {
                   <span className="g1-rank-name">{s.name}</span>
                   <span className="g1-rank-count">{s.total}</span>
                   <span className="g1-rank-count">{s.qualified}</span>
-                  <span className="g1-rank-score">{s.rate}%</span>
+                  <span className="g1-rank-score">{s.total - s.unknown > 0 ? `${s.rate}%` : "—"}{s.unknown > 0 ? ` (${s.unknown} sin dato)` : ""}</span>
                   <span className={`g1-rank-delta ${s.delta !== null && s.delta > 0 ? "g1-delta-up" : s.delta !== null && s.delta < 0 ? "g1-delta-down" : ""}`}>
                     {s.delta !== null ? `${s.delta > 0 ? "+" : ""}${s.delta}pp` : "—"}
                   </span>

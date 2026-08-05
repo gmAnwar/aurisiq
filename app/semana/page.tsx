@@ -6,6 +6,7 @@ import { supabase } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth";
 import { getOrgTimezone, weekStart as getWeekStart, prevWeekStart as getPrevWeekStart } from "../../lib/dates";
 import { stripJson } from "../../lib/text";
+import { qualifiedStats } from "../../lib/descal-metrics";
 
 interface Analysis {
   id: string;
@@ -68,7 +69,8 @@ export default function MiSemanaPage() {
   const weekScores = weekAnalyses.filter(a => a.score_general !== null).map(a => a.score_general!);
   const weekAvg = weekScores.length >= 1 ? Math.round(weekScores.reduce((a, b) => a + b, 0) / weekScores.length) : null;
   const delta = weekAvg !== null && prevAvg !== null ? weekAvg - prevAvg : null;
-  const qualified = weekAnalyses.filter(a => !a.categoria_descalificacion || a.categoria_descalificacion.length === 0).length;
+  // F47: NULL = descalificacion ilegible → fuera del denominador, visible como "sin dato".
+  const weekDescalStats = qualifiedStats(weekAnalyses);
 
   // Daily chart data — group by day
   const dayNames = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
@@ -157,8 +159,8 @@ export default function MiSemanaPage() {
           <span className="c4-stat-label">Score prom.</span>
         </div>
         <div className="c4-stat-card">
-          <span className="c4-stat-value">{qualified}/{weekAnalyses.length}</span>
-          <span className="c4-stat-label">Calificados</span>
+          <span className="c4-stat-value">{weekDescalStats.qualified}/{weekDescalStats.denominator}</span>
+          <span className="c4-stat-label">Calificados{weekDescalStats.unknown > 0 ? ` (${weekDescalStats.unknown} sin dato)` : ""}</span>
         </div>
       </div>
 

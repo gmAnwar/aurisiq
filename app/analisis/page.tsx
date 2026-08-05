@@ -7,6 +7,7 @@ import { requireAuth } from "../../lib/auth";
 import EditableField from "../components/EditableName";
 import { getOrgTimezone, todayStart, monthStart as getMonthStart, todayDisplay } from "../../lib/dates";
 import { stripJson } from "../../lib/text";
+import { qualifiedStats } from "../../lib/descal-metrics";
 import { useRecording } from "../contexts/RecordingContext";
 
 interface Analysis {
@@ -302,8 +303,9 @@ export default function MiDiaPage() {
     if (key) prospectCounts[key] = (prospectCounts[key] || 0) + 1;
   }
 
-  // Qualified count today
-  const todayQualified = todayAnalyses.filter(a => !a.categoria_descalificacion || a.categoria_descalificacion.length === 0).length;
+  // Qualified count today — F47: NULL = descalificacion ilegible → fuera del
+  // denominador, visible como "sin dato".
+  const todayDescalStats = qualifiedStats(todayAnalyses);
 
   // Yesterday's calls
   const yStart = new Date(new Date(tStart).getTime() - 86400000).toISOString();
@@ -412,8 +414,8 @@ export default function MiDiaPage() {
             <span className="c4-stat-label">Score prom.</span>
           </div>
           <div className="c4-stat-card">
-            <span className="c4-stat-value">{todayQualified}/{todayAnalyses.length}</span>
-            <span className="c4-stat-label">Calificados</span>
+            <span className="c4-stat-value">{todayDescalStats.qualified}/{todayDescalStats.denominator}</span>
+            <span className="c4-stat-label">Calificados{todayDescalStats.unknown > 0 ? ` (${todayDescalStats.unknown} sin dato)` : ""}</span>
           </div>
           {ranking && (
             <div className="c4-stat-card">

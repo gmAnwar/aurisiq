@@ -165,7 +165,7 @@ Deno.test("(c) phases 3/5, ESTADO sano → trigger=phases_mismatch, counts corre
 
 // ─── (d) ambas fallas → both ───────────────────────────────────────────────
 
-Deno.test("(d) phases 3/5 + lead null → trigger=both", () => {
+Deno.test("(d) phases 3/5 + lead null → triggers missing_lead+phases_mismatch", () => {
   const dbg = buildParserDebug({
     rawOutput: "output degradado",
     rawEstadoBlock: null,
