@@ -100,6 +100,10 @@ export interface ParsedOutput {
   checklist_results: { field: string; covered: boolean }[] | null;
   highlights: { type: string; snippet: string; description: string }[];
   phases: { phase_name: string; score: number; score_max: number }[];
+  // F47: labels de extracción cuyo regex NO matcheó en el output. El caller
+  // los filtra contra el systemPrompt (filterExpectedMisses) antes del
+  // detector — un pattern que el prompt nunca pidió no cuenta como pérdida.
+  extraction_label_misses: { key: string; column: string }[];
 }
 
 export interface MatchedPhase {

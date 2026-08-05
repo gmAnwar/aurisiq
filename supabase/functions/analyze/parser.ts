@@ -60,6 +60,7 @@ export function parseClaudeOutput(
     checklist_results: null,
     highlights: [],
     phases: [],
+    extraction_label_misses: [],
   };
 
   // Score — tolerates **SCORE GENERAL:** 85
@@ -190,39 +191,39 @@ export function parseClaudeOutput(
   if (result.lead_quality === null) result.lead_quality = scanQuality(rawText);
   if (result.lead_outcome === null) result.lead_outcome = scanOutcome(rawText);
 
-  // Prospect extraction — DB-driven or legacy
-  if (Array.isArray(extractionPatterns) && extractionPatterns.length > 0) {
-    for (const pat of extractionPatterns) {
-      const re = new RegExp(`${hc(pat.key)}(.+?)(?:\\n|$)`, "i");
-      const m = rawText.match(re);
-      if (m) {
-        const val = m[1].trim();
-        if (pat.column === "prospect_phone") {
-          const digits = val.replace(/\D/g, "");
-          if (digits.length >= 10) result.prospect_phone = digits.slice(-10);
-        } else {
-          (result as Record<string, unknown>)[pat.column] = val;
-        }
-      }
+  // Prospect extraction — DB-driven (extraction_patterns del scorecard) o
+  // legacy hardcodeada: misma mecánica de match, solo cambia la fuente de
+  // patterns. `pat.regex` del JSONB NO se usa — el regex se construye desde
+  // pat.key (verificado: ningún consumidor lo lee).
+  // F47: label-hit tracking — si el LABEL no matchea se registra el miss SIN
+  // mirar jamás el valor: "PROSPECTO_TELEFONO: No detectado" es label presente
+  // (hit) aunque prospect_phone quede null por el gate de dígitos.
+  const LEGACY_EXTRACTION_PATTERNS: { key: string; column: string }[] = [
+    { key: "PROSPECTO_NOMBRE", column: "prospect_name" },
+    { key: "PROSPECTO_ZONA", column: "prospect_zone" },
+    { key: "TIPO_PROPIEDAD", column: "property_type" },
+    { key: "TIPO_NEGOCIO", column: "business_type" },
+    { key: "TIPO_EQUIPO", column: "equipment_type" },
+    { key: "MOTIVO_VENTA", column: "sale_reason" },
+    { key: "PROSPECTO_TELEFONO", column: "prospect_phone" },
+  ];
+  const activePatterns: { key: string; column: string }[] =
+    Array.isArray(extractionPatterns) && extractionPatterns.length > 0
+      ? extractionPatterns
+      : LEGACY_EXTRACTION_PATTERNS;
+  for (const pat of activePatterns) {
+    const re = new RegExp(`${hc(pat.key)}(.+?)(?:\\n|$)`, "i");
+    const m = rawText.match(re);
+    if (!m) {
+      result.extraction_label_misses.push({ key: pat.key, column: pat.column });
+      continue;
     }
-  } else {
-    // Legacy hardcoded extraction — tolerates **KEY:** value
-    const nameMatch = rawText.match(new RegExp(`${hc("PROSPECTO_NOMBRE")}(.+?)(?:\\n|$)`, "i"));
-    if (nameMatch) result.prospect_name = nameMatch[1].trim();
-    const zoneMatch = rawText.match(new RegExp(`${hc("PROSPECTO_ZONA")}(.+?)(?:\\n|$)`, "i"));
-    if (zoneMatch) result.prospect_zone = zoneMatch[1].trim();
-    const typeMatch = rawText.match(new RegExp(`${hc("TIPO_PROPIEDAD")}(.+?)(?:\\n|$)`, "i"));
-    if (typeMatch) result.property_type = typeMatch[1].trim();
-    const negocioMatch = rawText.match(new RegExp(`${hc("TIPO_NEGOCIO")}(.+?)(?:\\n|$)`, "i"));
-    if (negocioMatch) result.business_type = negocioMatch[1].trim();
-    const equipoMatch = rawText.match(new RegExp(`${hc("TIPO_EQUIPO")}(.+?)(?:\\n|$)`, "i"));
-    if (equipoMatch) result.equipment_type = equipoMatch[1].trim();
-    const reasonMatch = rawText.match(new RegExp(`${hc("MOTIVO_VENTA")}(.+?)(?:\\n|$)`, "i"));
-    if (reasonMatch) result.sale_reason = reasonMatch[1].trim();
-    const phoneMatch = rawText.match(new RegExp(`${hc("PROSPECTO_TELEFONO")}(.+?)(?:\\n|$)`, "i"));
-    if (phoneMatch) {
-      const digits = phoneMatch[1].replace(/\D/g, "");
+    const val = m[1].trim();
+    if (pat.column === "prospect_phone") {
+      const digits = val.replace(/\D/g, "");
       if (digits.length >= 10) result.prospect_phone = digits.slice(-10);
+    } else {
+      (result as Record<string, unknown>)[pat.column] = val;
     }
   }
 

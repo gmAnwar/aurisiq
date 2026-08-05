@@ -2,7 +2,7 @@ import { getServiceClient } from "../_shared/supabase-client.ts";
 import { TIER_LIMITS } from "../_shared/env.ts";
 import type { BackgroundJob, ParsedOutput, MatchedPhase, DescalCategory, FunnelStage } from "./types.ts";
 import { detectConversionDiscrepancy } from "./parser.ts";
-import type { ParserDebugRow } from "./parser-debug.ts";
+import { buildParserDebugInsertRow, type ParserDebugRow } from "./parser-debug.ts";
 
 // Inlined from supabase/functions/_shared/phone.ts to bypass Edge Function
 // bundle issue (Bug B, 2026-04-27). Canonical SoT lives in the file linked
@@ -406,20 +406,13 @@ export async function writeJobDiagnostic(jobId: string, message: string) {
 // historial, y no hay riesgo de que el UPDATE de completado pise el diagnóstico.
 // La fila ya viene con los strings PII saneados de null bytes (buildParserDebug).
 // Tira en error para que el call-site loguee; NUNCA debe tumbar el análisis.
+// F47: el payload lo arma buildParserDebugInsertRow (puro, con guard en la
+// suite) y escribe SOLO `triggers` — nunca la columna legacy `trigger`.
+// Orden duro: Migración F47 1/2 aplicada ANTES del deploy de este código.
 export async function writeParserDebug(analysisId: string, row: ParserDebugRow) {
-  const { error } = await db().from("analysis_parser_debug").insert({
-    analysis_id: analysisId,
-    trigger: row.trigger,
-    missing_fields: row.missing_fields,
-    phases_expected: row.phases_expected,
-    phases_found: row.phases_found,
-    phases_found_ids: row.phases_found_ids,
-    raw_estado: row.raw_estado,
-    estado_header_missing: row.estado_header_missing,
-    raw_output_capture: row.raw_output_capture,
-    raw_output_truncated: row.raw_output_truncated,
-    edge_version: row.edge_version,
-  });
+  const { error } = await db()
+    .from("analysis_parser_debug")
+    .insert(buildParserDebugInsertRow(analysisId, row));
   if (error) throw new Error(`parser_debug insert failed: ${error.message}`);
 }
 

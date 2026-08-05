@@ -27,7 +27,7 @@ import {
 } from "./db.ts";
 import { buildFullPrompt, callClaude, callClaudeForHighlights } from "./claude.ts";
 import { parseClaudeOutput, matchPhaseIds, deriveScoreFromPhases } from "./parser.ts";
-import { buildParserDebug } from "./parser-debug.ts";
+import { buildParserDebug, filterExpectedMisses } from "./parser-debug.ts";
 import { ASSEMBLYAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from "../_shared/env.ts";
 import { RejectedAnalysisError, ApiStatusError, AudioContentError, classifyError } from "../_shared/errors.ts";
 import { mapRejectionToHumanText } from "../_shared/rejection-reasons.ts";
@@ -186,8 +186,11 @@ async function processJobAsync(jobId: string) {
     // cero PII en logs de análisis sanos.
     const expectedPhases = (scorecard.phases || []).length;
     const promptHasEstado = systemPrompt.includes("ESTADO DEL LEAD");
+    // F47: solo cuentan como pérdida los labels de extracción que el prompt
+    // realmente pidió (espejo del gate promptHasEstado).
+    const extractionMisses = filterExpectedMisses(parsed.extraction_label_misses, systemPrompt);
     // F46: buildParserDebug es la fuente única de "¿extracción parcial?" — null =
-    // camino feliz (cero escritura). Non-null = disparó una de las dos ramas.
+    // camino feliz (cero escritura). Non-null = disparó al menos una causa.
     const parserDebug = buildParserDebug({
       rawOutput,
       rawEstadoBlock: parsed.raw_estado_block,
@@ -197,9 +200,11 @@ async function processJobAsync(jobId: string) {
       phasesFoundIds: phasesWithIds.map((p) => p.phase_id),
       phasesExpected: expectedPhases,
       edgeVersion: EDGE_VERSION,
+      extractionMisses,
+      descalParseFailed: false, // F47-B: se activa cuando descalificacion sea nullable
     });
     if (parserDebug) {
-      const detail = `phases=${parserDebug.phases_found}/${parserDebug.phases_expected} lead_quality=${parsed.lead_quality} lead_outcome=${parsed.lead_outcome} trigger=${parserDebug.trigger} scorecard=${job.payload?.scorecard_id}`;
+      const detail = `triggers=${parserDebug.triggers.join("+")} phases=${parserDebug.phases_found}/${parserDebug.phases_expected} lead_quality=${parsed.lead_quality} lead_outcome=${parsed.lead_outcome} missing=${parserDebug.missing_fields.join(",")} scorecard=${job.payload?.scorecard_id}`;
       console.error(`[F42] partial_extraction job=${jobId} ${detail} RAW_OUTPUT: ${rawOutput}`);
       // F46: persistir el diagnóstico (incluye raw crudo con PII) en tabla aparte.
       // try/catch propio: un fallo de diagnóstico JAMÁS degrada un análisis completado.

@@ -4,7 +4,7 @@
 // parse → raw_estado_block.
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { matchPhaseIds, parseClaudeOutput } from "./parser.ts";
-import { buildParserDebug, buildRawOutputCapture, stripNullBytes } from "./parser-debug.ts";
+import { buildParserDebug, buildParserDebugInsertRow, buildRawOutputCapture, filterExpectedMisses, stripNullBytes } from "./parser-debug.ts";
 
 const NUL = String.fromCharCode(0);
 
@@ -100,9 +100,11 @@ Resultado de esta conversación: pospuesto_con_agenda`;
     phasesFoundIds: ids,
     phasesExpected: 5,
     edgeVersion: "vTest",
+    extractionMisses: [],
+    descalParseFailed: false,
   })!;
   assert(dbg !== null);
-  assertEquals(dbg.trigger, "missing_lead");
+  assertEquals(dbg.triggers, ["missing_lead"]);
   assertEquals(dbg.missing_fields, ["lead_quality"]);
   assertEquals(dbg.estado_header_missing, false);
   assert(dbg.raw_estado !== null);
@@ -128,8 +130,10 @@ El lead quedó pendiente de confirmar. Sin definición clara.`;
     phasesFoundIds: ids,
     phasesExpected: 5,
     edgeVersion: "vTest",
+    extractionMisses: [],
+    descalParseFailed: false,
   })!;
-  assertEquals(dbg.trigger, "missing_lead");
+  assertEquals(dbg.triggers, ["missing_lead"]);
   assertEquals(dbg.raw_estado, null);
   assertEquals(dbg.estado_header_missing, true);
   assertEquals(dbg.missing_fields, ["lead_quality", "lead_outcome"]);
@@ -149,8 +153,10 @@ Deno.test("(c) phases 3/5, ESTADO sano → trigger=phases_mismatch, counts corre
     phasesFoundIds: ["rapport_primera_impresion", "validacion_propiedad", "cierre_exclusiva"],
     phasesExpected: 5,
     edgeVersion: "vTest",
+    extractionMisses: [],
+    descalParseFailed: false,
   })!;
-  assertEquals(dbg.trigger, "phases_mismatch");
+  assertEquals(dbg.triggers, ["phases_mismatch"]);
   assertEquals(dbg.phases_expected, 5);
   assertEquals(dbg.phases_found, 3);
   assertEquals(dbg.missing_fields, []); // lead fields OK
@@ -169,8 +175,10 @@ Deno.test("(d) phases 3/5 + lead null → trigger=both", () => {
     phasesFoundIds: ["a", "b", "c"],
     phasesExpected: 5,
     edgeVersion: "vTest",
+    extractionMisses: [],
+    descalParseFailed: false,
   })!;
-  assertEquals(dbg.trigger, "both");
+  assertEquals(dbg.triggers, ["missing_lead", "phases_mismatch"]);
   assertEquals(dbg.missing_fields, ["lead_quality", "lead_outcome"]);
   assertEquals(dbg.estado_header_missing, true);
 });
@@ -187,6 +195,8 @@ Deno.test("(e) phases 5/5 + lead completo → buildParserDebug retorna null", ()
     phasesFoundIds: ALL_IDS,
     phasesExpected: 5,
     edgeVersion: "vTest",
+    extractionMisses: [],
+    descalParseFailed: false,
   });
   assertEquals(dbg, null);
 });
@@ -201,6 +211,8 @@ Deno.test("(e2) sin ESTADO en el prompt + phases completas → null (lead null e
     phasesFoundIds: ALL_IDS,
     phasesExpected: 5,
     edgeVersion: "vTest",
+    extractionMisses: [],
+    descalParseFailed: false,
   });
   assertEquals(dbg, null);
 });
@@ -222,6 +234,8 @@ Deno.test("(f) buildParserDebug sanea null bytes en raw_estado y raw_output_capt
     phasesFoundIds: ALL_IDS,
     phasesExpected: 5,
     edgeVersion: "vTest",
+    extractionMisses: [],
+    descalParseFailed: false,
   })!;
   assert(dbg.raw_estado !== null);
   assert(!dbg.raw_estado!.includes(NUL));
@@ -261,4 +275,102 @@ Deno.test("capture: 'estado' ausente + output largo → últimos cap chars", () 
   const r = buildRawOutputCapture(raw);
   assertEquals(r.truncated, true);
   assertEquals(r.capture.length, 8000);
+});
+
+// ─── F47: causas nuevas — captura completa, no solo alerta ─────────────────
+
+Deno.test("(g) missing_prospect_extraction puro → FILA con triggers, columns y raw capturado", () => {
+  const raw = fullOutput(`ESTADO DEL LEAD
+Calidad del lead: calificado
+Resultado de esta conversación: pospuesto_con_agenda`);
+  const dbg = buildParserDebug({
+    rawOutput: raw,
+    rawEstadoBlock: "ESTADO DEL LEAD\nCalidad del lead: calificado",
+    leadQuality: "calificado",
+    leadOutcome: "pospuesto_con_agenda",
+    promptHasEstado: true,
+    phasesFoundIds: ALL_IDS,
+    phasesExpected: 5,
+    edgeVersion: "vTest",
+    extractionMisses: ["prospect_zone", "sale_reason"],
+    descalParseFailed: false,
+  })!;
+  assert(dbg !== null, "la causa nueva debe producir FILA, no solo alerta");
+  assertEquals(dbg.triggers, ["missing_prospect_extraction"]);
+  assertEquals(dbg.missing_fields, ["prospect_zone", "sale_reason"]);
+  assert(dbg.raw_output_capture !== null);
+  assert(dbg.raw_output_capture!.includes("PROSPECTO_NOMBRE"));
+  assertEquals(dbg.estado_header_missing, false);
+});
+
+Deno.test("(h) descal_parse_failed puro → fila con trigger propio y missing_fields=descalificacion", () => {
+  const dbg = buildParserDebug({
+    rawOutput: "output con descal ilegible",
+    rawEstadoBlock: "ESTADO DEL LEAD\nCalidad del lead: calificado",
+    leadQuality: "calificado",
+    leadOutcome: "pospuesto_con_agenda",
+    promptHasEstado: true,
+    phasesFoundIds: ALL_IDS,
+    phasesExpected: 5,
+    edgeVersion: "vTest",
+    extractionMisses: [],
+    descalParseFailed: true,
+  })!;
+  assertEquals(dbg.triggers, ["descal_parse_failed"]);
+  assertEquals(dbg.missing_fields, ["descalificacion"]);
+  assert(dbg.raw_output_capture !== null);
+});
+
+Deno.test("(i) causas combinadas → triggers y missing_fields en orden canónico", () => {
+  const dbg = buildParserDebug({
+    rawOutput: "output degradado total",
+    rawEstadoBlock: null,
+    leadQuality: null,
+    leadOutcome: null,
+    promptHasEstado: true,
+    phasesFoundIds: ["a", "b"],
+    phasesExpected: 5,
+    edgeVersion: "vTest",
+    extractionMisses: ["prospect_name"],
+    descalParseFailed: true,
+  })!;
+  assertEquals(dbg.triggers, ["missing_lead", "phases_mismatch", "missing_prospect_extraction", "descal_parse_failed"]);
+  assertEquals(dbg.missing_fields, ["lead_quality", "lead_outcome", "prospect_name", "descalificacion"]);
+});
+
+// ─── F47: gate por prompt (filterExpectedMisses) ───────────────────────────
+
+Deno.test("F47 gate: un pattern que el prompt no pidió NO cuenta como miss", () => {
+  const misses = [
+    { key: "PROSPECTO_NOMBRE", column: "prospect_name" },
+    { key: "ZONA_CORPORAL", column: "prospect_zone" },
+  ];
+  const prompt = "EXTRACCION DE DATOS DEL PROSPECTO\nPROSPECTO_NOMBRE: [nombre]";
+  assertEquals(filterExpectedMisses(misses, prompt), ["prospect_name"]);
+});
+
+Deno.test("F47 gate: prompt sin ningún key → cero misses esperados", () => {
+  assertEquals(filterExpectedMisses([{ key: "TIPO_EQUIPO", column: "equipment_type" }], "prompt sin extracción"), []);
+});
+
+// ─── F47: guard del INSERT — la key legacy `trigger` NO va en el payload ───
+
+Deno.test("F47 guard: buildParserDebugInsertRow escribe triggers y JAMÁS trigger", () => {
+  const dbg = buildParserDebug({
+    rawOutput: "x",
+    rawEstadoBlock: null,
+    leadQuality: null,
+    leadOutcome: null,
+    promptHasEstado: true,
+    phasesFoundIds: [],
+    phasesExpected: 5,
+    edgeVersion: "vTest",
+    extractionMisses: [],
+    descalParseFailed: false,
+  })!;
+  const row = buildParserDebugInsertRow("aaaaaaaa-0000-0000-0000-000000000000", dbg);
+  assertEquals("trigger" in row, false, "la columna legacy NO debe reintroducirse en el payload");
+  assertEquals("triggers" in row, true);
+  assertEquals(row.analysis_id, "aaaaaaaa-0000-0000-0000-000000000000");
+  assertEquals(row.triggers, ["missing_lead", "phases_mismatch"]);
 });

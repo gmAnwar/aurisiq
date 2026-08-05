@@ -3,8 +3,16 @@
 // db.writeParserDebug(). Se persiste en la tabla analysis_parser_debug (RLS
 // deny-all, solo service_role) — contiene PII de prospectos, NUNCA va a Slack.
 
+// F47: causas en orden canónico. Reemplaza al `trigger` único de F46 — la
+// columna vieja queda NULL desde este código y muere en la Migración F47 2/2.
+export type ParserDebugTrigger =
+  | "missing_lead"
+  | "phases_mismatch"
+  | "missing_prospect_extraction"
+  | "descal_parse_failed";
+
 export interface ParserDebugRow {
-  trigger: "missing_lead" | "phases_mismatch" | "both";
+  triggers: ParserDebugTrigger[];
   missing_fields: string[];
   phases_expected: number;
   phases_found: number;
@@ -66,6 +74,11 @@ export function buildParserDebug(input: {
   phasesFoundIds: (string | null)[];
   phasesExpected: number;
   edgeVersion: string;
+  // F47: columns esperadas cuyo LABEL no apareció en el output — ya filtradas
+  // por filterExpectedMisses en el caller (solo lo que el prompt pidió).
+  extractionMisses: string[];
+  // F47: el prompt pidió DESCALIFICACION y el parser no leyó un array válido.
+  descalParseFailed: boolean;
 }): ParserDebugRow | null {
   const phasesFound = input.phasesFoundIds.length;
   const phasesMismatch = phasesFound < input.phasesExpected;
@@ -74,20 +87,32 @@ export function buildParserDebug(input: {
   const missingLead =
     input.promptHasEstado &&
     (input.leadQuality === null || input.leadOutcome === null);
+  const missingProspect = input.extractionMisses.length > 0;
 
-  if (!phasesMismatch && !missingLead) return null;
+  // F47: CUALQUIER causa produce fila completa con raw capturado — capturar,
+  // no solo alertar (1592fe97 del 24-jul es el contraejemplo: sin fila, el
+  // raw se perdió para siempre).
+  if (!phasesMismatch && !missingLead && !missingProspect && !input.descalParseFailed) {
+    return null;
+  }
 
-  const trigger: ParserDebugRow["trigger"] =
-    phasesMismatch && missingLead ? "both" : phasesMismatch ? "phases_mismatch" : "missing_lead";
+  // Orden canónico fijo — asserts deterministas y lectura estable de la tabla.
+  const triggers: ParserDebugTrigger[] = [];
+  if (missingLead) triggers.push("missing_lead");
+  if (phasesMismatch) triggers.push("phases_mismatch");
+  if (missingProspect) triggers.push("missing_prospect_extraction");
+  if (input.descalParseFailed) triggers.push("descal_parse_failed");
 
   const missingFields: string[] = [];
   if (input.promptHasEstado && input.leadQuality === null) missingFields.push("lead_quality");
   if (input.promptHasEstado && input.leadOutcome === null) missingFields.push("lead_outcome");
+  missingFields.push(...input.extractionMisses);
+  if (input.descalParseFailed) missingFields.push("descalificacion");
 
   const { capture, truncated } = buildRawOutputCapture(input.rawOutput);
 
   return {
-    trigger,
+    triggers,
     missing_fields: missingFields,
     phases_expected: input.phasesExpected,
     phases_found: phasesFound,
@@ -97,5 +122,41 @@ export function buildParserDebug(input: {
     raw_output_capture: stripNullBytes(capture),
     raw_output_truncated: truncated,
     edge_version: input.edgeVersion,
+  };
+}
+
+// F47: gate — un pattern declarado que el PROMPT nunca pidió no puede contar
+// como pérdida (espejo del patrón promptHasEstado del caller). buildFullPrompt
+// interpola los keys literales al prompt, así que includes(key) es señal
+// exacta. Devuelve las columns afectadas.
+export function filterExpectedMisses(
+  misses: { key: string; column: string }[],
+  systemPrompt: string,
+): string[] {
+  return misses.filter((m) => systemPrompt.includes(m.key)).map((m) => m.column);
+}
+
+// F47: la fila EXACTA del INSERT se arma aquí (pura) para que el guard de la
+// suite verifique el shape — en particular que la key legacy `trigger` NO va
+// en el payload: este código escribe SOLO `triggers`. Orden duro de release:
+// Migración F47 1/2 aplicada ANTES de deployar este código (sin la columna
+// triggers en la tabla, el insert falla y el catch del caller pierde el
+// diagnóstico).
+export function buildParserDebugInsertRow(
+  analysisId: string,
+  row: ParserDebugRow,
+): Record<string, unknown> {
+  return {
+    analysis_id: analysisId,
+    triggers: row.triggers,
+    missing_fields: row.missing_fields,
+    phases_expected: row.phases_expected,
+    phases_found: row.phases_found,
+    phases_found_ids: row.phases_found_ids,
+    raw_estado: row.raw_estado,
+    estado_header_missing: row.estado_header_missing,
+    raw_output_capture: row.raw_output_capture,
+    raw_output_truncated: row.raw_output_truncated,
+    edge_version: row.edge_version,
   };
 }

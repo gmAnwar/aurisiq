@@ -342,3 +342,56 @@ Deno.test("F42d no-regresión JSON: \\\" legal se preserva mientras \\_ ilegal s
   assertEquals(items?.length, 1);
   assertEquals(items?.[0].field, 'pago_inicial "apartado"');
 });
+
+// ─── F47: label-hit tracking — el miss es del LABEL, nunca del valor ────────
+
+const IMMOBILI_PATTERNS = [
+  { key: "PROSPECTO_NOMBRE", regex: "", column: "prospect_name" },
+  { key: "PROSPECTO_ZONA", regex: "", column: "prospect_zone" },
+  { key: "TIPO_PROPIEDAD", regex: "", column: "property_type" },
+  { key: "MOTIVO_VENTA", regex: "", column: "sale_reason" },
+  { key: "PROSPECTO_TELEFONO", regex: "", column: "prospect_phone" },
+];
+
+const PROSPECT_TAIL = `
+PROSPECTO_NOMBRE: Laura Méndez
+PROSPECTO_ZONA: Centro
+TIPO_PROPIEDAD: Casa
+MOTIVO_VENTA: Cambio de ciudad
+PROSPECTO_TELEFONO: No detectado`;
+
+Deno.test("F47 DB-driven completo: 5/5 labels presentes → cero misses (sentinel de phone incluido)", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}\n${PROSPECT_TAIL}`;
+  const parsed = parseClaudeOutput(raw, IMMOBILI_PATTERNS);
+  assertEquals(parsed.extraction_label_misses, []);
+  // "No detectado" deja prospect_phone null con label PRESENTE — no es miss.
+  assertEquals(parsed.prospect_phone, null);
+});
+
+Deno.test("F47 DB-driven: label PROSPECTO_ZONA ausente → miss exacto de esa column", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}\n${PROSPECT_TAIL}`.replace("PROSPECTO_ZONA: Centro\n", "");
+  const parsed = parseClaudeOutput(raw, IMMOBILI_PATTERNS);
+  assertEquals(parsed.extraction_label_misses, [{ key: "PROSPECTO_ZONA", column: "prospect_zone" }]);
+});
+
+Deno.test("F47 legacy: label MOTIVO_VENTA ausente → miss incluye sale_reason, no prospect_name", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}\n${PROSPECT_TAIL}`.replace("MOTIVO_VENTA: Cambio de ciudad\n", "");
+  const misses = parseClaudeOutput(raw, null).extraction_label_misses;
+  assertEquals(misses.some((m) => m.column === "sale_reason"), true);
+  assertEquals(misses.some((m) => m.column === "prospect_name"), false);
+});
+
+Deno.test("F47 valor en prosa con label presente → hit, no miss", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}\n${PROSPECT_TAIL}`.replace(
+    "TIPO_PROPIEDAD: Casa",
+    "TIPO_PROPIEDAD: Es una casa amplia con local comercial en planta baja",
+  );
+  const parsed = parseClaudeOutput(raw, IMMOBILI_PATTERNS);
+  assertEquals(parsed.extraction_label_misses.some((m) => m.column === "property_type"), false);
+  assertEquals(parsed.property_type, "Es una casa amplia con local comercial en planta baja");
+});
+
+Deno.test("F47 fixture verbatim del incidente + patterns V5A → cero misses post-F42d", () => {
+  const parsed = parseClaudeOutput(INCIDENT_F42D_RAW, IMMOBILI_PATTERNS);
+  assertEquals(parsed.extraction_label_misses, []);
+});
