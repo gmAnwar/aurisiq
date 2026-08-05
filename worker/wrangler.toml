@@ -1,6 +1,9 @@
 name = "aurisiq-worker"
 main = "src/index.js"
 compatibility_date = "2024-09-23"
+# El OAuth de wrangler puede ver múltiples cuentas (enpagos + personal) y en modo
+# no-interactivo no elige sola — fijar la cuenta dueña de aurisiq-worker.
+account_id = "6ad274cdb155f50e225399d16f56f693"
 
 [vars]
 SUPABASE_URL = "https://ekvvsosbwkfyhawywgpn.supabase.co"
