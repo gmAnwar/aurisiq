@@ -48,7 +48,10 @@ export function parseClaudeOutput(
     lead_quality: null,
     lead_outcome: null,
     raw_estado_block: null,
-    descalificacion: [],
+    // F47: null = "no se pudo leer un array válido" (keyword ausente o JSON
+    // roto). [] solo si se parseó — el caller normaliza null→[] cuando el
+    // prompt ni pidió el bloque (normalizeDescal).
+    descalificacion: null,
     prospect_name: null,
     prospect_zone: null,
     property_type: null,

@@ -88,7 +88,8 @@ export interface ParsedOutput {
   // F46: bloque ESTADO DEL LEAD crudo (grupo estadoBlock[1]), null si el header
   // no matcheó. Solo se consume en el diagnóstico de partial_extraction.
   raw_estado_block: string | null;
-  descalificacion: string[];
+  // F47: null = el bloque DESCALIFICACION no se pudo leer (≠ [] sin causal).
+  descalificacion: string[] | null;
   prospect_name: string | null;
   prospect_zone: string | null;
   property_type: string | null;

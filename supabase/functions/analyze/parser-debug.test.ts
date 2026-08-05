@@ -4,7 +4,7 @@
 // parse → raw_estado_block.
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { matchPhaseIds, parseClaudeOutput } from "./parser.ts";
-import { buildParserDebug, buildParserDebugInsertRow, buildRawOutputCapture, filterExpectedMisses, stripNullBytes } from "./parser-debug.ts";
+import { buildParserDebug, buildParserDebugInsertRow, buildRawOutputCapture, filterExpectedMisses, normalizeDescal, stripNullBytes } from "./parser-debug.ts";
 
 const NUL = String.fromCharCode(0);
 
@@ -373,4 +373,16 @@ Deno.test("F47 guard: buildParserDebugInsertRow escribe triggers y JAMÁS trigge
   assertEquals("triggers" in row, true);
   assertEquals(row.analysis_id, "aaaaaaaa-0000-0000-0000-000000000000");
   assertEquals(row.triggers, ["missing_lead", "phases_mismatch"]);
+});
+
+// ─── F47-B: normalizeDescal — gate de prompt para descalificacion ──────────
+
+Deno.test("F47-B normalizeDescal: prompt sin DESCALIFICACION → null se vuelve [] (no es pérdida)", () => {
+  assertEquals(normalizeDescal(null, false), []);
+});
+
+Deno.test("F47-B normalizeDescal: con prompt, null se preserva; arrays pasan intactos", () => {
+  assertEquals(normalizeDescal(null, true), null);
+  assertEquals(normalizeDescal([], true), []);
+  assertEquals(normalizeDescal(["obra_negra"], false), ["obra_negra"]);
 });

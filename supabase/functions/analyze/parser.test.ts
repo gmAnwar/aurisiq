@@ -395,3 +395,20 @@ Deno.test("F47 fixture verbatim del incidente + patterns V5A → cero misses pos
   const parsed = parseClaudeOutput(INCIDENT_F42D_RAW, IMMOBILI_PATTERNS);
   assertEquals(parsed.extraction_label_misses, []);
 });
+
+// ─── F47-B: descalificacion null = "no se pudo leer" (≠ [] sin causal) ──────
+
+Deno.test("F47-B keyword DESCALIFICACION ausente del output → null (no [])", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}`;
+  assertEquals(parseClaudeOutput(raw, null).descalificacion, null);
+});
+
+Deno.test("F47-B JSON roto → null, sin reventar el parse", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}\n\nDESCALIFICACION: ["sin_escrituras" "fuera_de_zona"]`;
+  assertEquals(parseClaudeOutput(raw, null).descalificacion, null);
+});
+
+Deno.test("F47-B array vacío legítimo → [] (sin causal, calificado)", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}\n\nDESCALIFICACION: []`;
+  assertEquals(parseClaudeOutput(raw, null).descalificacion, []);
+});

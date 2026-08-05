@@ -198,7 +198,11 @@ export async function writeAnalysisResults(
   orgStages: FunnelStage[],
 ) {
   const validCodes = new Set(descalCats.map(c => c.code));
-  const validDescal = parsed.descalificacion.filter(code => validCodes.has(code));
+  // F47: null = el bloque DESCALIFICACION no se pudo leer → la columna queda
+  // NULL (tercer estado); [] sigue significando "sin causal" = calificado.
+  const validDescal = parsed.descalificacion === null
+    ? null
+    : parsed.descalificacion.filter(code => validCodes.has(code));
 
   const discrepancy = detectConversionDiscrepancy(
     parsed.lead_status,
@@ -245,7 +249,7 @@ export async function writeAnalysisResults(
     conversion_discrepancy: discrepancy,
     lead_quality: parsed.lead_quality,
     lead_outcome: parsed.lead_outcome,
-    categoria_descalificacion: validDescal.length > 0 ? validDescal : [],
+    categoria_descalificacion: validDescal,
     prospect_name: parsed.prospect_name,
     prospect_zone: parsed.prospect_zone,
     property_type: parsed.property_type,

@@ -136,6 +136,16 @@ export function filterExpectedMisses(
   return misses.filter((m) => systemPrompt.includes(m.key)).map((m) => m.column);
 }
 
+// F47: org sin catálogo → el prompt no pide DESCALIFICACION y el null del
+// parser se normaliza a [] (no es pérdida). Con catálogo, el null se preserva
+// y dispara descal_parse_failed.
+export function normalizeDescal(
+  descal: string[] | null,
+  promptHasDescal: boolean,
+): string[] | null {
+  return descal === null && !promptHasDescal ? [] : descal;
+}
+
 // F47: la fila EXACTA del INSERT se arma aquí (pura) para que el guard de la
 // suite verifique el shape — en particular que la key legacy `trigger` NO va
 // en el payload: este código escribe SOLO `triggers`. Orden duro de release:

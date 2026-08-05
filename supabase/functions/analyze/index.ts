@@ -27,7 +27,7 @@ import {
 } from "./db.ts";
 import { buildFullPrompt, callClaude, callClaudeForHighlights } from "./claude.ts";
 import { parseClaudeOutput, matchPhaseIds, deriveScoreFromPhases } from "./parser.ts";
-import { buildParserDebug, filterExpectedMisses } from "./parser-debug.ts";
+import { buildParserDebug, filterExpectedMisses, normalizeDescal } from "./parser-debug.ts";
 import { ASSEMBLYAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from "../_shared/env.ts";
 import { RejectedAnalysisError, ApiStatusError, AudioContentError, classifyError } from "../_shared/errors.ts";
 import { mapRejectionToHumanText } from "../_shared/rejection-reasons.ts";
@@ -189,6 +189,9 @@ async function processJobAsync(jobId: string) {
     // F47: solo cuentan como pérdida los labels de extracción que el prompt
     // realmente pidió (espejo del gate promptHasEstado).
     const extractionMisses = filterExpectedMisses(parsed.extraction_label_misses, systemPrompt);
+    // F47-B: si el prompt ni pidió DESCALIFICACION (org sin catálogo), el null
+    // del parser es [] legítimo, no una pérdida.
+    parsed.descalificacion = normalizeDescal(parsed.descalificacion, systemPrompt.includes("DESCALIFICACION"));
     // F46: buildParserDebug es la fuente única de "¿extracción parcial?" — null =
     // camino feliz (cero escritura). Non-null = disparó al menos una causa.
     const parserDebug = buildParserDebug({
@@ -201,7 +204,7 @@ async function processJobAsync(jobId: string) {
       phasesExpected: expectedPhases,
       edgeVersion: EDGE_VERSION,
       extractionMisses,
-      descalParseFailed: false, // F47-B: se activa cuando descalificacion sea nullable
+      descalParseFailed: parsed.descalificacion === null,
     });
     if (parserDebug) {
       const detail = `triggers=${parserDebug.triggers.join("+")} phases=${parserDebug.phases_found}/${parserDebug.phases_expected} lead_quality=${parsed.lead_quality} lead_outcome=${parsed.lead_outcome} missing=${parserDebug.missing_fields.join(",")} scorecard=${job.payload?.scorecard_id}`;
@@ -228,7 +231,9 @@ async function processJobAsync(jobId: string) {
     }
 
     // Diagnostic: low score with no descalification — write to background_jobs.error_message for visibility
-    if (parsed.score_general !== null && parsed.score_general < 50 && parsed.descalificacion.length === 0) {
+    // F47: con descalificacion null (ilegible) este diagnóstico no aplica —
+    // esa anomalía ya la cubre el trigger descal_parse_failed.
+    if (parsed.score_general !== null && parsed.score_general < 50 && parsed.descalificacion !== null && parsed.descalificacion.length === 0) {
       const rawTail = (lastRawOutput || "").slice(-2500).replace(/\s+/g, " ");
       const diagMsg = `LOW_SCORE_NO_DESCAL score=${parsed.score_general} descalCats_available=${descalCats.length} raw_descal_section=${(lastRawOutput || "").includes("DESCALIFICACION") ? "FOUND_IN_OUTPUT" : "NOT_IN_OUTPUT"} | RAW_TAIL: ${rawTail}`;
       console.warn(`[analyze] ${diagMsg} job=${jobId}`);
