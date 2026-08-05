@@ -1,8 +1,8 @@
 -- F47 Migración 2/2 — endurecer el modelo triggers[] y retirar la columna
--- legacy. BORRADOR: NO aplicada. La aplica Anwar vía MCP SOLO después de que
--- el Edge F47 esté ACTIVE y verificado (el código nuevo ya no menciona
--- trigger, así que el DROP no puede romper ningún insert). Al aplicarla,
--- mover este archivo a supabase/migrations/ con el timestamp registrado.
+-- legacy. Aplicada por Anwar vía MCP el 2026-08-05 (versión registrada
+-- 20260805210338) con el Edge F47 v51 ACTIVE verificado — el código nuevo ya
+-- no menciona la columna, así que el DROP no pudo romper ningún insert.
+-- Este archivo reconcilia el repo con esa versión.
 
 -- Filas que v50 haya escrito en la ventana M1→deploy (trigger poblado,
 -- triggers NULL) — sin esto el SET NOT NULL fallaría sobre ellas.
