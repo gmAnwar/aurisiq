@@ -1,4 +1,7 @@
-// v23 — handle audio_storage_path: download from Storage + transcribe via AssemblyAI
+// v24 — persistencia: EXTRACTION_WRITABLE_COLUMNS + vehicle_interest/financing_type
+// + alerta extraction_config_invalid deduplicada. (v23: audio_storage_path + AssemblyAI.)
+// Regla: EDGE_VERSION se bumpea SIEMPRE que cambie comportamiento del parser —
+// existe para correlación forense en analysis_parser_debug.edge_version.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import {
   getJob,
@@ -36,7 +39,7 @@ import { alertSlack, type AlertContext } from "../_shared/alert.ts";
 // F46: marcador interno de versión del código (fuente: header del archivo). NO
 // es el contador de deployment de Supabase (que va por su cuenta). Se persiste
 // en analysis_parser_debug.edge_version para correlacionar el diagnóstico.
-const EDGE_VERSION = "v23";
+const EDGE_VERSION = "v24";
 
 // Config inválida de extraction_patterns ya alertada por este isolate —
 // dedupe en memoria: primera aparición del scorecard → alerta F21; después
