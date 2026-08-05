@@ -17,6 +17,26 @@ export function parseClaudeOutput(
   rawText: string,
   extractionPatterns: { key: string; regex: string; column: string }[] | null,
 ): ParsedOutput {
+  // F42d: el modelo a veces emite su output con la puntuación markdown escapada
+  // ("cerrado\_parcial", "PROSPECTO\_NOMBRE:", separadores "\-\-\-"), lo que
+  // rompe labels y enums con underscore y el aislamiento de bloques. Des-escape
+  // global sobre la copia local ANTES de cualquier match:
+  // (a) la clase EXCLUYE " \ / y letras — los escapes legales de JSON (\" \\ \/
+  //     \b \f \n \r \t \uXXXX). Preservarlos impide corromper CHECKLIST y
+  //     DESCALIFICACION: dentro de JSON, \_ \- etc. ya son ilegales hoy, así
+  //     que quitar el backslash repara en vez de corromper.
+  // (b) monotónico: solo crea matches donde hoy no hay ninguno.
+  // (c) forensia F46: index.ts pasa su rawOutput ORIGINAL a buildParserDebug,
+  //     así que raw_output_capture queda sin des-escapar; raw_estado_block sí
+  //     sale normalizado — aceptable y documentado.
+  const MD_ESCAPE_RE = /\\([_*[\]()#+\-.!~>|`])/g;
+  const mdEscapeCount = (rawText.match(MD_ESCAPE_RE) || []).length;
+  if (mdEscapeCount > 0) {
+    // Señal de "modo escape" del modelo en logs — solo el conteo, cero PII.
+    console.warn(`[parser] F42d: ${mdEscapeCount} escapes markdown des-escapados`);
+  }
+  rawText = rawText.replace(MD_ESCAPE_RE, "$1");
+
   const result: ParsedOutput = {
     score_general: null,
     clasificacion: null,

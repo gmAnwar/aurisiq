@@ -292,6 +292,26 @@ async function callClaude(env, systemPrompt, userMessage, alertContext = null) {
 // ─── Parsing ───────────────────────────────────────────────
 
 function parseClaudeOutput(rawText, extractionPatterns) {
+  // F42d: espejo de supabase/functions/analyze/parser.ts — mantener paridad.
+  // El modelo a veces emite su output con la puntuación markdown escapada
+  // ("PROSPECTO\_NOMBRE:", "lost\_captadora", separadores "\-\-\-"), lo que
+  // rompe labels y enums con underscore y el aislamiento de bloques. Des-escape
+  // global sobre la copia local ANTES de cualquier match:
+  // (a) la clase EXCLUYE " \ / y letras — los escapes legales de JSON (\" \\ \/
+  //     \b \f \n \r \t \uXXXX). Preservarlos impide corromper CHECKLIST,
+  //     DESCALIFICACION y HIGHLIGHTS: dentro de JSON, \_ \- etc. ya son
+  //     ilegales hoy, así que quitar el backslash repara en vez de corromper.
+  // (b) monotónico: solo crea matches donde hoy no hay ninguno.
+  // (c) el log [debug-claude-raw] del caller conserva el output original; aquí
+  //     no hay captura forense tipo F46 — el des-escape solo afecta los matches.
+  const MD_ESCAPE_RE = /\\([_*[\]()#+\-.!~>|`])/g;
+  const mdEscapeCount = (rawText.match(MD_ESCAPE_RE) || []).length;
+  if (mdEscapeCount > 0) {
+    // Señal de "modo escape" del modelo en logs — solo el conteo, cero PII.
+    console.warn(`[parser] F42d: ${mdEscapeCount} escapes markdown des-escapados`);
+  }
+  rawText = rawText.replace(MD_ESCAPE_RE, "$1");
+
   const result = {
     score_general: null,
     clasificacion: null,

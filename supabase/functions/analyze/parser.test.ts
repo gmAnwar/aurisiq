@@ -4,6 +4,7 @@
 // COMPLETO en todos: 5/5 fases + lead_quality + lead_outcome.
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { deriveScoreFromPhases, matchPhaseIds, parseClaudeOutput } from "./parser.ts";
+import { INCIDENT_F42D_RAW } from "./fixture-f42d-incident.ts";
 
 const SCORECARD_PHASES = [
   { phase_id: "rapport_primera_impresion", score_max: 10, phase_name: "Rapport y Primera Impresión" },
@@ -275,4 +276,69 @@ Deno.test("F42c longest-first vivo con label prospecto: 'descalificado' NO match
     "Calidad del prospecto: descalificado por gravamen irresoluble",
   );
   assertEquals(parseClaudeOutput(raw, null).lead_quality, "descalificado");
+});
+
+// ─── F42d: escapes markdown del modelo (incidente 5-ago, analysis b52f7f7c) ──
+// El modelo escapó la puntuación markdown de su output ("cerrado\_parcial",
+// "PROSPECTO\_NOMBRE:") y todos los sitios con underscore fallaron en silencio.
+
+Deno.test("F42d fixture verbatim incidente b52f7f7c: \\_ en enum, labels de prospecto y etapa", () => {
+  const parsed = parseClaudeOutput(INCIDENT_F42D_RAW, null);
+  assertEquals(parsed.lead_quality, "descalificado");
+  assertEquals(parsed.lead_outcome, "cerrado_parcial");
+  assertEquals(parsed.prospect_name, "Epifanio Moreno");
+  assertEquals(parsed.property_type, "Casa");
+  assertEquals(parsed.prospect_zone, "Colonia Ampliación 5 de Mayo, Timoteo Encerrado 455 Oriente");
+  assertEquals(parsed.sale_reason, "Conflictos con vecinos, desea cambiar de zona y adquirir otra propiedad");
+  assertEquals(parsed.detected_stage_name, "Llamada 1 de Captacion");
+  assertEquals((parsed.checklist_results ?? []).length, 26);
+  assertEquals(parsed.descalificacion, ["obra_negra"]);
+});
+
+Deno.test("F42d enum outcome escapado: pospuesto\\_sin\\_agenda → pospuesto_sin_agenda", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}`.replace(
+    "Resultado de esta conversación: pospuesto_con_agenda",
+    "Resultado de esta conversación: pospuesto\\_sin\\_agenda",
+  );
+  assertEquals(parseClaudeOutput(raw, null).lead_outcome, "pospuesto_sin_agenda");
+});
+
+Deno.test("F42d enum outcome escapado: cerrado\\_completo → cerrado_completo", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}`.replace(
+    "Resultado de esta conversación: pospuesto_con_agenda",
+    "Resultado de esta conversación: cerrado\\_completo",
+  );
+  assertEquals(parseClaudeOutput(raw, null).lead_outcome, "cerrado_completo");
+});
+
+Deno.test("F42d lead_status escapado: lost\\_captadora → lost_captadora", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}`.replace(
+    "Estado del lead: pending",
+    "Estado del lead: lost\\_captadora",
+  );
+  assertEquals(parseClaudeOutput(raw, null).lead_status, "lost_captadora");
+});
+
+Deno.test("F42d DESCALIFICACION con códigos escapados → array limpio con underscores", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}\n\nDESCALIFICACION: ["sin\\_escrituras", "fuera\\_de\\_zona"]`;
+  assertEquals(parseClaudeOutput(raw, null).descalificacion, ["sin_escrituras", "fuera_de_zona"]);
+});
+
+Deno.test("F42d separadores \\-\\-\\- escapados: el bloque ESTADO se aísla y ambos campos parsean", () => {
+  const estadoEsc = ESTADO.replace(
+    "Resultado de esta conversación: pospuesto_con_agenda",
+    "Resultado de esta conversación: pospuesto\\_con\\_agenda",
+  );
+  const raw = `${HEAD}\n\\-\\-\\-\n${estadoEsc}\n\\-\\-\\-\n${PATRON}`;
+  const parsed = parseClaudeOutput(raw, null);
+  assertEquals(parsed.raw_estado_block !== null, true, "bloque ESTADO aislado");
+  assertEquals(parsed.lead_quality, "calificado");
+  assertEquals(parsed.lead_outcome, "pospuesto_con_agenda");
+});
+
+Deno.test("F42d no-regresión JSON: \\\" legal se preserva mientras \\_ ilegal se repara", () => {
+  const raw = `${HEAD}\n---\n${ESTADO}\n---\n${PATRON}\n\nCHECKLIST: [{"field":"pago\\_inicial \\"apartado\\"","covered":true}]`;
+  const items = parseClaudeOutput(raw, null).checklist_results;
+  assertEquals(items?.length, 1);
+  assertEquals(items?.[0].field, 'pago_inicial "apartado"');
 });
