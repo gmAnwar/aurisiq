@@ -20,6 +20,7 @@ interface Analysis {
   id: string;
   score_general: number | null;
   clasificacion: string | null;
+  unscorable_reason: string | null;
   created_at: string;
   funnel_stage_id: string | null;
   categoria_descalificacion: string[] | null;
@@ -115,7 +116,7 @@ function HistorialPage() {
 
       const [analysesRes, stagesRes] = await Promise.all([
         supabase.from("analyses")
-          .select("id, score_general, clasificacion, created_at, funnel_stage_id, categoria_descalificacion, lead_quality, lead_outcome, prospect_name, prospect_zone, status, error_message")
+          .select("id, score_general, clasificacion, unscorable_reason, created_at, funnel_stage_id, categoria_descalificacion, lead_quality, lead_outcome, prospect_name, prospect_zone, status, error_message")
           .eq("user_id", session.userId).eq("organization_id", session.organizationId)
           .in("status", ["completado", "procesando", "rechazado", "error"])
           .order("created_at", { ascending: false }),
@@ -457,8 +458,10 @@ function HistorialPage() {
                         </span>
                       </div>
                       <div className="c4-item-right">
-                        {a.score_general !== null && (
-                          <span className={`c4-item-score c4-score-${a.clasificacion || "regular"}`}>{a.score_general}</span>
+                        {a.unscorable_reason === "fragmento" ? (
+                          <span className="frag-badge">Fragmento</span>
+                        ) : a.score_general !== null && (
+                          <span className={`c4-item-score c4-score-${a.clasificacion ?? ""}`}>{a.score_general}</span>
                         )}
                       </div>
                     </Link>

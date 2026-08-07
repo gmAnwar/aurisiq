@@ -6,7 +6,7 @@
  *
  * NO confundir con descalificación del lead/prospecto durante una llamada
  * válida — esos casos son análisis NORMAL (ver REJECTION_INSTRUCTION_BLOCK
- * en claude.ts).
+ * en analyze/prompt-blocks.ts).
  */
 
 export type RejectionReason =

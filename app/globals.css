@@ -2457,6 +2457,23 @@ body.has-nav {
   font-weight: 700;
 }
 
+/* F48a — badge de fragmento: no-medición, neutro. Nunca colores de score
+   (no es una mala calificación, es ausencia de medición). Se usa en listas,
+   vistas de detalle y admin. */
+.frag-badge {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ink-light);
+  background: var(--cream-dark);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
 /* Historial delete button — hidden until row hover */
 .historial-delete-btn {
   background: none;

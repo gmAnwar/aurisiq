@@ -1,6 +1,9 @@
 import { ANTHROPIC_API_KEY, CLAUDE_MODEL, CLAUDE_API_URL, CLAUDE_MAX_TOKENS } from "../_shared/env.ts";
 import type { Scorecard, ScorecardStructure, DescalCategory, FunnelStage } from "./types.ts";
 import { type RejectionReason, isRejectionReason } from "../_shared/rejection-reasons.ts";
+// F48a: bloques puros compartidos con buildFragmentPrompt (fragment.ts) — la
+// fuente única vive en prompt-blocks.ts (testeable sin env).
+import { REJECTION_INSTRUCTION_BLOCK, PROSPECT_BLOCK_LEGACY, buildDescalBlock } from "./prompt-blocks.ts";
 import { alertSlack, parseAnthropicError, type AlertContext } from "../_shared/alert.ts";
 import { ApiStatusError } from "../_shared/errors.ts";
 
@@ -63,33 +66,8 @@ export const REJECTION_TOOL_DEFINITION = {
   },
 } as const;
 
-/**
- * System prompt addendum that instructs the LLM when to call the rejection
- * tool vs produce normal prose analysis. Appended globally to every
- * scorecard prompt (org-agnostic). Critical: distinguishes audio-level
- * rejection (call the tool) from lead-level rejection during a valid
- * conversation (normal analysis with low score / descalificación array).
- */
-export const REJECTION_INSTRUCTION_BLOCK = `
-
----
-
-## CRITERIO DE RECHAZO DEL AUDIO
-
-Si la transcripción NO permite analizar la llamada como conversación de captación o venta válida, llama la tool \`report_audio_not_analyzable\` con el reason apropiado. Casos:
-
-- \`audio_sin_habla\`: silencio o ruido sin voz audible
-- \`no_es_conversacion_de_venta\`: hay habla pero no es llamada de captación/venta (ej. nota personal, podcast, explicación de uso de herramientas, conversación interna)
-- \`idioma_no_soportado\`: la conversación no está en español
-- \`otro\`: caso fuera de los anteriores. Incluir \`details_es_mx\` con descripción breve en español MX
-
-CRÍTICO — NO llamar la tool en estos casos (son análisis NORMAL):
-- Llamada donde el prospecto fue rechazado, descalificado, o no calificó por crédito/perfil/disponibilidad
-- Llamada donde el prospecto colgó, perdió interés, o se cortó por mala señal
-- Llamada donde el agente cometió errores o el cliente fue grosero
-- Cualquier conversación de venta válida con resultado negativo
-
-El criterio es: ¿el AUDIO es analizable como conversación de venta? Si SÍ → produce análisis normal (con SCORE GENERAL, fases, etc.). Si NO (audio inválido como insumo) → llama la tool.`;
+// REJECTION_INSTRUCTION_BLOCK vive en prompt-blocks.ts (F48a): lo comparten
+// buildFullPrompt y buildFragmentPrompt.
 
 // ─── Prompt building (Path A: structured) ─────────────────
 
@@ -149,18 +127,7 @@ function buildPromptFromStructure(
 
 // ─── Legacy constants (fallback, remove after 2026-05-12) ──
 
-const PROSPECT_BLOCK_LEGACY: Record<string, string> = {
-  inmobiliario: `PROSPECTO_NOMBRE: [nombre del prospecto si se menciona, o "No identificado"]
-PROSPECTO_ZONA: [colonia, zona o municipio si se menciona, o "No identificada"]
-TIPO_PROPIEDAD: [casa, departamento, terreno, local, o "No identificado"]
-MOTIVO_VENTA: [razón por la que vende, o "No mencionado"]
-PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en la transcripción, o "No detectado"]`,
-  financiero: `PROSPECTO_NOMBRE: [nombre del prospecto si se menciona, o "No identificado"]
-PROSPECTO_ZONA: [colonia, zona o municipio del negocio si se menciona, o "No identificada"]
-TIPO_NEGOCIO: [tortillería, tienda de abarrotes, taller, ambulante, etc. o "No mencionado"]
-TIPO_EQUIPO: [horno, vitrina, refrigerador, máquina tortilladora, etc. o "No mencionado"]
-PROSPECTO_TELEFONO: [número de teléfono/WhatsApp del prospecto si aparece en la transcripción, o "No detectado"]`,
-};
+// PROSPECT_BLOCK_LEGACY vive en prompt-blocks.ts (F48a, compartido).
 
 const CHECKLIST_BLOCK_LEGACY: Record<string, string> = {
   inmobiliario: `Los 26 campos del checklist son: Nombre completo, Dirección de la propiedad, Dirección INE, Estado civil, Libre de gravamen, Pagos puntuales, Adeudos en tiempo consecutivo, Crédito individual o conyugal, NSS, NC, Papelería/escrituras, Descripción del domicilio, Casa habitada o desocupada, Servicios a nombre de quién, Adeudos de servicios, Financiamiento de adeudos, Motivo de venta, Expectativa del cliente, Precio estimado de venta, Precio estimado de captación, Disponibilidad para visita, Fecha y hora propuesta, Lectura de urgencia, Lectura de disposición, Lectura de resistencia, Promesa de venta.`,
@@ -225,10 +192,7 @@ export function buildFullPrompt(
     prompt += `\n\n---\nDETECCIÓN DE ETAPA DEL EMBUDO\nBasándote en el contenido de la conversación, identifica en cuál de estas etapas del embudo se encuentra esta llamada:\n${stageList}\n\nAl final de tu respuesta incluye una línea con el formato exacto:\nETAPA_DETECTADA: [nombre exacto de la etapa]\n\nUsa exactamente el nombre tal como aparece en la lista. Si no puedes determinar la etapa con confianza razonable, escribe:\nETAPA_DETECTADA: null`;
   }
 
-  if (descalCats.length > 0) {
-    const catList = descalCats.map(c => `- ${c.code}: ${c.label}`).join("\n");
-    prompt += `\n\n---\nDESCALIFICACION DE LEADS\nAnaliza la transcripción y determina si el lead fue descalificado. Usa SOLO los siguientes códigos del catálogo de la organización:\n${catList}\n\nAl final de tu respuesta, incluye una línea con el formato:\nDESCALIFICACION: ["codigo1", "codigo2", "codigo3"]\nSi el lead calificó (no hay razón de descalificación), escribe:\nDESCALIFICACION: []\nMáximo 3 códigos. Usa SOLO códigos del catálogo anterior.\n\nINSTRUCCION CRITICA: Si la llamada menciona MULTIPLES razones de descalificación concurrentes, DEBES devolver TODAS las que apliquen hasta un máximo de 3. NO filtres. NO priorices. NO te limites a 2.\n\nEjemplo real:\nSi el propietario dice: "la propiedad está en intestamentario con mis hermanos, no tenemos escrituras todavía, y está en Tepatitlán Jalisco"\nOutput correcto: DESCALIFICACION: ["juridico", "sin_escrituras", "fuera_de_zona"]\nOutput INCORRECTO (solo 2): DESCALIFICACION: ["juridico", "fuera_de_zona"]\n\nDevolver siempre TODAS las categorías que el prospecto mencione, no solo las más severas.`;
-  }
+  prompt += buildDescalBlock(descalCats);
 
   // Global addendum (org-agnostic, applies to both Path A structured and Path B legacy)
   prompt += REJECTION_INSTRUCTION_BLOCK;

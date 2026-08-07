@@ -30,7 +30,8 @@ interface CaptadoraConv {
   total: number;
   converted: number;
   convRate: number;
-  avgScore: number;
+  // F48a: null = sin scores medibles en el período
+  avgScore: number | null;
   lastActivity: Date | null;
 }
 
@@ -132,7 +133,7 @@ function ReportesInner() {
           total: mine.length,
           converted,
           convRate: mine.length > 0 ? Math.round((converted / mine.length) * 100) : 0,
-          avgScore: scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0,
+          avgScore: scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null,
           lastActivity: lastActivity[c.id] || null,
         };
       });
@@ -238,7 +239,7 @@ function ReportesInner() {
                   <span className="g1-rank-count">{c.total}</span>
                   <span className="g1-rank-count">{c.converted}</span>
                   <span className="g1-rank-score" style={{ color: c.convRate >= 50 ? "var(--green)" : c.convRate >= 25 ? "var(--gold)" : "var(--red)" }}>{c.convRate}%</span>
-                  <span className="g1-rank-score">{c.avgScore || "—"}</span>
+                  <span className="g1-rank-score">{c.avgScore ?? "—"}</span>
                 </div>
               ))}
 

@@ -17,6 +17,7 @@ const payloadSample = buildAnalysisUpdatePayload({
   relatedId: null,
   normalizedPhone: null,
   validDescal: [],
+  unscorableReason: null,
 });
 
 Deno.test("guard: cada column del set existe en ParsedOutput (runtime, no espejo)", () => {
@@ -42,11 +43,13 @@ Deno.test("guard: el payload preserva los valores de las columns del set y los i
     relatedId: null,
     normalizedPhone: "5215512141618",
     validDescal: null,
+    unscorableReason: null,
   });
   assertEquals(payload.vehicle_interest, "Sedán 2023");
   assertEquals(payload.financing_type, "Contado");
   assertEquals(payload.prospect_phone, "5215512141618");
   assertEquals(payload.notes, "nota manual de la captadora");
   assertEquals(payload.categoria_descalificacion, null);
+  assertEquals(payload.unscorable_reason, null);
   assertEquals(payload.status, "completado");
 });

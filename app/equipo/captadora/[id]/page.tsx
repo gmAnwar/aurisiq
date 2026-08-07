@@ -5,7 +5,7 @@ import { supabase } from "../../../../lib/supabase";
 import { requireAuth } from "../../../../lib/auth";
 import { stripJson } from "../../../../lib/text";
 
-interface AnalysisRow { id: string; score_general: number | null; clasificacion: string | null; created_at: string; categoria_descalificacion: string[] | null; patron_error: string | null; siguiente_accion: string | null; prospect_name: string | null; funnel_stage_id: string | null; property_type: string | null; business_type: string | null; }
+interface AnalysisRow { id: string; score_general: number | null; clasificacion: string | null; unscorable_reason: string | null; created_at: string; categoria_descalificacion: string[] | null; patron_error: string | null; siguiente_accion: string | null; prospect_name: string | null; funnel_stage_id: string | null; property_type: string | null; business_type: string | null; }
 interface PhaseRow { phase_name: string; score: number; score_max: number; analysis_id: string; }
 interface DescalCat { code: string; label: string; }
 
@@ -39,7 +39,7 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
 
       const [analysesRes, phasesRes, descalRes, teamPhasesRes, objRes, todayRes, stagesRes] = await Promise.all([
-        supabase.from("analyses").select("id, score_general, clasificacion, created_at, categoria_descalificacion, lead_quality, patron_error, siguiente_accion, prospect_name, funnel_stage_id, property_type, business_type")
+        supabase.from("analyses").select("id, score_general, clasificacion, unscorable_reason, created_at, categoria_descalificacion, lead_quality, patron_error, siguiente_accion, prospect_name, funnel_stage_id, property_type, business_type")
           .eq("user_id", id).eq("organization_id", me.organization_id).eq("status", "completado").order("created_at", { ascending: false }).limit(100),
         supabase.from("analysis_phases").select("phase_name, score, score_max, analysis_id")
           .eq("user_id", id).eq("organization_id", me.organization_id).order("created_at", { ascending: false }).limit(500),
@@ -77,13 +77,15 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
       const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
       const monthAnalyses = (analysesRes.data || []).filter(a => new Date(a.created_at) >= monthStart);
       const monthScores = monthAnalyses.filter(a => a.score_general !== null).map(a => a.score_general!);
-      const monthAvg = monthScores.length > 0 ? Math.round(monthScores.reduce((a, b) => a + b, 0) / monthScores.length) : 0;
+      // F48a: sin scores medibles → null, no 0 (fragmentos fuera de todo promedio)
+      const monthAvg = monthScores.length > 0 ? Math.round(monthScores.reduce((a, b) => a + b, 0) / monthScores.length) : null;
 
-      const objs = (objRes.data || []).map(o => {
-        let currentValue = 0;
-        if (o.type === "volume") currentValue = monthAnalyses.length;
-        else if (o.type === "score") currentValue = monthAvg;
-        return { name: `${o.type === "volume" ? "Análisis" : "Score"} ${o.period_type}`, target_value: o.target_value, current_value: currentValue, is_active: o.is_active };
+      // F48a: sin scores medibles en el mes, el objetivo de score se omite —
+      // un 0 inventado no es progreso medido.
+      const objs = (objRes.data || []).flatMap(o => {
+        if (o.type === "score" && monthAvg === null) return [];
+        const currentValue = o.type === "volume" ? monthAnalyses.length : monthAvg!;
+        return [{ name: `${o.type === "volume" ? "Análisis" : "Score"} ${o.period_type}`, target_value: o.target_value, current_value: currentValue, is_active: o.is_active }];
       });
       setObjectives(objs);
 
@@ -196,7 +198,11 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
                         </span>
                       </div>
                       <div className="c4-item-right">
-                        <span className={`c4-item-score c4-score-${a.clasificacion || "regular"}`}>{a.score_general ?? "—"}</span>
+                        {a.unscorable_reason === "fragmento" ? (
+                          <span className="frag-badge">Fragmento</span>
+                        ) : a.score_general !== null && (
+                          <span className={`c4-item-score c4-score-${a.clasificacion ?? ""}`}>{a.score_general}</span>
+                        )}
                       </div>
                     </a>
                   );
@@ -213,8 +219,9 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
               <div className="g1-section">
                 <h2 className="g1-section-title">Evolución de score</h2>
                 <div className="g2-evolution">
-                  {analyses.slice(0, 15).reverse().map(a => (
-                    <div key={a.id} className="g2-evo-bar-wrap"><div className="g2-evo-bar" style={{ height: `${a.score_general || 0}%` }} /><span className="g2-evo-label">{a.score_general}</span></div>
+                  {/* F48a: solo análisis con score — un fragmento no pinta barra fantasma */}
+                  {analyses.filter(a => a.score_general !== null).slice(0, 15).reverse().map(a => (
+                    <div key={a.id} className="g2-evo-bar-wrap"><div className="g2-evo-bar" style={{ height: `${a.score_general}%` }} /><span className="g2-evo-label">{a.score_general}</span></div>
                   ))}
                 </div>
               </div>
@@ -254,7 +261,7 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
                         {!primaryDescal && a.patron_error && <span className="c4-item-source">{stripJson(a.patron_error).slice(0, 60)}</span>}
                       </div>
                       <div className="c4-item-right">
-                        {a.score_general !== null && <span className={`c4-item-score c4-score-${a.clasificacion || "regular"}`}>{a.score_general}</span>}
+                        {a.unscorable_reason === "fragmento" ? <span className="frag-badge">Fragmento</span> : a.score_general !== null && <span className={`c4-item-score c4-score-${a.clasificacion ?? ""}`}>{a.score_general}</span>}
                       </div>
                     </a>
                   );

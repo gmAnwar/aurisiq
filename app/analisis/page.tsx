@@ -14,6 +14,7 @@ interface Analysis {
   id: string;
   score_general: number | null;
   clasificacion: string | null;
+  unscorable_reason: string | null;
   created_at: string;
   fuente_lead_id: string | null;
   patron_error: string | null;
@@ -54,7 +55,7 @@ export default function MiDiaPage() {
 
       const [analysesRes, sourcesRes, userRes, descalRes, objRes] = await Promise.all([
         supabase.from("analyses")
-          .select("id, score_general, clasificacion, created_at, fuente_lead_id, patron_error, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, manager_note, related_analysis_id")
+          .select("id, score_general, clasificacion, unscorable_reason, created_at, fuente_lead_id, patron_error, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, manager_note, related_analysis_id")
           .eq("user_id", session.userId).eq("organization_id", session.organizationId).eq("status", "completado")
           .order("created_at", { ascending: false }).limit(50),
         supabase.from("lead_sources").select("id, name").eq("organization_id", session.organizationId),
@@ -512,8 +513,10 @@ export default function MiDiaPage() {
                     )}
                   </div>
                   <div className="c4-item-right">
-                    {a.score_general !== null && (
-                      <span className={`c4-item-score c4-score-${a.clasificacion || "regular"}`}>{a.score_general}</span>
+                    {a.unscorable_reason === "fragmento" ? (
+                      <span className="frag-badge">Fragmento</span>
+                    ) : a.score_general !== null && (
+                      <span className={`c4-item-score c4-score-${a.clasificacion ?? ""}`}>{a.score_general}</span>
                     )}
                   </div>
                 </Link>
@@ -570,8 +573,10 @@ export default function MiDiaPage() {
                     </span>
                   </div>
                   <div className="c4-item-right">
-                    {a.score_general !== null && (
-                      <span className={`c4-item-score c4-score-${a.clasificacion || "regular"}`}>{a.score_general}</span>
+                    {a.unscorable_reason === "fragmento" ? (
+                      <span className="frag-badge">Fragmento</span>
+                    ) : a.score_general !== null && (
+                      <span className={`c4-item-score c4-score-${a.clasificacion ?? ""}`}>{a.score_general}</span>
                     )}
                   </div>
                 </Link>

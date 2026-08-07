@@ -19,7 +19,8 @@ import DateRangeFilter from "../components/DateRangeFilter";
 interface CaptadoraCard {
   userId: string;
   name: string;
-  avgScore: number;
+  // F48a: null = sin scores medibles en el período (solo fragmentos o cero llamadas)
+  avgScore: number | null;
   count: number;
   delta: number | null;
   dailyDone: number;
@@ -33,6 +34,7 @@ interface RecentCall {
   prospect_name: string | null;
   score_general: number | null;
   clasificacion: string | null;
+  unscorable_reason: string | null;
   categoria_descalificacion: string[] | null;
   fuente_lead_id: string | null;
   funnel_stage_id: string | null;
@@ -136,7 +138,7 @@ function EquipoDashboardInner() {
         supabase.from("alerts").select("id, description")
           .eq("organization_id", orgId).eq("status", "activa").order("created_at", { ascending: false }).limit(5),
         supabase.from("descalification_categories").select("code, label").eq("organization_id", orgId),
-        supabase.from("analyses").select("id, user_id, prospect_name, score_general, clasificacion, categoria_descalificacion, lead_quality, fuente_lead_id, created_at, funnel_stage_id, property_type, business_type")
+        supabase.from("analyses").select("id, user_id, prospect_name, score_general, clasificacion, unscorable_reason, categoria_descalificacion, lead_quality, fuente_lead_id, created_at, funnel_stage_id, property_type, business_type")
           .eq("organization_id", orgId).eq("status", "completado").order("created_at", { ascending: false }).limit(10),
         supabase.from("lead_sources").select("id, name").eq("organization_id", orgId),
         supabase.from("funnel_stages").select("id, name").eq("organization_id", orgId).eq("active", true),
@@ -194,7 +196,8 @@ function EquipoDashboardInner() {
       const cards: CaptadoraCard[] = caps.map(u => {
         const ws2 = periodByUser[u.id] || [];
         const ps = previousByUser[u.id] || [];
-        const thisAvg = ws2.length > 0 ? Math.round(ws2.reduce((a, b) => a + b, 0) / ws2.length) : 0;
+        // F48a: sin scores medibles → null, no 0 (un fragmento jamás aporta 0 a un promedio)
+        const thisAvg = ws2.length > 0 ? Math.round(ws2.reduce((a, b) => a + b, 0) / ws2.length) : null;
         const prevA = ps.length > 0 ? Math.round(ps.reduce((a, b) => a + b, 0) / ps.length) : null;
         const target = objByUser[u.id] || (globalObj?.target_value ?? null);
         const dailyTarget = target !== null ? Math.max(1, Math.ceil(target / 22)) : null;
@@ -204,10 +207,10 @@ function EquipoDashboardInner() {
           const pct = dailyDone / dailyTarget;
           status = pct >= 1 ? "green" : pct >= 0.5 ? "yellow" : "red";
         }
-        return { userId: u.id, name: u.name, avgScore: thisAvg, count: ws2.length, delta: prevA !== null && ws2.length > 0 ? thisAvg - prevA : null, dailyDone, dailyTarget, status };
+        return { userId: u.id, name: u.name, avgScore: thisAvg, count: ws2.length, delta: prevA !== null && thisAvg !== null ? thisAvg - prevA : null, dailyDone, dailyTarget, status };
       });
 
-      cards.sort((a, b) => b.avgScore - a.avgScore);
+      cards.sort((a, b) => (b.avgScore ?? -1) - (a.avgScore ?? -1));
       setCaptadoras(cards);
 
       setRecentCalls((recentRes.data || []).map(a => ({
@@ -313,7 +316,7 @@ function EquipoDashboardInner() {
                 <div className="g1-traffic-info">
                   <span className="g1-traffic-name">{c.name}</span>
                   <span className="g1-traffic-detail">
-                    {c.count} llamadas · Score: {c.avgScore}
+                    {c.count} llamadas · Score: {c.avgScore ?? "—"}
                     {showDelta && c.delta !== null && (
                       <span className={c.delta > 0 ? "g1-delta-up" : c.delta < 0 ? "g1-delta-down" : ""}>
                         {" "}{c.delta > 0 ? "↑" : c.delta < 0 ? "↓" : ""}{Math.abs(c.delta)}
@@ -374,8 +377,10 @@ function EquipoDashboardInner() {
                       </span>
                     </div>
                     <div className="c4-item-right">
-                      {a.score_general !== null && (
-                        <span className={`c4-item-score c4-score-${a.clasificacion || "regular"}`}>{a.score_general}</span>
+                      {a.unscorable_reason === "fragmento" ? (
+                        <span className="frag-badge">Fragmento</span>
+                      ) : a.score_general !== null && (
+                        <span className={`c4-item-score c4-score-${a.clasificacion ?? ""}`}>{a.score_general}</span>
                       )}
                     </div>
                   </a>

@@ -12,6 +12,7 @@ interface Analysis {
   id: string;
   score_general: number | null;
   clasificacion: string | null;
+  unscorable_reason: string | null;
   created_at: string;
   objecion_principal: string | null;
   siguiente_accion: string | null;
@@ -39,7 +40,7 @@ export default function MiSemanaPage() {
 
       const [weekRes, prevRes, descalRes] = await Promise.all([
         supabase.from("analyses")
-          .select("id, score_general, clasificacion, created_at, objecion_principal, siguiente_accion, prospect_name, prospect_zone, property_type, categoria_descalificacion, checklist_results")
+          .select("id, score_general, clasificacion, unscorable_reason, created_at, objecion_principal, siguiente_accion, prospect_name, prospect_zone, property_type, categoria_descalificacion, checklist_results")
           .eq("user_id", session.userId).eq("organization_id", session.organizationId).eq("status", "completado")
           .gte("created_at", ws)
           .order("created_at", { ascending: false }),
@@ -241,8 +242,10 @@ export default function MiSemanaPage() {
                     </span>
                   </div>
                   <div className="c4-item-right">
-                    {a.score_general !== null && (
-                      <span className={`c4-item-score c4-score-${a.clasificacion || "regular"}`}>{a.score_general}</span>
+                    {a.unscorable_reason === "fragmento" ? (
+                      <span className="frag-badge">Fragmento</span>
+                    ) : a.score_general !== null && (
+                      <span className={`c4-item-score c4-score-${a.clasificacion ?? ""}`}>{a.score_general}</span>
                     )}
                   </div>
                 </a>

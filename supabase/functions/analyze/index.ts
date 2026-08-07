@@ -1,5 +1,8 @@
-// v24 — persistencia: EXTRACTION_WRITABLE_COLUMNS + vehicle_interest/financing_type
-// + alerta extraction_config_invalid deduplicada. (v23: audio_storage_path + AssemblyAI.)
+// v25 — F48a: gate de fragmento pre-LLM (<1500 chars → prompt bifurcado,
+// score_general/clasificacion NULL POR DISEÑO, unscorable_reason='fragmento',
+// cero analysis_phases, sin highlights; precedencia rechazado > fragmento).
+// (v24: EXTRACTION_WRITABLE_COLUMNS + vehicle_interest/financing_type + alerta
+// extraction_config_invalid deduplicada. v23: audio_storage_path + AssemblyAI.)
 // Regla: EDGE_VERSION se bumpea SIEMPRE que cambie comportamiento del parser —
 // existe para correlación forense en analysis_parser_debug.edge_version.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -29,7 +32,9 @@ import {
   writeParserDebug,
 } from "./db.ts";
 import { buildFullPrompt, callClaude, callClaudeForHighlights } from "./claude.ts";
+import { isFragmentTranscript, buildFragmentPrompt, parseFragmentOutput } from "./fragment.ts";
 import { parseClaudeOutput, matchPhaseIds, deriveScoreFromPhases } from "./parser.ts";
+import type { MatchedPhase } from "./types.ts";
 import { buildParserDebug, filterExpectedMisses, normalizeDescal } from "./parser-debug.ts";
 import { ASSEMBLYAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from "../_shared/env.ts";
 import { RejectedAnalysisError, ApiStatusError, AudioContentError, classifyError } from "../_shared/errors.ts";
@@ -39,7 +44,7 @@ import { alertSlack, type AlertContext } from "../_shared/alert.ts";
 // F46: marcador interno de versión del código (fuente: header del archivo). NO
 // es el contador de deployment de Supabase (que va por su cuenta). Se persiste
 // en analysis_parser_debug.edge_version para correlacionar el diagnóstico.
-const EDGE_VERSION = "v24";
+const EDGE_VERSION = "v25";
 
 // Config inválida de extraction_patterns ya alertada por este isolate —
 // dedupe en memoria: primera aparición del scorecard → alerta F21; después
@@ -108,16 +113,9 @@ async function processJobAsync(jobId: string) {
       payload.funnel_stage_id ? getStageChecklistItems(payload.funnel_stage_id) : Promise.resolve([]),
     ]);
 
-    // 6. Build prompt
-    const { systemPrompt, extractionPatterns } = buildFullPrompt(
-      scorecard,
-      vocabulary,
-      descalCats,
-      orgStages,
-      checklistItems,
-    );
-
-    // 7. Resolve transcription — either from payload or by transcribing audio from Storage
+    // 6. Resolve transcription — either from payload or by transcribing audio from Storage
+    // F48a: movido ANTES del build del prompt — la longitud del transcript
+    // decide qué prompt se usa (buildFullPrompt no depende del transcript).
     // F21: alertCtx propagado a callClaude + callClaudeForHighlights +
     // transcribeFromStorage para alerting on non-transient 4xx/5xx.
     const alertCtx: AlertContext = {
@@ -133,7 +131,18 @@ async function processJobAsync(jobId: string) {
     } else {
       transcription = payload.transcription_edited || payload.transcription_original || payload.transcription_text;
     }
-    console.log(`[analyze v23] Calling Claude for job ${jobId}, transcription length: ${transcription.length}`);
+
+    // 7. F48a: gate de fragmento pre-LLM — cubre ambos inputs (texto y audio;
+    // el frontend solo conoce la longitud en el path texto). La cuota ya se
+    // consumió en el paso 2 (regla vigente). Un fragmento va por prompt
+    // bifurcado: feedback breve + estado del lead + extracción, SIN score ni
+    // fases. El rejection tool viaja igual en ambos paths (callClaude lo manda
+    // siempre): rechazado > fragmento.
+    const isFragment = isFragmentTranscript(transcription);
+    const { systemPrompt, extractionPatterns } = isFragment
+      ? buildFragmentPrompt(scorecard, descalCats)
+      : buildFullPrompt(scorecard, vocabulary, descalCats, orgStages, checklistItems);
+    console.log(`[analyze v25] Calling Claude for job ${jobId}, transcription length: ${transcription.length}, fragment: ${isFragment}`);
     const claudeResponse = await callClaude(systemPrompt, transcription, alertCtx);
 
     // 7b. Branch: LLM signaled rejection via tool_use (early return before parse + highlights)
@@ -151,13 +160,18 @@ async function processJobAsync(jobId: string) {
     lastRawOutput = rawOutput;
     console.log(`[analyze] Claude response length: ${rawOutput.length}`);
 
-    // 8. Parse
-    const parsed = parseClaudeOutput(rawOutput, extractionPatterns || null);
+    // 8. Parse — F48a: los fragmentos pasan por parseFragmentOutput (mismo
+    // parser con normalización de separador inicial; ver fragment.ts).
+    const parsed = isFragment
+      ? parseFragmentOutput(rawOutput, extractionPatterns || null)
+      : parseClaudeOutput(rawOutput, extractionPatterns || null);
 
-    // 8b. Parser drift detection — analyzed branch should always produce SCORE GENERAL.
-    // If null reaches here, the LLM output was malformed BUT it didn't call the rejection
-    // tool — surface as technical error (status='error'), NOT silent rejection.
-    if (parsed.score_general === null) {
+    // 8b. Parser drift detection — SOLO rama scored: ahí el LLM debe producir
+    // SCORE GENERAL. Si llega null sin haber llamado el rejection tool →
+    // error técnico (status='error'), NOT silent rejection.
+    // F48a: en fragmento el score null es POR DISEÑO — el guard no aplica
+    // (y el payload es null-safe: guard y payload cambian JUNTOS).
+    if (!isFragment && parsed.score_general === null) {
       console.error("[analyze] Analyzed branch but score_general null", {
         jobId,
         organizationId: job.organization_id,
@@ -169,26 +183,41 @@ async function processJobAsync(jobId: string) {
       );
     }
 
-    const phasesWithIds = matchPhaseIds(parsed.phases, scorecard.phases || []);
-    console.log(`[analyze v23] Parsed ${parsed.phases.length} phases, matched ${phasesWithIds.length}, phase_ids: ${JSON.stringify(phasesWithIds.map(p => p.phase_id))}`);
+    let phasesWithIds: MatchedPhase[] = [];
+    if (isFragment) {
+      // F48a: NULL honesto forzado — si el modelo desobedece y emite score o
+      // fases en un fragmento, se descartan. Un fragmento NUNCA se puntúa y
+      // NUNCA escribe filas en analysis_phases (los 6 fragmentos históricos
+      // metieron 26 filas de fases con avg 2.96 que contaminan la métrica de
+      // fase más débil que alimenta digest semanal y coaching).
+      if (parsed.score_general !== null || parsed.phases.length > 0) {
+        console.warn(`[F48a] fragmento con score/fases emitidos por el modelo — descartados (job=${jobId}, score=${parsed.score_general}, fases=${parsed.phases.length})`);
+      }
+      parsed.score_general = null;
+      parsed.clasificacion = null;
+      parsed.phases = [];
+    } else {
+      phasesWithIds = matchPhaseIds(parsed.phases, scorecard.phases || []);
+      console.log(`[analyze v23] Parsed ${parsed.phases.length} phases, matched ${phasesWithIds.length}, phase_ids: ${JSON.stringify(phasesWithIds.map(p => p.phase_id))}`);
 
-    // F44: score_general = suma de fases clampeadas cuando la extracción está
-    // completa; parcial → conserva el del LLM. Log de drift siempre.
-    const scoreDerivation = deriveScoreFromPhases(
-      parsed.score_general,
-      parsed.clasificacion,
-      phasesWithIds,
-      (scorecard.phases || []).length,
-    );
-    console.log(`[F44] score_drift ${JSON.stringify({
-      analysis_id: analysisId,
-      llm_score: parsed.score_general,
-      phase_sum: scoreDerivation.phaseSum,
-      delta: scoreDerivation.phaseSum === null || parsed.score_general === null ? null : parsed.score_general - scoreDerivation.phaseSum,
-      overridden: scoreDerivation.overridden,
-    })}`);
-    parsed.score_general = scoreDerivation.score;
-    parsed.clasificacion = scoreDerivation.clasificacion;
+      // F44: score_general = suma de fases clampeadas cuando la extracción está
+      // completa; parcial → conserva el del LLM. Log de drift siempre.
+      const scoreDerivation = deriveScoreFromPhases(
+        parsed.score_general,
+        parsed.clasificacion,
+        phasesWithIds,
+        (scorecard.phases || []).length,
+      );
+      console.log(`[F44] score_drift ${JSON.stringify({
+        analysis_id: analysisId,
+        llm_score: parsed.score_general,
+        phase_sum: scoreDerivation.phaseSum,
+        delta: scoreDerivation.phaseSum === null || parsed.score_general === null ? null : parsed.score_general - scoreDerivation.phaseSum,
+        overridden: scoreDerivation.overridden,
+      })}`);
+      parsed.score_general = scoreDerivation.score;
+      parsed.clasificacion = scoreDerivation.clasificacion;
+    }
 
     // Persistencia: columns declaradas que el pipeline no puede escribir
     // (fuera de EXTRACTION_WRITABLE_COLUMNS) — warn siempre, alerta deduplicada.
@@ -214,7 +243,10 @@ async function processJobAsync(jobId: string) {
     // parcial > error para la captadora), pero deja de ser silencioso.
     // Logging condicional: el raw output completo va a logs SOLO en este caso —
     // cero PII en logs de análisis sanos.
-    const expectedPhases = (scorecard.phases || []).length;
+    // F48a: el prompt de fragmento no pide fases — 0 esperadas para que el
+    // detector F42 no dispare phases_mismatch falso. missing_lead sigue vivo
+    // (el fragmento SÍ pide ESTADO DEL LEAD — monitoreo real, no falso positivo).
+    const expectedPhases = isFragment ? 0 : (scorecard.phases || []).length;
     const promptHasEstado = systemPrompt.includes("ESTADO DEL LEAD");
     // F47: solo cuentan como pérdida los labels de extracción que el prompt
     // realmente pidió (espejo del gate promptHasEstado).
@@ -271,13 +303,20 @@ async function processJobAsync(jobId: string) {
     }
 
     // 9. Write results
-    await writeAnalysisResults(analysisId, parsed, job, descalCats, orgStages);
+    // F48a: fragmento → unscorable_reason='fragmento' con score/clasificacion
+    // NULL reales (payload null-safe); phasesWithIds=[] garantiza cero filas de
+    // fases. updateUserStats corre IGUAL: un fragmento SÍ cuenta para el streak
+    // (la captadora trabajó y subió la llamada — criterio del chat, 7-ago) y no
+    // toca current_focus_phase (sin filas de fase no entra a la ventana de 5).
+    await writeAnalysisResults(analysisId, parsed, job, descalCats, orgStages, isFragment ? "fragmento" : null);
     await writeAnalysisPhases(analysisId, phasesWithIds, job.organization_id, job.user_id);
     await updateUserStats(job.user_id, job.organization_id);
     await completeAnalysisJob(analysisId);
 
     // 10. Second Claude call for tracker-based highlights (non-blocking on failure)
-    try {
+    // F48a: sin highlights para fragmentos — el output es feedback breve y el
+    // segundo call asume contexto con score numérico.
+    if (!isFragment) try {
       console.log(`[analyze] Starting highlights call for job ${jobId}`);
       const trackers = await getOrgTrackers(job.organization_id);
       const highlights = await callClaudeForHighlights(

@@ -28,6 +28,7 @@ interface Analysis {
   scorecard_id?: string | null;
   score_general: number | null;
   clasificacion: string | null;
+  unscorable_reason: string | null;
   momento_critico: string | null;
   patron_error: string | null;
   objecion_principal: string | null;
@@ -143,7 +144,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
 
       const { data: a, error: aErr } = await supabase
         .from("analyses")
-        .select("id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, notes, lead_quality, lead_outcome, related_analysis_id, created_at, scorecard_id, legacy_note, highlights, status, error_message")
+        .select("id, score_general, clasificacion, unscorable_reason, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, notes, lead_quality, lead_outcome, related_analysis_id, created_at, scorecard_id, legacy_note, highlights, status, error_message")
         .eq("id", id)
         .single();
 
@@ -444,6 +445,15 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
       {analysis.legacy_note && (
         <div style={{ padding: "8px 12px", background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 6, fontSize: 13, color: "#92400e", marginBottom: 12 }}>
           Este análisis fue procesado con un bug conocido previo a la corrección del 12 abr. Los resultados pueden no reflejar el scorecard correcto.
+        </div>
+      )}
+
+      {/* F48a: fragmento — no-medición honesta, sin score por diseño */}
+      {analysis.unscorable_reason === "fragmento" && (
+        <div className="c3-section">
+          <div className="c3-score-inline" title="La transcripción es muy corta para evaluar tu desempeño — este análisis no genera score y no afecta tus promedios">
+            <span className="frag-badge">Fragmento</span>
+          </div>
         </div>
       )}
 

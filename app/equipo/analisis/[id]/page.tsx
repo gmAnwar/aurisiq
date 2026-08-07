@@ -41,7 +41,7 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
       setUserId(session.userId);
 
       const { data: a } = await supabase.from("analyses")
-        .select("id, user_id, score_general, clasificacion, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, lead_quality, lead_outcome, created_at, organization_id, manager_note, prospect_name, prospect_zone, property_type, sale_reason, prospect_phone, checklist_results, legacy_note, highlights")
+        .select("id, user_id, score_general, clasificacion, unscorable_reason, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, lead_quality, lead_outcome, created_at, organization_id, manager_note, prospect_name, prospect_zone, property_type, sale_reason, prospect_phone, checklist_results, legacy_note, highlights")
         .eq("id", id).single();
 
       if (!a) { setError("Análisis no encontrado."); setLoading(false); return; }
@@ -110,7 +110,10 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
   const isCov = (c: ChecklistItem) => c.state ? c.state === "covered" : !!c.covered;
   const isPart = (c: ChecklistItem) => c.state === "asked_no_answer";
   const covered = checklist.filter(isCov).length;
-  const scoreColor = (analysis.score_general as number) >= 85 ? "var(--green)" : (analysis.score_general as number) >= 65 ? "var(--gold)" : (analysis.score_general as number) >= 45 ? "var(--cap)" : "var(--red)";
+  // F48a: null nunca cae a la rama roja — gris neutro (defensivo: el render del
+  // número ya viene guardado con !== null).
+  const scoreVal = analysis.score_general as number | null;
+  const scoreColor = scoreVal === null ? "var(--ink-light)" : scoreVal >= 85 ? "var(--green)" : scoreVal >= 65 ? "var(--gold)" : scoreVal >= 45 ? "var(--cap)" : "var(--red)";
 
   const prospectLabel = [analysis.prospect_name, analysis.prospect_zone, analysis.property_type].filter(Boolean).join(" · ") as string;
 
@@ -127,7 +130,9 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
               <a href={`/equipo/captadora/${analysis.user_id}`} className="g3-captadora-link">{captadoraName}</a>
             </div>
           </div>
-          {(analysis.score_general as number | null) !== null && (
+          {(analysis.unscorable_reason as string | null) === "fragmento" ? (
+            <span className="frag-badge" title="La transcripción es muy corta para evaluar el desempeño — este análisis no genera score ni afecta promedios">Fragmento</span>
+          ) : (analysis.score_general as number | null) !== null && (
             <span className="g3-score-big" style={{ color: scoreColor }} title="El score evalúa el desempeño de la captadora, no la calidad del lead">{analysis.score_general as number}</span>
           )}
         </div>

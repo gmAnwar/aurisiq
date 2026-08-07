@@ -16,11 +16,20 @@ export function buildAnalysisUpdatePayload(input: {
   relatedId: string | null;
   normalizedPhone: string | null;
   validDescal: string[] | null;
+  // F48a: 'fragmento' cuando el gate pre-LLM marcó el transcript como no
+  // puntuable; null en análisis medibles (escribe NULL explícito, idempotente).
+  unscorableReason: "fragmento" | null;
 }): Record<string, unknown> {
   const { parsed } = input;
   return {
-    score_general: Math.min(parsed.score_general!, 100),
+    // F48a: NULL real preservado. El Math.min(parsed.score_general!, 100)
+    // anterior convertía null en 0 (Math.min(null,100)===0 en JS) — con el
+    // guard anti-drift de index.ts relajado para fragmentos, este builder es
+    // null-safe SIEMPRE: el guard y el payload cambian JUNTOS o el fragmento
+    // escribe 0 en silencio.
+    score_general: parsed.score_general === null ? null : Math.min(parsed.score_general, 100),
     clasificacion: parsed.clasificacion,
+    unscorable_reason: input.unscorableReason,
     momento_critico: parsed.momento_critico,
     patron_error: parsed.patron_error,
     objecion_principal: parsed.objecion_principal,

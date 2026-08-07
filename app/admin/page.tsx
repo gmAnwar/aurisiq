@@ -37,6 +37,7 @@ interface AnalysisRow {
   user_id: string;
   score_general: number | null;
   clasificacion: string | null;
+  unscorable_reason: string | null;
   status: string | null;
   created_at: string;
   scorecard_id: string | null;
@@ -1028,7 +1029,9 @@ export default function AdminPage() {
                 <div key={a.id}>
                   <div className="adm-table-row">
                     <span style={{ flex: 0.5 }}>
-                      <span className={`adm-score ${scoreBadgeClass(a.score_general)}`}>{a.score_general ?? "—"}</span>
+                      {a.unscorable_reason === "fragmento"
+                        ? <span className="frag-badge">Fragmento</span>
+                        : <span className={`adm-score ${scoreBadgeClass(a.score_general)}`}>{a.score_general ?? "—"}</span>}
                     </span>
                     <span style={{ flex: 1.5, fontWeight: 500 }}>{userName(a.user_id)}</span>
                     <span style={{ flex: 1, color: "#737373", fontSize: 13 }}>{orgName(a.organization_id)}</span>
