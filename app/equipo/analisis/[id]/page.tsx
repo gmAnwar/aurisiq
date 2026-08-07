@@ -5,6 +5,16 @@ import { supabase } from "../../../../lib/supabase";
 import { requireAuth } from "../../../../lib/auth";
 import TranscriptEditor from "../../../components/TranscriptEditor";
 import LeadBadge from "../../../components/LeadBadge";
+import { clasificacionLabel, CLASIFICACION_RANGES, type ClasificacionValue } from "../../../../lib/clasificacion-labels";
+
+// Descripciones de la tabla de rangos (voz gerente, neutra). Etiquetas y
+// rangos vienen de lib/clasificacion-labels — cero strings sueltos.
+const SCORE_REF_DESCRIPTIONS: Record<ClasificacionValue, string> = {
+  excelente: "La llamada cubrió casi todos los puntos del scorecard con claridad. Datos clave obtenidos, objeciones manejadas con argumentos sólidos, siguiente paso concreto.",
+  buena: "Puntos críticos cubiertos, pero faltaron detalles en algunas fases. 2–3 oportunidades claras de mejora.",
+  regular: "Lo básico cubierto pero se dejó pasar información importante. Calificación incompleta, objeciones sin respuesta sólida, cierre débil.",
+  deficiente: "La llamada no avanzó el proceso. Faltaron preguntas clave, prospecto no calificado, sin siguiente paso claro.",
+};
 
 interface Phase { phase_name: string; score: number; score_max: number; }
 interface DescalCat { code: string; label: string; }
@@ -113,7 +123,8 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
   // F48a: null nunca cae a la rama roja — gris neutro (defensivo: el render del
   // número ya viene guardado con !== null).
   const scoreVal = analysis.score_general as number | null;
-  const scoreColor = scoreVal === null ? "var(--ink-light)" : scoreVal >= 85 ? "var(--green)" : scoreVal >= 65 ? "var(--gold)" : scoreVal >= 45 ? "var(--cap)" : "var(--red)";
+  // Rename UI 7-ago-2026: la banda baja ("A reforzar") nunca en rojo — ámbar discreto.
+  const scoreColor = scoreVal === null ? "var(--ink-light)" : scoreVal >= 85 ? "var(--green)" : scoreVal >= 65 ? "var(--gold)" : scoreVal >= 45 ? "var(--cap)" : "var(--amber)";
 
   const prospectLabel = [analysis.prospect_name, analysis.prospect_zone, analysis.property_type].filter(Boolean).join(" · ") as string;
 
@@ -155,10 +166,9 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
               <table className="c3-score-ref-table">
                 <thead><tr><th>Rango</th><th>Qué significa</th></tr></thead>
                 <tbody>
-                  <tr><td><span className="c3-ref-range c3-ref-excelente">Excelente (81–100)</span></td><td>La llamada cubrió casi todos los puntos del scorecard con claridad. Datos clave obtenidos, objeciones manejadas con argumentos sólidos, siguiente paso concreto.</td></tr>
-                  <tr><td><span className="c3-ref-range c3-ref-buena">Buena (61–80)</span></td><td>Puntos críticos cubiertos, pero faltaron detalles en algunas fases. 2–3 oportunidades claras de mejora.</td></tr>
-                  <tr><td><span className="c3-ref-range c3-ref-regular">Regular (41–60)</span></td><td>Lo básico cubierto pero se dejó pasar información importante. Calificación incompleta, objeciones sin respuesta sólida, cierre débil.</td></tr>
-                  <tr><td><span className="c3-ref-range c3-ref-deficiente">Deficiente (0–40)</span></td><td>La llamada no avanzó el proceso. Faltaron preguntas clave, prospecto no calificado, sin siguiente paso claro.</td></tr>
+                  {CLASIFICACION_RANGES.map(r => (
+                    <tr key={r.value}><td><span className={`c3-ref-range c3-ref-${r.value}`}>{clasificacionLabel(r.value)} ({r.min}–{r.max})</span></td><td>{SCORE_REF_DESCRIPTIONS[r.value]}</td></tr>
+                  ))}
                 </tbody>
               </table>
               <p className="c3-score-ref-note">El score mide el desempeño de la captadora, no si el lead calificó.</p>

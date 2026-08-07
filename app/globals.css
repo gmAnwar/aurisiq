@@ -2085,7 +2085,8 @@ body.has-nav {
 .c3-ref-excelente { color: #166534; }
 .c3-ref-buena { color: #1d4ed8; }
 .c3-ref-regular { color: #92400e; }
-.c3-ref-deficiente { color: #991b1b; }
+/* Rename UI: "A reforzar" nunca en rojo — neutro discreto */
+.c3-ref-deficiente { color: var(--ink-mid); }
 .c3-score-ref-note {
   margin: 10px 0 0;
   font-size: 12px;
@@ -2316,7 +2317,8 @@ body.has-nav {
 .c3-clas-excelente { background: var(--green-dim); color: var(--green); }
 .c3-clas-buena { background: var(--gold-dim); color: var(--gold); }
 .c3-clas-regular { background: var(--cream-dark); color: var(--ink-light); }
-.c3-clas-deficiente { background: var(--red-dim); color: var(--red); }
+/* Rename UI: "A reforzar" nunca en rojo — ámbar discreto del sistema */
+.c3-clas-deficiente { background: var(--cream-dark); color: var(--amber); }
 
 /* =============================================
    C4 — Mi Día / Historial
@@ -3412,7 +3414,9 @@ div:has(> .c4-item):hover .historial-delete-btn {
 .c4-score-excelente { color: var(--score-green); }
 .c4-score-buena { color: var(--score-yellow); }
 .c4-score-regular { color: var(--ink-light); }
-.c4-score-deficiente { color: var(--score-red); }
+/* Rename UI: banda "A reforzar" sin rojo en listas — neutro (el número + la
+   palabra en el detalle cargan la señal, no el color castigo) */
+.c4-score-deficiente { color: var(--ink-light); }
 
 /* =============================================
    C5 — Mi Speech
