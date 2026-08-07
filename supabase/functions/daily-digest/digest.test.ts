@@ -194,6 +194,7 @@ Deno.test("cero PII de prospectos en el mensaje (tipos no lo permiten, doble che
 import {
   buildMonthlyDigest,
   buildWeeklyDigest,
+  cohortAvgs,
   mondayOf,
   type MonthlyInput,
   monthLabel,
@@ -377,4 +378,66 @@ Deno.test("monthly: rechazados con % y sin línea de plan si el plan no tiene l�
   }));
   assertStringIncludes(text, "Rechazados: 1 (50%)");
   assertEquals(text.includes("Uso del plan"), false);
+});
+
+// ================= F50: antídoto de composición (Simpson) =================
+
+Deno.test("cohortAvgs: compara solo a los usuarios presentes en ambos periodos", () => {
+  const cur = new Map([
+    ["u-ana", [mkAnalysis({ score_general: 60 })]],
+    ["u-nuevo", [mkAnalysis({ user_id: "u-nuevo", score_general: 20 })]],
+  ]);
+  const prev = new Map([
+    ["u-ana", [mkAnalysis({ score_general: 50 })]],
+    ["u-se-fue", [mkAnalysis({ user_id: "u-se-fue", score_general: 90 })]],
+  ]);
+  assertEquals(cohortAvgs(cur, prev), { n: 1, prevAvg: 50, curAvg: 60 });
+});
+
+Deno.test("cohortAvgs: sin usuarios en común → n=0 y promedios null", () => {
+  const cur = new Map([["u-a", [mkAnalysis({})]]]);
+  const prev = new Map([["u-b", [mkAnalysis({ user_id: "u-b" })]]]);
+  assertEquals(cohortAvgs(cur, prev), { n: 0, prevAvg: null, curAvg: null });
+});
+
+Deno.test("monthly F50: caso real Inmobili — el MoM cae por composición, la cohorte sube", () => {
+  const users: UserRow[] = [
+    { id: "u-miguel", organization_id: "org-a", name: "Miguel Ferrer", email: "miguel@acme.mx", training_mode: false, active: true },
+    { id: "u-eli", organization_id: "org-a", name: "Elizabeth Zubiri", email: "eli@acme.mx", training_mode: false, active: true },
+    { id: "u-novata", organization_id: "org-a", name: "Novata Prueba", email: "novata@acme.mx", training_mode: false, active: true, created_at: IN_JUL },
+  ];
+  const text = buildMonthlyDigest(monthlyInput({
+    users,
+    analyses: [
+      mkAnalysis({ user_id: "u-miguel", created_at: IN_JUN, score_general: 50 }),
+      mkAnalysis({ user_id: "u-eli", created_at: IN_JUN, score_general: 90 }),
+      mkAnalysis({ user_id: "u-miguel", created_at: IN_JUL, score_general: 56 }),
+      mkAnalysis({ user_id: "u-novata", created_at: IN_JUL, score_general: 20 }),
+    ],
+  }));
+  assertStringIncludes(text, "Score prom: 38 (jun: 70)");
+  assertStringIncludes(text, "A plantilla comparable (1 usuario en ambos meses): 50 → 56 (+6)");
+  assertStringIncludes(text, "Se apagaron: Elizabeth");
+  assertStringIncludes(text, "(1 nuevo: Novata)");
+});
+
+Deno.test("monthly F50: sin altas ni bajas → cero ruido, la línea de cohorte no aparece", () => {
+  const text = buildMonthlyDigest(monthlyInput({
+    analyses: [
+      mkAnalysis({ created_at: IN_JUN, score_general: 50 }),
+      mkAnalysis({ created_at: IN_JUL, score_general: 60 }),
+    ],
+  }));
+  assertStringIncludes(text, "Score prom: 60 (jun: 50)");
+  assertEquals(text.includes("plantilla comparable"), false);
+});
+
+Deno.test("monthly F50: recambio total → avisa que el promedio NO es comparable", () => {
+  const text = buildMonthlyDigest(monthlyInput({
+    analyses: [
+      mkAnalysis({ created_at: IN_JUN, score_general: 50 }),
+      mkAnalysis({ user_id: "u-luis", created_at: IN_JUL, score_general: 30 }),
+    ],
+  }));
+  assertStringIncludes(text, "Cero usuarios en común con jun — el promedio de equipo NO es comparable");
 });

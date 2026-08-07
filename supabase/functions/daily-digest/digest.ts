@@ -540,6 +540,24 @@ function createdInWindow(u: UserRow | undefined, startUtc: Date, endUtc: Date): 
   return inWindow(u.created_at, startUtc, endUtc);
 }
 
+// Antídoto de composición (F50 — Simpson's paradox verificado en prod): el
+// promedio de equipo mezcla a quien entró y a quien dejó de usar el sistema —
+// puede caer 11 puntos mientras TODOS los individuos mejoran (Inmobili:
+// 63.1 → 52.4 de equipo con el único usuario de volumen real subiendo
+// 50 → 57, porque la mejor usuaria se apagó y entraron novatas). Esta función
+// compara SOLO a los usuarios presentes en ambos periodos: mismo denominador
+// humano, tendencia real de desempeño.
+export function cohortAvgs(
+  curUsers: Map<string, AnalysisRow[]>,
+  prevUsers: Map<string, AnalysisRow[]>,
+): { n: number; prevAvg: number | null; curAvg: number | null } {
+  const comunes = [...curUsers.keys()].filter((uid) => prevUsers.has(uid));
+  if (!comunes.length) return { n: 0, prevAvg: null, curAvg: null };
+  const curRows = comunes.flatMap((uid) => curUsers.get(uid)!).filter((a) => a.status === "completado");
+  const prevRows = comunes.flatMap((uid) => prevUsers.get(uid)!).filter((a) => a.status === "completado");
+  return { n: comunes.length, prevAvg: avgScore(prevRows), curAvg: avgScore(curRows) };
+}
+
 // ---------- digest SEMANAL ----------
 // Vista de coaching: deltas por usuario, fase más débil, top descalificación.
 
@@ -730,6 +748,14 @@ export function buildMonthlyDigest(input: MonthlyInput): string {
       lines.push(`• Uso del plan: ${totalOrgMonth}/${limit} (${pct}%)${flag}${demoOrgMonth > 0 ? " — incluye pruebas" : ""}`);
     }
 
+    // Churn interno: reales con actividad el mes previo y 0 este mes (solo
+    // transición). F50: calculado ANTES del bloque de score — la línea de
+    // cohorte comparable necesita saber si hubo bajas.
+    const offUsers = [...prevUsers.entries()]
+      .filter(([uid]) => !curUsers.has(uid))
+      .map(([uid, rs]) => ({ name: firstName(usersById.get(uid)), n: rs.length }))
+      .sort((a, b) => b.n - a.n);
+
     const prom = avgScore(completados);
     const promPrev = avgScore(prevCompletados);
     let best: { name: string; score: number } | null = null;
@@ -742,6 +768,20 @@ export function buildMonthlyDigest(input: MonthlyInput): string {
       let line = `• Score prom: ${prom}${promPrev !== null ? ` (${prevTag}: ${promPrev})` : ""}`;
       if (best) line += ` · Mejor: ${best.name} ${best.score}`;
       lines.push(line);
+      // F50: si la plantilla cambió (altas o bajas), el MoM de arriba mezcla
+      // composición con desempeño — esta línea aísla la tendencia real
+      // comparando solo a quienes trabajaron ambos meses. Sin altas ni bajas
+      // no aparece (cero ruido); sin usuarios en común, avisa en vez de
+      // fingir una tendencia.
+      if (promPrev !== null && (newUsers.length > 0 || offUsers.length > 0)) {
+        const cohorte = cohortAvgs(curUsers, prevUsers);
+        if (cohorte.n === 0) {
+          lines.push(`• ⚠️ Cero usuarios en común con ${prevTag} — el promedio de equipo NO es comparable`);
+        } else if (cohorte.prevAvg !== null && cohorte.curAvg !== null) {
+          const d = cohorte.curAvg - cohorte.prevAvg;
+          lines.push(`• A plantilla comparable (${nLabel(cohorte.n, "usuario", "usuarios")} en ambos meses): ${cohorte.prevAvg} → ${cohorte.curAvg} (${signedDelta(d)})`);
+        }
+      }
     }
 
     const pctPrev = qualifiedPct(prevCompletados);
@@ -752,11 +792,6 @@ export function buildMonthlyDigest(input: MonthlyInput): string {
     const descal = topDescalLine(completados);
     if (descal) lines.push(descal);
 
-    // Churn interno: reales con actividad el mes previo y 0 este mes (solo transición)
-    const offUsers = [...prevUsers.entries()]
-      .filter(([uid]) => !curUsers.has(uid))
-      .map(([uid, rs]) => ({ name: firstName(usersById.get(uid)), n: rs.length }))
-      .sort((a, b) => b.n - a.n);
     if (offUsers.length) {
       const shown = offUsers.slice(0, 3).map((e) => `${e.name} (${e.n} en ${prevTag} → 0)`).join(" · ");
       lines.push(`• Se apagaron: ${shown}${offUsers.length > 3 ? ` · +${offUsers.length - 3} más` : ""}`);
