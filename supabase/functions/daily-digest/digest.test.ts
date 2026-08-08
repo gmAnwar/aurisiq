@@ -290,7 +290,7 @@ Deno.test("weekly: % calificados excluye 'sin dato' del denominador (espejo F47)
   assertStringIncludes(text, "1 sin dato");
 });
 
-Deno.test("weekly: fase más débil con gate POR FASE n>=5 — n=2 no gana aunque sea peor", () => {
+Deno.test("weekly: gate POR FASE n>=5 — n=2 no gana aunque sea peor; fase única corona sin comparación", () => {
   const phases: PhaseRow[] = [];
   for (let i = 0; i < 5; i++) {
     phases.push({ organization_id: "org-a", user_id: "u-ana", phase_name: "Cierre", score: 5, score_max: 10, created_at: IN_WEEK });
@@ -301,7 +301,10 @@ Deno.test("weekly: fase más débil con gate POR FASE n>=5 — n=2 no gana aunqu
     analyses: [mkAnalysis({ created_at: IN_WEEK })],
     phases,
   }));
-  assertStringIncludes(text, "Fase más débil: Cierre (50% del máximo)");
+  // F52: puntos perdidos por llamada; sin rival que supere el gate no hay
+  // comparación que hacer, así que corona sin declarar empate.
+  assertStringIncludes(text, "Fase más cara: Cierre (5.0 pts por llamada)");
+  assertEquals(text.includes("empatadas"), false);
   assertEquals(text.includes("Rara"), false);
 });
 
@@ -353,7 +356,8 @@ Deno.test("monthly: score prom MoM, mejor del mes y % calificados con referencia
       mkAnalysis({ created_at: IN_JUN, score_general: 54, lead_quality: "descalificado" }),
     ],
   }));
-  assertStringIncludes(text, "Score prom: 62 (jun: 54) · Mejor: Ana 84");
+  // F52: con 2 vs 1 análisis la diferencia no es estimable → coletilla honesta
+  assertStringIncludes(text, "Score prom: 62 (jun: 54, sin cambio distinguible) · Mejor: Ana 84");
   assertStringIncludes(text, "1 calificado (50%, jun: 0%)");
 });
 
@@ -418,7 +422,7 @@ Deno.test("monthly F50: caso real Inmobili — el MoM cae por composición, la c
       mkAnalysis({ user_id: "u-novata", created_at: IN_JUL, score_general: 20 }),
     ],
   }));
-  assertStringIncludes(text, "Score prom: 38 (jun: 70)");
+  assertStringIncludes(text, "Score prom: 38 (jun: 70, sin cambio distinguible)");
   // F51: cohorte de 1 llamada por lado < DELTA_MIN_N → los promedios se
   // muestran pero el delta no es estimable → "(≈)"
   assertStringIncludes(text, "A plantilla comparable (1 usuario en ambos meses): 50 → 56 (≈)");
@@ -433,7 +437,7 @@ Deno.test("monthly F50: sin altas ni bajas → cero ruido, la línea de cohorte 
       mkAnalysis({ created_at: IN_JUL, score_general: 60 }),
     ],
   }));
-  assertStringIncludes(text, "Score prom: 60 (jun: 50)");
+  assertStringIncludes(text, "Score prom: 60 (jun: 50, sin cambio distinguible)");
   assertEquals(text.includes("plantilla comparable"), false);
 });
 
@@ -585,4 +589,162 @@ Deno.test("monthly F51: cohorte con mejora distinguible → la línea publica el
     ],
   }));
   assertStringIncludes(text, "A plantilla comparable (1 usuario en ambos meses): 25 → 85 (+60)");
+});
+
+// ================= F52: candado en headline mensual y fase sin corona espuria =================
+
+// Ciclo de valores de "puntos perdidos" con la dispersión REAL de producción
+// (SE ~0.7-0.9 sobre 79 llamadas), no una muestra artificialmente apretada:
+// con SE de juguete cualquier diferencia parece separación.
+function phaseRows(name: string, patron: number[], n = 79): PhaseRow[] {
+  return Array.from({ length: n }, (_, i) => ({
+    organization_id: "org-a",
+    user_id: "u-ana",
+    phase_name: name,
+    score: 30 - patron[i % patron.length],
+    score_max: 30,
+    created_at: IN_WEEK,
+  }));
+}
+
+const PAT_138 = [23, 5, 14, 13]; // media 13.76, SE 0.73
+const PAT_133 = [22, 5, 13, 13]; // media 13.25, SE 0.69
+const PAT_67 = [15, 0, 7, 5]; //   media 6.77,  SE 0.62
+
+Deno.test("weekly F52: primer lugar por 0.5 pts con SE ~0.7 → NO corona, reporta empate y nombra a las dos", () => {
+  // Caso real medido sobre 79 llamadas: 13.81 (SE 0.86) vs 13.28 (SE 0.77),
+  // t=0.46. Coronar aquí manda al equipo a entrenar la fase equivocada la
+  // mitad de las veces.
+  const text = buildWeeklyDigest(weeklyInput({
+    analyses: [mkAnalysis({ created_at: IN_WEEK })],
+    phases: [...phaseRows("Expectativa y Precio", PAT_138), ...phaseRows("Calificación de la Propiedad", PAT_133)],
+  }));
+  assertStringIncludes(text, "empatadas");
+  assertStringIncludes(text, "Expectativa y Precio");
+  assertStringIncludes(text, "Calificación de la Propiedad");
+  assertStringIncludes(text, "13.8 y 13.3 pts, empatadas");
+  assertEquals(text.includes("Fase más cara:"), false);
+});
+
+Deno.test("weekly F52: separación real (13.8 vs 6.7) → corona una sola, sin empate", () => {
+  const text = buildWeeklyDigest(weeklyInput({
+    analyses: [mkAnalysis({ created_at: IN_WEEK })],
+    phases: [...phaseRows("Expectativa y Precio", PAT_138), ...phaseRows("Avance a Visita", PAT_67)],
+  }));
+  assertStringIncludes(text, "Fase más cara: Expectativa y Precio (13.8 pts por llamada)");
+  assertEquals(text.includes("empatadas"), false);
+  assertEquals(text.includes("Avance a Visita"), false);
+});
+
+function scoreLine(text: string): string {
+  return text.split("\n").find((l) => l.includes("Score prom:")) ?? "";
+}
+
+Deno.test("monthly F52: headline con diferencia dentro del ruido → 'sin cambio distinguible', sin insinuar tendencia", () => {
+  // Escenario real: 67 → 55 con dispersión de ~18 puntos por llamada. La caída
+  // de 12 puntos NO supera el umbral, y era justo la línea que el lector leía
+  // como desplome mientras el candado de abajo quedaba de adorno.
+  const analyses = [];
+  for (const s of [85, 89, 57, 38, 66]) analyses.push(mkAnalysis({ created_at: IN_JUN, score_general: s }));
+  for (const s of [69, 52, 62, 28, 64]) analyses.push(mkAnalysis({ created_at: IN_JUL, score_general: s }));
+  const text = buildMonthlyDigest(monthlyInput({ analyses }));
+  const linea = scoreLine(text);
+  assertStringIncludes(linea, "Score prom: 55 (jun: 67, sin cambio distinguible)");
+  // Los dos números siguen ahí; lo que no puede aparecer es señal de tendencia.
+  assertEquals(linea.includes("%"), false);
+  assertEquals(linea.includes("→"), false);
+  assertEquals(/\([+-]\d/.test(linea), false);
+});
+
+Deno.test("monthly F52: headline con diferencia distinguible → formato actual, sin coletilla", () => {
+  const analyses = [];
+  for (const s of [20, 25, 30]) analyses.push(mkAnalysis({ created_at: IN_JUN, score_general: s }));
+  for (const s of [80, 85, 90]) analyses.push(mkAnalysis({ created_at: IN_JUL, score_general: s }));
+  const text = buildMonthlyDigest(monthlyInput({ analyses }));
+  const linea = scoreLine(text);
+  assertStringIncludes(linea, "Score prom: 85 (jun: 25)");
+  assertEquals(linea.includes("sin cambio distinguible"), false);
+});
+
+// Golden del daily: F52 no toca buildDigest y este test lo fija byte a byte.
+const DAILY_GOLDEN = "📊 *AurisIQ* — miércoles 5 ago\n\n*ACME INMUEBLES* — 3 análisis · 2 usuarios\n• Ana: 2 · prom 55  ·  Luis: 1 · prom 40\n• Leads: 1 calificado · 1 descalificado · 1 indeterminado\n• Outcomes: 2 pospuesto_sin_agenda · 1 cerrado_parcial\n\n🔇 Beta Pagos — sin análisis desde su alta\n\nSemana: 3 análisis (vs 0 previa)";
+
+Deno.test("daily F52: no-regresión byte a byte — el builder diario no se toca", () => {
+  const text = buildDigest(baseInput({
+    analyses: [
+      mkAnalysis({}),
+      mkAnalysis({ user_id: "u-ana", score_general: 50, lead_quality: "descalificado", lead_outcome: "pospuesto_sin_agenda" }),
+      mkAnalysis({ user_id: "u-luis", score_general: 40, lead_quality: "indeterminado", lead_outcome: "pospuesto_sin_agenda" }),
+    ],
+  }));
+  assertEquals(text, DAILY_GOLDEN);
+});
+
+// ================= F52b: el veredicto compara sin redondear =================
+
+// Datos reales de producción (solo scores, sin nombres): jun vs jul de la org
+// con más volumen. Es el caso que delataba el defecto.
+const ORO_PREV = [30, 38, 38, 41, 57, 64, 72, 75, 77, 85, 85, 89, 91, 92]; // media 66.7143
+const ORO_CUR = [16, 28, 28, 34, 38, 38, 38, 41, 42, 52, 52, 53, 56, 57, 58, 58, 62, 62, 62, 62, 62, 64, 65, 67, 67, 69, 70, 72, 74, 75, 75, 78]; // media 55.4688
+
+Deno.test("F52b caso de oro: el redondeo cruzaba el umbral y publicaba una caída inexistente", () => {
+  // sd pooled 17.94 · SE 5.7486 · 2·SE 11.4971
+  // |mb-ma| = 11.2455 < 11.4971            → NO distinguible (correcto)
+  // |round(mb)-round(ma)| = 12 >= 11.4971  → así se veía antes (el defecto)
+  const r = deltaLegible(ORO_PREV, ORO_CUR);
+  assertEquals(r !== null, true);
+  // El delta de RENDER no cambia; lo que cambia es el veredicto.
+  assertEquals(r!.delta, -12);
+  assertEquals(r!.legible, false);
+});
+
+Deno.test("F52b render end-to-end: con el caso de oro el headline usa el fallback, no el número", () => {
+  const analyses = [];
+  for (const s of ORO_PREV) analyses.push(mkAnalysis({ created_at: IN_JUN, score_general: s }));
+  for (const s of ORO_CUR) analyses.push(mkAnalysis({ created_at: IN_JUL, score_general: s }));
+  const text = buildMonthlyDigest(monthlyInput({ analyses }));
+  assertStringIncludes(scoreLine(text), "Score prom: 55 (jun: 67, sin cambio distinguible)");
+});
+
+Deno.test("F52b frontera inversa: el redondeo también SUPRIME señal real", () => {
+  // |mb-ma| = 9.8 >= 2·SE 9.06 → distinguible; pero round(20.4)-round(10.6) = 9
+  // habría quedado por debajo del umbral y la señal real se habría perdido.
+  const r = deltaLegible([2, 6, 10, 14, 21], [12, 16, 20, 24, 30]);
+  assertEquals(r, { delta: 9, legible: true });
+});
+
+Deno.test("F52b frontera exacta: |diferencia| == 2·SE cuenta como distinguible (>=, no >)", () => {
+  // sd = 0 → SE cae al piso de 2 → umbral exacto 4, y la diferencia es 4.
+  assertEquals(deltaLegible([10, 10, 10], [14, 14, 14]), { delta: 4, legible: true });
+});
+
+Deno.test("F52b: redondear la diferencia cruda tampoco vale — 9.6 no alcanza un umbral de 9.71", () => {
+  // Math.round(9.6) = 10 cruzaría el umbral; la diferencia real no lo cruza.
+  const r = deltaLegible([0, 5, 10, 15, 20], [10, 15, 20, 24, 29]);
+  assertEquals(r!.legible, false);
+});
+
+Deno.test("F52b invariante: si el veredicto es legible, el delta renderizado nunca es 0 (jamás '=')", () => {
+  // Con el piso de SE en 2 el umbral mínimo es 4, así que un delta legible no
+  // puede redondear a 0. Se fija por si alguien toca el piso.
+  const bases = [10, 40, 70];
+  const spreads = [0, 3, 9, 18];
+  const shifts = [0, 1, 2, 4, 7, 12, 25, 40];
+  let vistos = 0;
+  for (const base of bases) {
+    for (const sp of spreads) {
+      for (const sh of shifts) {
+        const prev = [base - sp, base, base + sp, base - sp / 2, base + sp / 2];
+        for (const signo of [1, -1]) {
+          const cur = prev.map((x) => x + signo * sh);
+          const r = deltaLegible(prev, cur);
+          if (r && r.legible) {
+            vistos++;
+            assertEquals(r.delta === 0, false, `legible con delta 0: base=${base} sp=${sp} sh=${signo * sh}`);
+          }
+        }
+      }
+    }
+  }
+  assertEquals(vistos > 0, true, "el barrido no produjo ningún caso legible");
 });

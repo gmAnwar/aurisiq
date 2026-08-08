@@ -12,7 +12,7 @@
 //   desde 2022 → offset fijo -06:00. NO usar "now() - 24h".
 
 export const MX_OFFSET = "-06:00";
-export const DIGEST_VERSION = "digest-v3";
+export const DIGEST_VERSION = "digest-v4";
 
 export interface OrgRow {
   id: string;
@@ -578,6 +578,82 @@ function completedScores(rows: AnalysisRow[]): number[] {
 // eso ni la varianza es estimable.
 export const DELTA_MIN_N = 3;
 
+// Une en español: "A y B" con dos, "A, B y C" con tres.
+function joinEs(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  return `${items.slice(0, -1).join(", ")} y ${items[items.length - 1]}`;
+}
+
+// F52: separación mínima, en errores estándar de la DIFERENCIA, para coronar
+// una fase por encima de la siguiente.
+const PHASE_TIE_SE = 2;
+
+export interface PhaseCost {
+  name: string;
+  /** Promedio de (score_max - score) por llamada: lo que esa fase CUESTA. */
+  avgLost: number;
+  /** Error estándar del promedio: sd/raíz(n). */
+  se: number;
+  n: number;
+}
+
+/**
+ * F52: la fase se reporta en PUNTOS PERDIDOS por llamada, no en % del máximo.
+ * Dos razones: el gerente entiende "esta fase te cuesta 13.8 puntos de cada
+ * llamada", y la métrica ya pondera por el peso de la fase (una fase de 35
+ * puntos al 60% cuesta el triple que una de 10 al 60%).
+ * Devuelve las fases que superan el gate n>=PHASE_MIN_N, de más cara a más
+ * barata. sd muestral (n-1); el gate garantiza n>=5, así que nunca divide por 0.
+ */
+export function phaseCosts(rows: PhaseRow[]): PhaseCost[] {
+  const byPhase = new Map<string, number[]>();
+  for (const p of rows) {
+    if (!p.phase_name || typeof p.score !== "number" || typeof p.score_max !== "number") continue;
+    const arr = byPhase.get(p.phase_name) ?? [];
+    arr.push(p.score_max - p.score);
+    byPhase.set(p.phase_name, arr);
+  }
+  return [...byPhase.entries()]
+    .filter(([, xs]) => xs.length >= PHASE_MIN_N)
+    .map(([name, xs]) => {
+      const n = xs.length;
+      const mean = xs.reduce((a, b) => a + b, 0) / n;
+      const varianza = xs.reduce((a, x) => a + (x - mean) * (x - mean), 0) / (n - 1);
+      return { name, avgLost: mean, se: Math.sqrt(varianza / n), n };
+    })
+    .sort((a, b) => b.avgLost - a.avgLost || a.name.localeCompare(b.name));
+}
+
+/**
+ * F52: corona SOLO si la fase más cara se separa de la siguiente por más de
+ * PHASE_TIE_SE errores estándar de la diferencia. Medido sobre 79 llamadas
+ * reales, el primer lugar era un volado: Expectativa y Precio (13.81, SE 0.86)
+ * vs Calificación de la Propiedad (13.28, SE 0.77) → t=0.46. Publicar "la fase
+ * más débil es X" con ese empate manda al equipo a entrenar la fase equivocada
+ * la mitad de las veces; reportar el empate es la lectura honesta.
+ */
+export function phaseCostLine(rows: PhaseRow[]): string | null {
+  const costs = phaseCosts(rows);
+  if (!costs.length) return null;
+  const fmt = (x: number) => x.toFixed(1);
+  const first = costs[0];
+
+  // Grupo empatado: las que NO se separan de la primera. La lista viene
+  // ordenada descendente, así que la primera separada corta el grupo.
+  const tied = [first];
+  for (const c of costs.slice(1)) {
+    const seDiff = Math.sqrt(first.se * first.se + c.se * c.se);
+    if (first.avgLost - c.avgLost > PHASE_TIE_SE * seDiff) break;
+    tied.push(c);
+  }
+
+  if (tied.length === 1) {
+    return `• Fase más cara: ${first.name} (${fmt(first.avgLost)} pts por llamada)`;
+  }
+  const shown = tied.slice(0, 3);
+  return `• Fases más caras: ${joinEs(shown.map((c) => c.name))} (${joinEs(shown.map((c) => fmt(c.avgLost)))} pts, empatadas)`;
+}
+
 export function deltaLegible(
   prevScores: number[],
   curScores: number[],
@@ -589,8 +665,16 @@ export function deltaLegible(
   const ss = (xs: number[], m: number) => xs.reduce((a, x) => a + (x - m) * (x - m), 0);
   const sd = Math.sqrt((ss(prevScores, ma) + ss(curScores, mb)) / (na + nb - 2));
   const se = Math.max(sd * Math.sqrt(1 / na + 1 / nb), 2);
+  // F52b: el veredicto compara la diferencia SIN redondear; el delta redondeado
+  // es solo para render. Redondear cada media antes de restar mueve la cantidad
+  // comparada hasta ±1 punto y voltea el veredicto en la frontera. Caso real de
+  // prod (jun vs jul de immobili, n=14 y n=32): |mb-ma| = 11.2455 queda por
+  // DEBAJO del umbral 2·SE = 11.4971 → no distinguible; pero
+  // |round(mb)-round(ma)| = 12 lo cruzaba y publicaba una caída como si fuera
+  // real. El defecto corta en ambos sentidos: también suprime señal legítima.
+  const rawDelta = mb - ma;
   const delta = Math.round(mb) - Math.round(ma);
-  return { delta, legible: Math.abs(delta) >= 2 * se };
+  return { delta, legible: Math.abs(rawDelta) >= 2 * se };
 }
 
 // ---------- digest SEMANAL ----------
@@ -673,7 +757,8 @@ export function buildWeeklyDigest(input: WeeklyInput): string {
     const descal = topDescalLine(completados);
     if (descal) lines.push(descal);
 
-    // Fase más débil: % ponderado sum(score)/sum(score_max), gate POR FASE n>=PHASE_MIN_N
+    // F52: fase en PUNTOS PERDIDOS por llamada, y sin corona cuando la primera
+    // no se separa de la segunda (ver phaseCostLine). Gate POR FASE n>=PHASE_MIN_N.
     const orgPhases = phases.filter(
       (p) =>
         p.organization_id === org.id &&
@@ -681,21 +766,8 @@ export function buildWeeklyDigest(input: WeeklyInput): string {
         inWindow(p.created_at, w.startUtc, w.endUtc) &&
         p.phase_name && typeof p.score === "number" && typeof p.score_max === "number" && p.score_max > 0,
     );
-    const byPhase = new Map<string, { s: number; m: number; n: number }>();
-    for (const p of orgPhases) {
-      const agg = byPhase.get(p.phase_name!) ?? { s: 0, m: 0, n: 0 };
-      agg.s += p.score!;
-      agg.m += p.score_max!;
-      agg.n += 1;
-      byPhase.set(p.phase_name!, agg);
-    }
-    let weakest: { name: string; pct: number } | null = null;
-    for (const [name, agg] of byPhase) {
-      if (agg.n < PHASE_MIN_N) continue;
-      const pct = agg.s / agg.m;
-      if (!weakest || pct < weakest.pct) weakest = { name, pct };
-    }
-    if (weakest) lines.push(`• Fase más débil: ${weakest.name} (${Math.round(weakest.pct * 100)}% del máximo)`);
+    const faseLine = phaseCostLine(orgPhases);
+    if (faseLine) lines.push(faseLine);
 
     const outs = outcomesLine(completados);
     if (outs) lines.push(outs);
@@ -805,7 +877,19 @@ export function buildMonthlyDigest(input: MonthlyInput): string {
       }
     }
     if (prom !== null) {
-      let line = `• Score prom: ${prom}${promPrev !== null ? ` (${prevTag}: ${promPrev})` : ""}`;
+      // F52: el headline es la línea MÁS leída del mensual y hasta ahora era la
+      // única sin candado — el lector se anclaba en ella y el candado de la
+      // línea de cohorte quedaba de adorno. Ironía que lo empeoraba: el
+      // headline es MENOS confiable que la cohorte, porque mezclar personas
+      // distintas infla la varianza. Los dos números siguen mostrándose
+      // siempre: lo que se suprime es la insinuación de tendencia.
+      let comparativo = "";
+      if (promPrev !== null) {
+        const dlOrg = deltaLegible(completedScores(prevRows), completedScores(rows));
+        const distinguible = dlOrg !== null && dlOrg.legible;
+        comparativo = ` (${prevTag}: ${promPrev}${distinguible ? "" : ", sin cambio distinguible"})`;
+      }
+      let line = `• Score prom: ${prom}${comparativo}`;
       if (best) line += ` · Mejor: ${best.name} ${best.score}`;
       lines.push(line);
       // F50: si la plantilla cambió (altas o bajas), el MoM de arriba mezcla
