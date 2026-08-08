@@ -12,7 +12,7 @@
 //   desde 2022 → offset fijo -06:00. NO usar "now() - 24h".
 
 export const MX_OFFSET = "-06:00";
-export const DIGEST_VERSION = "digest-v2";
+export const DIGEST_VERSION = "digest-v3";
 
 export interface OrgRow {
   id: string;
@@ -558,6 +558,41 @@ export function cohortAvgs(
   return { n: comunes.length, prevAvg: avgScore(prevRows), curAvg: avgScore(curRows) };
 }
 
+/** Scores numéricos de las filas completadas — insumo de deltaLegible. */
+function completedScores(rows: AnalysisRow[]): number[] {
+  return rows
+    .filter((a) => a.status === "completado")
+    .map((a) => a.score_general)
+    .filter((s): s is number => typeof s === "number");
+}
+
+// F51: candado estadístico de los deltas. La desviación POR LLAMADA medida en
+// prod es ~18 puntos (48 llamadas del mismo captador; un solo día produjo
+// 52/72/72/28/66) — con ~10 llamadas/semana el error estándar de un promedio
+// es ~6 puntos y los deltas que publicábamos caben dentro del ruido (jun vs
+// jul del mismo captador: t=1.25, no significativo). Un delta solo se imprime
+// como número si supera 2 errores estándar; la sd se ESTIMA de los propios
+// datos (auto-calibrante, no un número mágico), con piso de 2 puntos en el SE
+// para que una muestra degenerada — todos los scores idénticos — no produzca
+// falsa confianza, y mínimo DELTA_MIN_N llamadas por periodo porque debajo de
+// eso ni la varianza es estimable.
+export const DELTA_MIN_N = 3;
+
+export function deltaLegible(
+  prevScores: number[],
+  curScores: number[],
+): { delta: number; legible: boolean } | null {
+  const na = prevScores.length, nb = curScores.length;
+  if (na < DELTA_MIN_N || nb < DELTA_MIN_N) return null;
+  const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+  const ma = mean(prevScores), mb = mean(curScores);
+  const ss = (xs: number[], m: number) => xs.reduce((a, x) => a + (x - m) * (x - m), 0);
+  const sd = Math.sqrt((ss(prevScores, ma) + ss(curScores, mb)) / (na + nb - 2));
+  const se = Math.max(sd * Math.sqrt(1 / na + 1 / nb), 2);
+  const delta = Math.round(mb) - Math.round(ma);
+  return { delta, legible: Math.abs(delta) >= 2 * se };
+}
+
 // ---------- digest SEMANAL ----------
 // Vista de coaching: deltas por usuario, fase más débil, top descalificación.
 
@@ -610,15 +645,20 @@ export function buildWeeklyDigest(input: WeeklyInput): string {
     if (rechazados > 0) head += ` · ${nLabel(rechazados, "rechazado", "rechazados")}`;
     lines.push(head);
 
-    // Por usuario con delta vs SU semana previa
+    // Por usuario con delta vs SU semana previa. F51: el delta numérico solo
+    // se imprime si es estadísticamente legible; diferencia dentro del ruido
+    // → "(≈)"; menos de DELTA_MIN_N llamadas en algún periodo → sin etiqueta.
     const entries = [...curUsers.entries()]
       .map(([uid, rs]) => {
         const u = usersById.get(uid);
         const prom = avgScore(rs.filter((a) => a.status === "completado"));
-        const promPrev = avgScore((prevUsers.get(uid) ?? []).filter((a) => a.status === "completado"));
         let tag = "";
-        if (createdInWindow(u, w.startUtc, w.endUtc)) tag = " (nuevo)";
-        else if (prom !== null && promPrev !== null) tag = ` (${signedDelta(prom - promPrev)})`;
+        if (createdInWindow(u, w.startUtc, w.endUtc)) {
+          tag = " (nuevo)";
+        } else {
+          const dl = deltaLegible(completedScores(prevUsers.get(uid) ?? []), completedScores(rs));
+          if (dl) tag = dl.legible ? ` (${signedDelta(dl.delta)})` : " (≈)";
+        }
         return { name: firstName(u), count: rs.length, prom, tag };
       })
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
@@ -778,8 +818,16 @@ export function buildMonthlyDigest(input: MonthlyInput): string {
         if (cohorte.n === 0) {
           lines.push(`• ⚠️ Cero usuarios en común con ${prevTag} — el promedio de equipo NO es comparable`);
         } else if (cohorte.prevAvg !== null && cohorte.curAvg !== null) {
-          const d = cohorte.curAvg - cohorte.prevAvg;
-          lines.push(`• A plantilla comparable (${nLabel(cohorte.n, "usuario", "usuarios")} en ambos meses): ${cohorte.prevAvg} → ${cohorte.curAvg} (${signedDelta(d)})`);
+          // F51: los dos promedios se muestran siempre (informan aunque la
+          // diferencia no sea distinguible), pero el delta solo va en número
+          // si supera el umbral de ruido — si no, "(≈)".
+          const comunes = [...curUsers.keys()].filter((uid) => prevUsers.has(uid)); // misma definición de cohorte que cohortAvgs
+          const dl = deltaLegible(
+            completedScores(comunes.flatMap((uid) => prevUsers.get(uid)!)),
+            completedScores(comunes.flatMap((uid) => curUsers.get(uid)!)),
+          );
+          const deltaTxt = dl && dl.legible ? signedDelta(dl.delta) : "≈";
+          lines.push(`• A plantilla comparable (${nLabel(cohorte.n, "usuario", "usuarios")} en ambos meses): ${cohorte.prevAvg} → ${cohorte.curAvg} (${deltaTxt})`);
         }
       }
     }

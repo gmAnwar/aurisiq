@@ -195,6 +195,7 @@ import {
   buildMonthlyDigest,
   buildWeeklyDigest,
   cohortAvgs,
+  deltaLegible,
   mondayOf,
   type MonthlyInput,
   monthLabel,
@@ -254,7 +255,9 @@ Deno.test("weekly: delta por usuario vs SU semana previa; sin previa → sin par
       mkAnalysis({ user_id: "u-luis", created_at: IN_WEEK, score_general: 40 }),
     ],
   }));
-  assertStringIncludes(text, "Ana: 2 · prom 55 (+5)");
+  // F51: 2 llamadas actuales < DELTA_MIN_N → el delta ya no se imprime
+  assertStringIncludes(text, "Ana: 2 · prom 55");
+  assertEquals(text.includes("Ana: 2 · prom 55 ("), false);
   assertStringIncludes(text, "Luis: 1 · prom 40");
   assertEquals(text.includes("Luis: 1 · prom 40 ("), false);
   assertStringIncludes(text, "(vs 1, +200%)");
@@ -416,7 +419,9 @@ Deno.test("monthly F50: caso real Inmobili — el MoM cae por composición, la c
     ],
   }));
   assertStringIncludes(text, "Score prom: 38 (jun: 70)");
-  assertStringIncludes(text, "A plantilla comparable (1 usuario en ambos meses): 50 → 56 (+6)");
+  // F51: cohorte de 1 llamada por lado < DELTA_MIN_N → los promedios se
+  // muestran pero el delta no es estimable → "(≈)"
+  assertStringIncludes(text, "A plantilla comparable (1 usuario en ambos meses): 50 → 56 (≈)");
   assertStringIncludes(text, "Se apagaron: Elizabeth");
   assertStringIncludes(text, "(1 nuevo: Novata)");
 });
@@ -440,4 +445,144 @@ Deno.test("monthly F50: recambio total → avisa que el promedio NO es comparabl
     ],
   }));
   assertStringIncludes(text, "Cero usuarios en común con jun — el promedio de equipo NO es comparable");
+});
+
+// ================= F51: candado estadístico de deltas =================
+
+Deno.test("deltaLegible: caso real jun vs jul del mismo captador → NO legible (t no significativa)", () => {
+  const prev = [85, 89, 57, 38];
+  const cur = [69, 52, 62, 57, 42, 38, 62, 62, 58, 28, 64, 67, 41, 28, 56, 62, 16, 58, 38, 72];
+  const r = deltaLegible(prev, cur);
+  assertEquals(r !== null, true);
+  assertEquals(r!.legible, false);
+});
+
+Deno.test("deltaLegible: separación real y n suficiente → legible", () => {
+  const r = deltaLegible([20, 25, 30], [80, 85, 90]);
+  assertEquals(r !== null, true);
+  assertEquals(r!.legible, true);
+});
+
+Deno.test("deltaLegible: menos de 3 llamadas en un periodo → null (varianza no estimable)", () => {
+  assertEquals(deltaLegible([50, 50], [80, 80, 80]), null);
+  // El gate corta por AMBOS lados: pocas llamadas esta semana es tan poco
+  // estimable como pocas la previa (si solo se cubriera na, un usuario con 5
+  // llamadas previas y 1 esta semana recibiría delta calculado sobre n=1).
+  assertEquals(deltaLegible([50, 50, 50], [80, 80]), null);
+});
+
+Deno.test("deltaLegible: frontera del umbral 2·SE — 10 puntos legible, 8 no (misma dispersión)", () => {
+  // sd pooled = 5 → SE = 4.08 (el piso de 2 no muerde) → umbral = 8.16.
+  // Fija el coeficiente 2 por ambos lados: con 4·SE el primero dejaría de ser
+  // legible; con 1.9·SE el segundo pasaría a serlo.
+  assertEquals(deltaLegible([20, 25, 30], [30, 35, 40]), { delta: 10, legible: true });
+  assertEquals(deltaLegible([20, 25, 30], [28, 33, 38]), { delta: 8, legible: false });
+});
+
+Deno.test("deltaLegible: scores idénticos → delta 0, NO legible (piso de SE evita falsa confianza)", () => {
+  assertEquals(deltaLegible([60, 60, 60], [60, 60, 60]), { delta: 0, legible: false });
+});
+
+Deno.test("weekly F51: 3+ llamadas ambas semanas con diferencia chica → (≈), sin delta numérico", () => {
+  const text = buildWeeklyDigest(weeklyInput({
+    analyses: [
+      mkAnalysis({ created_at: IN_WEEK, score_general: 60 }),
+      mkAnalysis({ created_at: IN_WEEK, score_general: 62 }),
+      mkAnalysis({ created_at: IN_WEEK, score_general: 58 }),
+      mkAnalysis({ created_at: IN_PREV_WEEK, score_general: 58 }),
+      mkAnalysis({ created_at: IN_PREV_WEEK, score_general: 60 }),
+      mkAnalysis({ created_at: IN_PREV_WEEK, score_general: 59 }),
+    ],
+  }));
+  assertStringIncludes(text, "Ana: 3 · prom 60 (≈)");
+  assertEquals(text.includes("Ana: 3 · prom 60 (+"), false);
+});
+
+Deno.test("weekly F51: delta legible SÍ se publica como número con signo (candado no sobre-suprime)", () => {
+  // Contraparte obligatoria del test de "(≈)": sin esta aserción, una
+  // implementación que silenciara TODOS los deltas pasaría la suite en verde.
+  const text = buildWeeklyDigest(weeklyInput({
+    analyses: [
+      mkAnalysis({ created_at: IN_PREV_WEEK, score_general: 20 }),
+      mkAnalysis({ created_at: IN_PREV_WEEK, score_general: 25 }),
+      mkAnalysis({ created_at: IN_PREV_WEEK, score_general: 30 }),
+      mkAnalysis({ created_at: IN_WEEK, score_general: 80 }),
+      mkAnalysis({ created_at: IN_WEEK, score_general: 85 }),
+      mkAnalysis({ created_at: IN_WEEK, score_general: 90 }),
+    ],
+  }));
+  assertStringIncludes(text, "Ana: 3 · prom 85 (+60)");
+});
+
+Deno.test("weekly F51: menos de 3 llamadas en una semana → entrada sin paréntesis de delta", () => {
+  const text = buildWeeklyDigest(weeklyInput({
+    analyses: [
+      mkAnalysis({ created_at: IN_WEEK, score_general: 60 }),
+      mkAnalysis({ created_at: IN_WEEK, score_general: 62 }),
+      mkAnalysis({ created_at: IN_WEEK, score_general: 58 }),
+      mkAnalysis({ created_at: IN_PREV_WEEK, score_general: 50 }),
+      mkAnalysis({ created_at: IN_PREV_WEEK, score_general: 50 }),
+    ],
+  }));
+  assertStringIncludes(text, "Ana: 3 · prom 60");
+  assertEquals(text.includes("Ana: 3 · prom 60 ("), false);
+});
+
+Deno.test("weekly F51: (nuevo) gana sobre cualquier delta, aunque fuera legible", () => {
+  const users = USERS.map((u) =>
+    u.id === "u-luis" ? { ...u, created_at: IN_WEEK } : { ...u, created_at: "2026-01-01T12:00:00Z" }
+  );
+  const text = buildWeeklyDigest(weeklyInput({
+    users,
+    analyses: [
+      mkAnalysis({ user_id: "u-luis", created_at: IN_WEEK, score_general: 80 }),
+      mkAnalysis({ user_id: "u-luis", created_at: IN_WEEK, score_general: 85 }),
+      mkAnalysis({ user_id: "u-luis", created_at: IN_WEEK, score_general: 90 }),
+      mkAnalysis({ user_id: "u-luis", created_at: IN_PREV_WEEK, score_general: 20 }),
+      mkAnalysis({ user_id: "u-luis", created_at: IN_PREV_WEEK, score_general: 25 }),
+      mkAnalysis({ user_id: "u-luis", created_at: IN_PREV_WEEK, score_general: 30 }),
+    ],
+  }));
+  assertStringIncludes(text, "Luis: 3 · prom 85 (nuevo)");
+  assertEquals(text.includes("(+60)"), false);
+});
+
+Deno.test("monthly F51: cohorte con diferencia no distinguible → la línea termina en (≈)", () => {
+  const users: UserRow[] = [
+    { id: "u-vet", organization_id: "org-a", name: "Valeria Ferrer", email: "valeria@acme.mx", training_mode: false, active: true },
+    { id: "u-baja", organization_id: "org-a", name: "Brenda Zubiri", email: "brenda@acme.mx", training_mode: false, active: true },
+  ];
+  const text = buildMonthlyDigest(monthlyInput({
+    users,
+    analyses: [
+      mkAnalysis({ user_id: "u-vet", created_at: IN_JUN, score_general: 60 }),
+      mkAnalysis({ user_id: "u-vet", created_at: IN_JUN, score_general: 62 }),
+      mkAnalysis({ user_id: "u-vet", created_at: IN_JUN, score_general: 58 }),
+      mkAnalysis({ user_id: "u-baja", created_at: IN_JUN, score_general: 70 }),
+      mkAnalysis({ user_id: "u-vet", created_at: IN_JUL, score_general: 59 }),
+      mkAnalysis({ user_id: "u-vet", created_at: IN_JUL, score_general: 61 }),
+      mkAnalysis({ user_id: "u-vet", created_at: IN_JUL, score_general: 60 }),
+    ],
+  }));
+  assertStringIncludes(text, "A plantilla comparable (1 usuario en ambos meses): 60 → 60 (≈)");
+});
+
+Deno.test("monthly F51: cohorte con mejora distinguible → la línea publica el delta con signo", () => {
+  const users: UserRow[] = [
+    { id: "u-vet", organization_id: "org-a", name: "Valeria Ferrer", email: "valeria@acme.mx", training_mode: false, active: true },
+    { id: "u-baja", organization_id: "org-a", name: "Brenda Zubiri", email: "brenda@acme.mx", training_mode: false, active: true },
+  ];
+  const text = buildMonthlyDigest(monthlyInput({
+    users,
+    analyses: [
+      mkAnalysis({ user_id: "u-vet", created_at: IN_JUN, score_general: 20 }),
+      mkAnalysis({ user_id: "u-vet", created_at: IN_JUN, score_general: 25 }),
+      mkAnalysis({ user_id: "u-vet", created_at: IN_JUN, score_general: 30 }),
+      mkAnalysis({ user_id: "u-baja", created_at: IN_JUN, score_general: 70 }),
+      mkAnalysis({ user_id: "u-vet", created_at: IN_JUL, score_general: 80 }),
+      mkAnalysis({ user_id: "u-vet", created_at: IN_JUL, score_general: 85 }),
+      mkAnalysis({ user_id: "u-vet", created_at: IN_JUL, score_general: 90 }),
+    ],
+  }));
+  assertStringIncludes(text, "A plantilla comparable (1 usuario en ambos meses): 25 → 85 (+60)");
 });
