@@ -748,3 +748,34 @@ Deno.test("F52b invariante: si el veredicto es legible, el delta renderizado nun
   }
   assertEquals(vistos > 0, true, "el barrido no produjo ningún caso legible");
 });
+
+// F52 — endurecimiento posterior al QA adversarial: dos mutantes sobrevivían.
+
+Deno.test("F52 coeficiente: t=1.95 empata y t=2.92 corona — fija PHASE_TIE_SE por ambos lados", () => {
+  // Antes de estos dos casos, cualquier coeficiente entre 0.51 y 7.34 pasaba la
+  // suite: un refactor podía subirlo a 6·SE (silenciando separaciones reales de
+  // t=4) o bajarlo a 1 (coronando con t=1.2) sin que nada avisara.
+  const empata = buildWeeklyDigest(weeklyInput({
+    analyses: [mkAnalysis({ created_at: IN_WEEK })],
+    phases: [...phaseRows("Expectativa y Precio", PAT_138), ...phaseRows("Avance a Visita", [21, 3, 12, 11])],
+  }));
+  assertStringIncludes(empata, "13.8 y 11.8 pts, empatadas");
+
+  const corona = buildWeeklyDigest(weeklyInput({
+    analyses: [mkAnalysis({ created_at: IN_WEEK })],
+    phases: [...phaseRows("Expectativa y Precio", PAT_138), ...phaseRows("Avance a Visita", [20, 2, 11, 10])],
+  }));
+  assertStringIncludes(corona, "Fase más cara: Expectativa y Precio (13.8 pts por llamada)");
+  assertEquals(corona.includes("empatadas"), false);
+});
+
+Deno.test("F52 gate de volumen: si ninguna fase llega a n>=5 no se publica línea de fase alguna", () => {
+  // La rama sin fases calificadas se ejercitaba mucho pero no se afirmaba: una
+  // regresión podía publicar una fase fantasma sin datos y la suite seguía verde.
+  const text = buildWeeklyDigest(weeklyInput({
+    analyses: [mkAnalysis({ created_at: IN_WEEK })],
+    phases: [...phaseRows("Cierre", [5], 4), ...phaseRows("Rara", [9], 2)],
+  }));
+  assertEquals(text.includes("Fase más cara"), false);
+  assertEquals(text.includes("Fases más caras"), false);
+});

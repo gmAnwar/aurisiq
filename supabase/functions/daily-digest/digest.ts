@@ -601,7 +601,8 @@ export interface PhaseCost {
  * F52: la fase se reporta en PUNTOS PERDIDOS por llamada, no en % del máximo.
  * Dos razones: el gerente entiende "esta fase te cuesta 13.8 puntos de cada
  * llamada", y la métrica ya pondera por el peso de la fase (una fase de 35
- * puntos al 60% cuesta el triple que una de 10 al 60%).
+ * puntos al 60% pierde 14.0 por llamada y una de 10 al 60% pierde 4.0: 3.5
+ * veces más, que es la razón de sus máximos).
  * Devuelve las fases que superan el gate n>=PHASE_MIN_N, de más cara a más
  * barata. sd muestral (n-1); el gate garantiza n>=5, así que nunca divide por 0.
  */
