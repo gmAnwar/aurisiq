@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
       db
         .from("analyses")
         .select(
-          "organization_id,user_id,status,score_general,lead_quality,lead_outcome,created_at,categoria_descalificacion",
+          "organization_id,user_id,status,score_general,lead_quality,lead_outcome,created_at,categoria_descalificacion,unscorable_reason",
         )
         .gte("created_at", fetchStartUtc.toISOString())
         .lt("created_at", periodEndUtc.toISOString())

@@ -83,8 +83,8 @@ Deno.test("día normal: bloque org, usuarios, leads, outcomes y semana", () => {
     ],
   }));
   assertStringIncludes(text, "*ACME INMUEBLES* — 3 análisis · 2 usuarios");
-  assertStringIncludes(text, "Ana: 2 · prom 55");
-  assertStringIncludes(text, "Luis: 1 · prom 40");
+  assertStringIncludes(text, "Ana: 2 (60, 50)"); // F53: scores crudos, sin "prom"
+  assertStringIncludes(text, "Luis: 1 (40)");
   assertStringIncludes(text, "Leads: 1 calificado · 1 descalificado · 1 indeterminado");
   assertStringIncludes(text, "Outcomes: 2 pospuesto_sin_agenda · 1 cerrado_parcial");
   assertStringIncludes(text, "Semana: 3 análisis (vs 0 previa)");
@@ -666,10 +666,11 @@ Deno.test("monthly F52: headline con diferencia distinguible → formato actual,
   assertEquals(linea.includes("sin cambio distinguible"), false);
 });
 
-// Golden del daily: F52 no toca buildDigest y este test lo fija byte a byte.
-const DAILY_GOLDEN = "📊 *AurisIQ* — miércoles 5 ago\n\n*ACME INMUEBLES* — 3 análisis · 2 usuarios\n• Ana: 2 · prom 55  ·  Luis: 1 · prom 40\n• Leads: 1 calificado · 1 descalificado · 1 indeterminado\n• Outcomes: 2 pospuesto_sin_agenda · 1 cerrado_parcial\n\n🔇 Beta Pagos — sin análisis desde su alta\n\nSemana: 3 análisis (vs 0 previa)";
+// Golden del daily, byte a byte. Nació en F52 (que NO tocaba buildDigest) y
+// F53 lo actualizó: la línea de usuarios pasó de "prom" a scores crudos.
+const DAILY_GOLDEN = "📊 *AurisIQ* — miércoles 5 ago\n\n*ACME INMUEBLES* — 3 análisis · 2 usuarios\n• Ana: 2 (60, 50)  ·  Luis: 1 (40)\n• Leads: 1 calificado · 1 descalificado · 1 indeterminado\n• Outcomes: 2 pospuesto_sin_agenda · 1 cerrado_parcial\n\n🔇 Beta Pagos — sin análisis desde su alta\n\nSemana: 3 análisis (vs 0 previa)";
 
-Deno.test("daily F52: no-regresión byte a byte — el builder diario no se toca", () => {
+Deno.test("daily: no-regresión byte a byte del builder diario", () => {
   const text = buildDigest(baseInput({
     analyses: [
       mkAnalysis({}),
@@ -778,4 +779,250 @@ Deno.test("F52 gate de volumen: si ninguna fase llega a n>=5 no se publica líne
   }));
   assertEquals(text.includes("Fase más cara"), false);
   assertEquals(text.includes("Fases más caras"), false);
+});
+
+// ================= F53: el daily muestra scores reales =================
+// Nombres 100% ficticios (verificados contra la DB viva: 0 matches en users y
+// 0 en nombres de prospecto). Ninguna persona real entra a los fixtures.
+
+const F53_USERS: UserRow[] = [
+  { id: "u-wen", organization_id: "org-a", name: "Wenceslao Q.", email: "wen@acme.mx", training_mode: false, active: true },
+  { id: "u-ber", organization_id: "org-a", name: "Bernarda T.", email: "ber@acme.mx", training_mode: false, active: true },
+  { id: "u-ign", organization_id: "org-a", name: "Ignacia R.", email: "ign@acme.mx", training_mode: false, active: true },
+  { id: "u-cas", organization_id: "org-a", name: "Casimiro V.", email: "cas@acme.mx", training_mode: false, active: true },
+];
+
+/** i-ésima llamada del día objetivo (12:00Z…21:00Z, todas dentro de la ventana). */
+function at(i: number): string {
+  return `2026-08-05T${String(12 + i).padStart(2, "0")}:00:00Z`;
+}
+
+// Formas de item sin score. En prod un fragmento llega como status
+// 'completado' + score NULL + unscorable_reason='fragmento' (verificado).
+const FRAGMENTO: Partial<AnalysisRow> = { status: "completado", score_general: null, lead_quality: null, lead_outcome: null, unscorable_reason: "fragmento" };
+const RECHAZADO: Partial<AnalysisRow> = { status: "rechazado", score_general: null, lead_quality: null, lead_outcome: null };
+// 'procesando' y 'error' son valores reales de analyses_status_check
+// ['pendiente','procesando','completado','error','rechazado'] — verificado
+// contra la DB viva. La regla los agrupa a ambos como "en proceso".
+const EN_PROCESO: Partial<AnalysisRow> = { status: "procesando", score_general: null, lead_quality: null, lead_outcome: null };
+
+/** Items de UN usuario, en el orden dado = orden cronológico. */
+function dia(userId: string, items: Array<Partial<AnalysisRow>>): AnalysisRow[] {
+  return items.map((o, i) => mkAnalysis({ user_id: userId, created_at: at(i), ...o }));
+}
+
+const sc = (n: number): Partial<AnalysisRow> => ({ score_general: n });
+
+function f53Input(analyses: AnalysisRow[]): DigestInput {
+  return baseInput({ orgs: [ORG_A], users: F53_USERS, analyses });
+}
+
+/** La línea de usuarios del bloque de org (siempre el primer "• "). */
+function userLine(text: string): string {
+  return text.split("\n").find((l) => l.startsWith("• ")) ?? "";
+}
+
+/** Entradas de usuario de esa línea (separadas por "  ·  ", dos espacios). */
+function entradas(text: string): string[] {
+  return userLine(text).replace(/^• /, "").split("  ·  ");
+}
+
+/** Items representados por un elemento: "65"→1, "fragmento"→1, "2 fragmentos"→2. */
+function itemsDe(token: string): number {
+  const m = token.trim().match(/^(\d+)\s+\D/);
+  return m ? Number(m[1]) : 1;
+}
+
+/**
+ * INVARIANTE DURA F53 — se verifica sobre el RENDER, no sobre el fixture: si la
+ * línea evapora un item, esto lo caza aunque el string esperado se haya escrito
+ * mal. scores mostrados + conteos == el número que sigue al nombre.
+ */
+function assertInvariante(entrada: string, scored: number): void {
+  const head = entrada.match(/^[^:]+: (\d+)/);
+  assertEquals(head !== null, true, `entrada sin "Nombre: N": ${entrada}`);
+  const declarado = Number(head![1]);
+
+  let representados: number;
+  if (entrada.includes(" · prom ")) {
+    // Rama (b): "Nombre: N · prom X (min–max) [· N tipo]…". El paréntesis es el
+    // rango, así que los scores no se listan: su conteo viene del caso.
+    const sufijos = entrada.split(" · ").slice(2);
+    representados = scored + sufijos.reduce((s, t) => s + itemsDe(t), 0);
+  } else {
+    // Rama (a): TODO vive en el paréntesis y se cuenta elemento por elemento.
+    const paren = entrada.match(/\(([^)]*)\)/);
+    assertEquals(paren !== null, true, `rama (a) sin paréntesis: ${entrada}`);
+    const elems = paren![1].split(", ");
+    assertEquals(
+      elems.filter((e) => /^\d+$/.test(e)).length,
+      scored,
+      `scores mostrados != scored en: ${entrada}`,
+    );
+    representados = elems.reduce((s, e) => s + itemsDe(e), 0);
+  }
+  assertEquals(representados, declarado, `INVARIANTE rota — items evaporados en: ${entrada}`);
+}
+
+// ---- 1. GOLDEN: la forma exacta del caso del 6-ago, con datos sintéticos ----
+
+const F53_GOLDEN_ROWS: AnalysisRow[] = [
+  ...dia("u-wen", [sc(65), sc(28)]),
+  ...dia("u-ber", [sc(28)]),
+  ...dia("u-ign", [FRAGMENTO]),
+];
+
+Deno.test("F53 GOLDEN: el caso del 6-ago deja de ser 'prom 47' y muestra 65 y 28", () => {
+  const text = buildDigest(f53Input(F53_GOLDEN_ROWS));
+  assertEquals(
+    userLine(text),
+    "• Wenceslao: 2 (65, 28)  ·  Bernarda: 1 (28)  ·  Ignacia: 1 (fragmento)",
+  );
+  assertEquals(text.includes("prom"), false);
+});
+
+// ---- 2. Las 8 formas, cada una con su invariante verificada sobre el render ----
+
+Deno.test("F53 forma 1/8 — 2 con score", () => {
+  const text = buildDigest(f53Input(dia("u-wen", [sc(65), sc(28)])));
+  assertEquals(entradas(text)[0], "Wenceslao: 2 (65, 28)");
+  assertInvariante(entradas(text)[0], 2);
+});
+
+Deno.test("F53 forma 2/8 — 2 con score + 1 fragmento (el fragmento entra al paréntesis)", () => {
+  const text = buildDigest(f53Input(dia("u-ber", [sc(72), sc(65), FRAGMENTO])));
+  assertEquals(entradas(text)[0], "Bernarda: 3 (72, 65, fragmento)");
+  assertInvariante(entradas(text)[0], 2);
+});
+
+Deno.test("F53 forma 3/8 — 3 con score + 2 fragmentos (se colapsan en plural)", () => {
+  const text = buildDigest(f53Input(dia("u-ber", [sc(72), sc(65), sc(41), FRAGMENTO, FRAGMENTO])));
+  assertEquals(entradas(text)[0], "Bernarda: 5 (72, 65, 41, 2 fragmentos)");
+  assertInvariante(entradas(text)[0], 3);
+});
+
+Deno.test("F53 forma 4/8 — 1 con score + 1 rechazado", () => {
+  const text = buildDigest(f53Input(dia("u-cas", [sc(28), RECHAZADO])));
+  assertEquals(entradas(text)[0], "Casimiro: 2 (28, rechazado)");
+  assertInvariante(entradas(text)[0], 1);
+});
+
+Deno.test("F53 forma 5/8 — 0 con score + 1 fragmento (palabra sola, sin conteo)", () => {
+  const text = buildDigest(f53Input(dia("u-ign", [FRAGMENTO])));
+  assertEquals(entradas(text)[0], "Ignacia: 1 (fragmento)");
+  assertInvariante(entradas(text)[0], 0);
+});
+
+Deno.test("F53 forma 6/8 — 0 con score + 2 fragmentos", () => {
+  const text = buildDigest(f53Input(dia("u-ign", [FRAGMENTO, FRAGMENTO])));
+  assertEquals(entradas(text)[0], "Ignacia: 2 (2 fragmentos)");
+  assertInvariante(entradas(text)[0], 0);
+});
+
+// 65+28+72+56+65+62 = 348 → prom 58 exacto · min 28 · max 72
+const SEIS_SCORES = [65, 28, 72, 56, 65, 62];
+
+Deno.test("F53 forma 7/8 — 6 con score: prom CON rango obligatorio", () => {
+  const text = buildDigest(f53Input(dia("u-wen", SEIS_SCORES.map(sc))));
+  assertEquals(entradas(text)[0], "Wenceslao: 6 · prom 58 (28–72)");
+  assertInvariante(entradas(text)[0], 6);
+});
+
+Deno.test("F53 forma 8/8 — 6 con score + 2 fragmentos: aquí sí van de sufijo", () => {
+  const text = buildDigest(f53Input(dia("u-wen", [...SEIS_SCORES.map(sc), FRAGMENTO, FRAGMENTO])));
+  assertEquals(entradas(text)[0], "Wenceslao: 8 · prom 58 (28–72) · 2 fragmentos");
+  assertInvariante(entradas(text)[0], 6);
+});
+
+// ---- 3. Frontera 3 vs 4, en dos tests separados ----
+
+Deno.test("F53 frontera: con 3 con score se listan crudos y NO aparece 'prom'", () => {
+  const text = buildDigest(f53Input(dia("u-cas", [sc(72), sc(65), sc(41)])));
+  assertEquals(entradas(text)[0], "Casimiro: 3 (72, 65, 41)");
+  assertEquals(text.includes("prom"), false);
+});
+
+Deno.test("F53 frontera: el 4º con score cambia la rama a prom + rango", () => {
+  const text = buildDigest(f53Input(dia("u-cas", [sc(72), sc(65), sc(41), sc(70)])));
+  assertEquals(entradas(text)[0], "Casimiro: 4 · prom 62 (41–72)");
+  assertInvariante(entradas(text)[0], 4);
+});
+
+// ---- 4. Una sola llamada nunca se disfraza de estadística ----
+
+Deno.test("F53: con 1 con score la cadena NO contiene 'prom'", () => {
+  const text = buildDigest(f53Input(dia("u-ber", [sc(28)])));
+  assertEquals(entradas(text)[0], "Bernarda: 1 (28)");
+  assertEquals(text.includes("prom"), false);
+});
+
+// ---- Orden cronológico, no por score ----
+
+Deno.test("F53: el orden es cronológico — dos fixtures espejo dan líneas distintas", () => {
+  // Todos los ejemplos del caso real venían ya en orden descendente, así que un
+  // sort por score los habría reproducido igual. Estos dos espejos lo delatan:
+  // ordenar por score (asc o desc) haría ambas líneas idénticas.
+  const sube = buildDigest(f53Input(dia("u-cas", [sc(41), sc(65), sc(72)])));
+  const baja = buildDigest(f53Input(dia("u-cas", [sc(72), sc(65), sc(41)])));
+  assertEquals(entradas(sube)[0], "Casimiro: 3 (41, 65, 72)");
+  assertEquals(entradas(baja)[0], "Casimiro: 3 (72, 65, 41)");
+});
+
+Deno.test("F53: un score huérfano en fila no-completada NO se imprime como score", () => {
+  // El pipeline puede dejar score_general escrito en una fila que después pasó
+  // a 'error' (worker: catch posterior a persistir el payload) o 'rechazado'.
+  // Ese 20 y ese 10 no describen llamadas calificadas: van por su tipo.
+  const text = buildDigest(f53Input(dia("u-cas", [
+    sc(80),
+    { status: "error", score_general: 20, lead_quality: null, lead_outcome: null },
+    { status: "rechazado", score_general: 10, lead_quality: null, lead_outcome: null },
+  ])));
+  assertEquals(entradas(text)[0], "Casimiro: 3 (80, rechazado, en proceso)");
+  assertInvariante(entradas(text)[0], 1);
+  assertEquals(/\b20\b|\b10\b/.test(userLine(text)), false);
+});
+
+Deno.test("F53: 'en proceso' es invariable en plural y convive con los otros tipos", () => {
+  const text = buildDigest(f53Input(dia("u-cas", [sc(28), FRAGMENTO, RECHAZADO, EN_PROCESO, EN_PROCESO])));
+  assertEquals(entradas(text)[0], "Casimiro: 5 (28, fragmento, rechazado, 2 en proceso)");
+  assertInvariante(entradas(text)[0], 1);
+});
+
+// ---- 5. NO-FUGA: el cambio del daily no toca weekly ni monthly ----
+//
+// El semanal tiene el MISMO defecto de promedio (79% de usuario-semana con
+// n<=3). Este test NO lo aprueba: solo impide que el cambio del daily se fugue.
+// Se arregla en F54.
+//
+// Los dos strings se capturaron EJECUTANDO el código en HEAD antes de editar
+// (git show HEAD:…/digest.ts), no se escribieron a mano. Con el mismo insumo del
+// GOLDEN, el semanal de HEAD imprime "Wenceslao: 2 · prom 47" — literalmente el
+// artefacto del 6-ago que F53 elimina del diario y que F54 debe eliminar de aquí.
+
+const WEEKLY_HEAD = "📈 *AurisIQ* — semana 3–9 ago\n\n*ACME INMUEBLES* — 4 análisis (vs 0 previa) · 3 usuarios\n• Wenceslao: 2 · prom 47  ·  Bernarda: 1 · prom 28  ·  Ignacia: 1\n• Leads: 3 calificados (100%) · 1 sin dato\n• Outcomes: 3 cerrado_parcial\n\nTotal: 4 análisis (vs 0 previa)";
+const MONTHLY_HEAD = "🗓️ *AurisIQ* — resumen mensual · agosto 2026\n\n*ACME INMUEBLES* — 4 análisis (jul: 0) · 3 usuarios\n• Uso del plan: 4/50 (8%)\n• Score prom: 40 · Mejor: Wenceslao 65\n• Leads: 3 calificados (100%) · 1 sin dato\n\nTotal: 4 análisis (jul: 0) · orgs con actividad: 1";
+
+Deno.test("F53 no-fuga: weekly con el insumo del GOLDEN sale byte-idéntico a HEAD", () => {
+  const text = buildWeeklyDigest({
+    targetDate: "2026-08-05",
+    orgs: [ORG_A],
+    users: F53_USERS,
+    analyses: F53_GOLDEN_ROWS,
+    phases: [],
+    alerts: [],
+    lastRealAnalysisByOrg: {},
+  });
+  assertEquals(text, WEEKLY_HEAD);
+});
+
+Deno.test("F53 no-fuga: monthly con el insumo del GOLDEN sale byte-idéntico a HEAD", () => {
+  const text = buildMonthlyDigest({
+    targetDate: "2026-08-15",
+    orgs: [{ ...ORG_A, plan: "founder" }],
+    users: F53_USERS,
+    analyses: F53_GOLDEN_ROWS,
+    alerts: [],
+    lastRealAnalysisByOrg: {},
+  });
+  assertEquals(text, MONTHLY_HEAD);
 });

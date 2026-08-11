@@ -12,7 +12,7 @@
 //   desde 2022 → offset fijo -06:00. NO usar "now() - 24h".
 
 export const MX_OFFSET = "-06:00";
-export const DIGEST_VERSION = "digest-v4";
+export const DIGEST_VERSION = "digest-v5";
 
 export interface OrgRow {
   id: string;
@@ -66,6 +66,8 @@ export interface AnalysisRow {
   created_at: string;
   /** Post-F47: null = "no se pudo leer". Solo lo usan weekly/monthly (top descal). */
   categoria_descalificacion?: string[] | null;
+  /** F53: por qué no hay score. 'fragmento' = audio parcial. Lo usa el daily. */
+  unscorable_reason?: string | null;
 }
 
 export interface AlertCount {
@@ -279,6 +281,95 @@ function daysBetween(fromIso: string, toDate: string): number {
   return Math.max(1, Math.floor((to - from) / (24 * 3600 * 1000)));
 }
 
+// ---------- F53: línea por usuario del daily ----------
+//
+// El daily imprimía "prom" sobre muestras donde el promedio no describe
+// ninguna llamada. Medido contra la DB viva (60 días, usuario-día en CDMX,
+// base = los que tienen al menos un score): el 53% tiene UNA sola llamada
+// —ahí el "prom" ES esa llamada disfrazada de estadística—, el 76% tiene 2 o
+// menos, y solo el 2.6% llega a 4+, que es donde un promedio empieza a
+// significar algo. Caso publicado el 6-ago: un usuario con 2 llamadas de 65
+// y 28 salió como "2 · prom 47"; el peor, 56/62/16 como "prom 45". Misma
+// familia que F51/F52: un número que se lee como desempeño y no lo es.
+//
+// Regla: <=3 con score → se listan crudos, y los no-scored entran al MISMO
+// paréntesis; >=4 → "prom X (min–max)" (el rango NO es opcional: es lo que
+// impide que el promedio vuelva a esconder la dispersión) y los no-scored
+// pasan a sufijo, porque el paréntesis ya lo ocupa el rango.
+//
+// INVARIANTE: el número que sigue al nombre es items.length y todo item está
+// representado — como score o dentro de un conteo. Nada se evapora: es lo que
+// hace la línea auditable contra la DB.
+
+const SCORES_INLINE_MAX = 3; // <=3 → scores crudos · >=4 → prom + rango
+
+type OtroTipo = "fragmento" | "rechazado" | "en proceso";
+
+/** Orden fijo de tipos en el render (no por conteo — determinismo del golden). */
+const OTRO_ORDEN: OtroTipo[] = ["fragmento", "rechazado", "en proceso"];
+const OTRO_PLURAL: Record<OtroTipo, string> = {
+  fragmento: "fragmentos",
+  rechazado: "rechazados",
+  "en proceso": "en proceso", // invariable
+};
+
+/** Clasifica un análisis SIN score. 'fragmento' gana sobre el status. */
+function otroTipo(a: AnalysisRow): OtroTipo {
+  if (a.unscorable_reason === "fragmento") return "fragmento";
+  if (a.status === "rechazado") return "rechazado";
+  return "en proceso";
+}
+
+/**
+ * Un score solo cuenta si su análisis está 'completado' — regla dura del
+ * proyecto. El pipeline puede dejar un score huérfano en una fila que después
+ * pasó a 'error'/'rechazado' (worker: status='error' en el catch posterior a
+ * persistir el payload); ese número NO describe una llamada calificada y se
+ * reporta por su tipo, no como si fuera un score válido.
+ */
+function hasScore(a: AnalysisRow): boolean {
+  return a.status === "completado" && typeof a.score_general === "number";
+}
+
+/** Conteos por tipo, en OTRO_ORDEN y sin entradas en cero. */
+function otrosCounts(rows: AnalysisRow[]): Array<[OtroTipo, number]> {
+  const m = new Map<OtroTipo, number>();
+  for (const a of rows) {
+    const t = otroTipo(a);
+    m.set(t, (m.get(t) ?? 0) + 1);
+  }
+  return OTRO_ORDEN.filter((t) => (m.get(t) ?? 0) > 0).map((t) => [t, m.get(t)!]);
+}
+
+/**
+ * Línea de un usuario para el daily. `items` = TODOS sus análisis del día.
+ * Ver INVARIANTE arriba: cada item sale como score o dentro de un conteo.
+ */
+export function userDayLine(name: string, items: AnalysisRow[]): string {
+  const cron = items
+    .slice()
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  const scored = cron.filter(hasScore);
+  const otros = otrosCounts(cron.filter((a) => !hasScore(a)));
+
+  if (scored.length <= SCORES_INLINE_MAX) {
+    // Todo dentro del paréntesis. Un solo item de un tipo va como palabra;
+    // 2+ se colapsan a "N tipo" en plural.
+    const dentro = [
+      ...scored.map((a) => String(a.score_general)),
+      ...otros.map(([t, n]) => (n === 1 ? t : `${n} ${OTRO_PLURAL[t]}`)),
+    ];
+    return `${name}: ${items.length} (${dentro.join(", ")})`;
+  }
+
+  const nums = scored.map((a) => a.score_general as number);
+  const prom = Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
+  // "–" es U+2013 (guion largo), no un guion normal.
+  let out = `${name}: ${items.length} · prom ${prom} (${Math.min(...nums)}–${Math.max(...nums)})`;
+  for (const [t, n] of otros) out += ` · ${n} ${n === 1 ? t : OTRO_PLURAL[t]}`;
+  return out;
+}
+
 // ---------- digest ----------
 
 const MAX_ORG_DETAIL = 4; // >4 orgs con actividad → colapsar detalle por-usuario
@@ -356,15 +447,13 @@ export function buildDigest(input: DigestInput): string {
 
     const userEntries = [...byUser.entries()]
       .map(([uid, rs]) => {
-        const prom = avgScore(rs.filter((a) => a.status === "completado"));
-        return { name: firstName(usersById.get(uid)), count: rs.length, prom };
+        const name = firstName(usersById.get(uid));
+        return { name, count: rs.length, line: userDayLine(name, rs) };
       })
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
     const listed = userEntries.slice(0, MAX_USERS_LISTED);
     const extraUsers = userEntries.length - listed.length;
-    const userLine = listed
-      .map((e) => `${e.name}: ${e.count}${e.prom !== null ? ` · prom ${e.prom}` : ""}`)
-      .join("  ·  ");
+    const userLine = listed.map((e) => e.line).join("  ·  ");
     lines.push(`• ${userLine}${extraUsers > 0 ? `  ·  +${extraUsers} más` : ""}`);
 
     const buckets: Array<[string, string, number]> = [
