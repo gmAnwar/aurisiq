@@ -73,6 +73,11 @@ export interface ScorecardPhase {
   phase_id: string;
   phase_name: string;
   score_max: number;
+  // F48b: true = la fase solo es puntuable si el prospecto es viable, así que
+  // NO entra al score de desempeño de un descarte. La AUSENCIA del key
+  // significa fase pura (se evalúa siempre) — no hay `lead_dependent: false`
+  // en el catálogo de prod y este código no lo exige.
+  lead_dependent?: boolean;
 }
 
 export interface ParsedOutput {
@@ -90,6 +95,9 @@ export interface ParsedOutput {
   raw_estado_block: string | null;
   // F47: null = el bloque DESCALIFICACION no se pudo leer (≠ [] sin causal).
   descalificacion: string[] | null;
+  // F48b: los 4 criterios del bloque EVALUACION DE DESCARTE. null = bloque
+  // ausente o incompleto (parcial NO se rellena con ceros).
+  descarte: DescarteScores | null;
   prospect_name: string | null;
   prospect_zone: string | null;
   property_type: string | null;
@@ -111,6 +119,15 @@ export interface ParsedOutput {
   // EXTRACTION_WRITABLE_COLUMNS — config inválida del scorecard, se ignoran
   // en el data path y disparan la alerta extraction_config_invalid.
   unsupported_extraction_columns: string[];
+}
+
+// F48b: los 4 criterios del bloque EVALUACION DE DESCARTE, cada uno 0-5
+// (20 puntos máximos). Solo se emiten cuando el modelo concluye descarte.
+export interface DescarteScores {
+  causal_confirmada: number;
+  resolubilidad_explorada: number;
+  orientacion_correcta: number;
+  puerta_abierta: number;
 }
 
 export interface MatchedPhase {

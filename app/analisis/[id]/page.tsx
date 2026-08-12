@@ -10,7 +10,8 @@ import EditableField from "../../components/EditableName";
 import TranscriptEditor from "../../components/TranscriptEditor";
 import { isFinancieroScorecard } from "../../../lib/verticals";
 import LeadBadge from "../../components/LeadBadge";
-import { clasificacionLabel, CLASIFICACION_RANGES, type ClasificacionValue } from "../../../lib/clasificacion-labels";
+import { clasificacionFromScore, clasificacionLabel, CLASIFICACION_RANGES, type ClasificacionValue } from "../../../lib/clasificacion-labels";
+import { avanceScore, mainScore } from "../../../lib/score-display";
 
 // Descripciones de la tabla "¿Qué significa mi score?" (voz captadora, tuteo).
 // Etiquetas y rangos vienen de lib/clasificacion-labels — cero strings sueltos.
@@ -37,6 +38,7 @@ interface Analysis {
   id: string;
   scorecard_id?: string | null;
   score_general: number | null;
+  score_desempeno: number | null;
   clasificacion: string | null;
   unscorable_reason: string | null;
   momento_critico: string | null;
@@ -69,6 +71,7 @@ interface Analysis {
 interface RelatedCall {
   id: string;
   score_general: number | null;
+  score_desempeno: number | null;
   created_at: string;
   funnel_stage_id: string | null;
 }
@@ -154,7 +157,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
 
       const { data: a, error: aErr } = await supabase
         .from("analyses")
-        .select("id, score_general, clasificacion, unscorable_reason, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, notes, lead_quality, lead_outcome, related_analysis_id, created_at, scorecard_id, legacy_note, highlights, status, error_message")
+        .select("id, score_general, score_desempeno, clasificacion, unscorable_reason, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, business_type, equipment_type, vehicle_interest, financing_type, sale_reason, prospect_phone, checklist_results, manager_note, notes, lead_quality, lead_outcome, related_analysis_id, created_at, scorecard_id, legacy_note, highlights, status, error_message")
         .eq("id", id)
         .single();
 
@@ -210,7 +213,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
       if (a.prospect_name && a.prospect_name !== "No identificado") {
         const { data: related } = await supabase
           .from("analyses")
-          .select("id, score_general, created_at, funnel_stage_id")
+          .select("id, score_general, score_desempeno, created_at, funnel_stage_id")
           .eq("organization_id", session.organizationId)
           .eq("status", "completado")
           .neq("id", id)
@@ -428,8 +431,8 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
                 <span className="c3-related-date">
                   {new Date(r.created_at).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}
                 </span>
-                {r.score_general !== null && (
-                  <span className="c3-related-score">{r.score_general}</span>
+                {mainScore(r) !== null && (
+                  <span className="c3-related-score">{mainScore(r)}</span>
                 )}
               </a>
             ))}
@@ -468,13 +471,21 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
       )}
 
       {/* 3. SCORE + COACHING BY PHASE */}
-      {analysis.score_general !== null && (
+      {/* F48b: el principal es el desempeño. La etiqueta se DERIVA del número
+          que se pinta, no de analysis.clasificacion — esa columna describe al
+          general, y en un descarte diría "A reforzar" junto a un 70. */}
+      {mainScore(analysis) !== null && (
         <div className="c3-section">
-          <div className="c3-score-inline" title="El score evalúa el desempeño de la captadora, no la calidad del lead">
-            <span className="c3-score-value">{analysis.score_general}</span>
-            {analysis.clasificacion && (
-              <span className={`c3-clasificacion c3-clas-${analysis.clasificacion}`}>
-                {clasificacionLabel(analysis.clasificacion)}
+          <div className="c3-score-inline" title="Tu desempeño en la llamada — no mide la calidad del prospecto">
+            <span className="c3-score-value">{mainScore(analysis)}</span>
+            {clasificacionFromScore(mainScore(analysis)) && (
+              <span className={`c3-clasificacion c3-clas-${clasificacionFromScore(mainScore(analysis))}`}>
+                {clasificacionLabel(clasificacionFromScore(mainScore(analysis)))}
+              </span>
+            )}
+            {avanceScore(analysis) !== null && (
+              <span className="c3-score-avance" title="Avance de la llamada: incluye qué tan lejos llegó el prospecto, que no depende solo de ti">
+                Avance {avanceScore(analysis)}
               </span>
             )}
           </div>
@@ -482,7 +493,7 @@ export default function ResultadoPage({ params }: { params: Promise<{ id: string
       )}
 
       {/* Score reference table */}
-      {analysis.score_general !== null && (
+      {mainScore(analysis) !== null && (
         <details className="c3-score-ref">
           <summary className="c3-score-ref-summary">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>

@@ -6,6 +6,7 @@ import { requireAuth } from "../../../../lib/auth";
 import TranscriptEditor from "../../../components/TranscriptEditor";
 import LeadBadge from "../../../components/LeadBadge";
 import { clasificacionLabel, CLASIFICACION_RANGES, type ClasificacionValue } from "../../../../lib/clasificacion-labels";
+import { avanceScore, mainScore } from "../../../../lib/score-display";
 
 // Descripciones de la tabla de rangos (voz gerente, neutra). Etiquetas y
 // rangos vienen de lib/clasificacion-labels — cero strings sueltos.
@@ -19,7 +20,7 @@ const SCORE_REF_DESCRIPTIONS: Record<ClasificacionValue, string> = {
 interface Phase { phase_name: string; score: number; score_max: number; }
 interface DescalCat { code: string; label: string; }
 interface ChecklistItem { field: string; covered?: boolean; state?: "covered" | "asked_no_answer" | "not_covered"; }
-interface RelatedCall { id: string; score_general: number | null; created_at: string; }
+interface RelatedCall { id: string; score_general: number | null; score_desempeno: number | null; created_at: string; }
 
 export default function AnalisisGerentePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -51,7 +52,7 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
       setUserId(session.userId);
 
       const { data: a } = await supabase.from("analyses")
-        .select("id, user_id, score_general, clasificacion, unscorable_reason, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, lead_quality, lead_outcome, created_at, organization_id, manager_note, prospect_name, prospect_zone, property_type, sale_reason, prospect_phone, checklist_results, legacy_note, highlights")
+        .select("id, user_id, score_general, score_desempeno, clasificacion, unscorable_reason, momento_critico, patron_error, objecion_principal, siguiente_accion, categoria_descalificacion, lead_quality, lead_outcome, created_at, organization_id, manager_note, prospect_name, prospect_zone, property_type, sale_reason, prospect_phone, checklist_results, legacy_note, highlights")
         .eq("id", id).single();
 
       if (!a) { setError("Análisis no encontrado."); setLoading(false); return; }
@@ -87,7 +88,7 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
       const prospectName = a.prospect_name as string | null;
       if (prospectName && prospectName !== "No identificado") {
         const { data: related } = await supabase.from("analyses")
-          .select("id, score_general, created_at")
+          .select("id, score_general, score_desempeno, created_at")
           .eq("organization_id", a.organization_id as string)
           .eq("status", "completado")
           .neq("id", id)
@@ -122,7 +123,10 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
   const covered = checklist.filter(isCov).length;
   // F48a: null nunca cae a la rama roja — gris neutro (defensivo: el render del
   // número ya viene guardado con !== null).
-  const scoreVal = analysis.score_general as number | null;
+  // F48b: el número principal es el desempeño; el general baja a secundario.
+  const scoreRow = { score_general: analysis.score_general as number | null, score_desempeno: analysis.score_desempeno as number | null };
+  const scoreVal = mainScore(scoreRow);
+  const avanceVal = avanceScore(scoreRow);
   // Rename UI 7-ago-2026: la banda baja ("A reforzar") nunca en rojo — ámbar discreto.
   const scoreColor = scoreVal === null ? "var(--ink-light)" : scoreVal >= 85 ? "var(--green)" : scoreVal >= 65 ? "var(--gold)" : scoreVal >= 45 ? "var(--cap)" : "var(--amber)";
 
@@ -143,8 +147,13 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
           </div>
           {(analysis.unscorable_reason as string | null) === "fragmento" ? (
             <span className="frag-badge" title="La transcripción es muy corta para evaluar el desempeño — este análisis no genera score ni afecta promedios">Fragmento</span>
-          ) : (analysis.score_general as number | null) !== null && (
-            <span className="g3-score-big" style={{ color: scoreColor }} title="El score evalúa el desempeño de la captadora, no la calidad del lead">{analysis.score_general as number}</span>
+          ) : scoreVal !== null && (
+            <div className="g3-score-stack">
+              <span className="g3-score-big" style={{ color: scoreColor }} title="Desempeño de la captadora — no mide la calidad del prospecto">{scoreVal}</span>
+              {avanceVal !== null && (
+                <span className="g3-score-sub" title="Avance de la llamada: incluye qué tan lejos llegó el prospecto, que no depende solo del trabajo de la captadora">Avance {avanceVal}</span>
+              )}
+            </div>
           )}
         </div>
 
@@ -218,7 +227,7 @@ export default function AnalisisGerentePage({ params }: { params: Promise<{ id: 
               {relatedCalls.map(r => (
                 <a key={r.id} href={`/equipo/analisis/${r.id}`} className="c3-related-item">
                   <span className="c3-related-date">{new Date(r.created_at).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}</span>
-                  {r.score_general !== null && <span className="c3-related-score">{r.score_general}</span>}
+                  {mainScore(r) !== null && <span className="c3-related-score">{mainScore(r)}</span>}
                 </a>
               ))}
             </div>

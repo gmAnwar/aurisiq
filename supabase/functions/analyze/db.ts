@@ -200,6 +200,8 @@ export async function writeAnalysisResults(
   // F48a: 'fragmento' → score_general/clasificacion NULL por diseño +
   // unscorable_reason marcada; null → análisis medible normal.
   unscorableReason: "fragmento" | null,
+  // F48b: ya derivado por computeScoreDesempeno en el caller (puro, testeable).
+  scoreDesempeno: number | null,
 ) {
   const validCodes = new Set(descalCats.map(c => c.code));
   // F47: null = el bloque DESCALIFICACION no se pudo leer → la columna queda
@@ -255,6 +257,7 @@ export async function writeAnalysisResults(
     normalizedPhone,
     validDescal,
     unscorableReason,
+    scoreDesempeno,
   });
 
   // Only override funnel_stage_id if user didn't send one

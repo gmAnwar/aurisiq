@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import { requireAuth } from "../../../lib/auth";
+import { mainScore } from "../../../lib/score-display";
 
 interface ProspectGroup {
   identifier: string;
@@ -10,6 +11,7 @@ interface ProspectGroup {
     id: string;
     created_at: string;
     score_general: number | null;
+  score_desempeno: number | null;
     clasificacion: string | null;
     avanzo_a_siguiente_etapa: string | null;
     user_id: string;
@@ -33,7 +35,7 @@ export default function ExpedientesPage() {
 
       const [analysesRes, usersRes] = await Promise.all([
         supabase.from("analyses")
-          .select("id, prospect_identifier, created_at, score_general, clasificacion, avanzo_a_siguiente_etapa, user_id, manager_note")
+          .select("id, prospect_identifier, created_at, score_general, score_desempeno, clasificacion, avanzo_a_siguiente_etapa, user_id, manager_note")
           .eq("organization_id", me.organization_id).eq("status", "completado")
           .not("prospect_identifier", "is", null)
           .order("created_at", { ascending: true }),
@@ -125,7 +127,7 @@ export default function ExpedientesPage() {
                             <span>{date.toLocaleDateString("es-MX", { day: "numeric", month: "short" })}</span>
                             <span>·</span>
                             <span>{userNames[e.user_id] || "—"}</span>
-                            {e.score_general !== null && <span>· Score: {e.score_general}</span>}
+                            {mainScore(e) !== null && <span>· Score: {mainScore(e)}</span>}
                           </div>
                           {/* Manager note */}
                           {editingNote === e.id ? (

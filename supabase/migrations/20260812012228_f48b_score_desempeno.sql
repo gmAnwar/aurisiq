@@ -1,0 +1,4 @@
+ALTER TABLE public.analyses ADD COLUMN score_desempeno integer NULL;
+COMMENT ON COLUMN public.analyses.score_desempeno IS 'F48b: score de desempeño de la captadora, separado de la calidad del lead. Calificado => igual a score_general. Descalificado con catálogo lead_dependent => round(100*(fases puras + EVALUACION DE DESCARTE)/(max puras + max descarte)), derivado EN CÓDIGO (computeScoreDesempeno). NULL = no calculable (fragmento, histórico sin descarte, o descarte_block_missing).';
+ALTER TABLE public.analysis_parser_debug DROP CONSTRAINT analysis_parser_debug_triggers_check;
+ALTER TABLE public.analysis_parser_debug ADD CONSTRAINT analysis_parser_debug_triggers_check CHECK ((triggers <@ ARRAY['missing_lead'::text, 'phases_mismatch'::text, 'missing_prospect_extraction'::text, 'descal_parse_failed'::text, 'descarte_block_missing'::text]) AND (array_length(triggers, 1) >= 1));

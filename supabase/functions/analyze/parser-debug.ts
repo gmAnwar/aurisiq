@@ -9,7 +9,8 @@ export type ParserDebugTrigger =
   | "missing_lead"
   | "phases_mismatch"
   | "missing_prospect_extraction"
-  | "descal_parse_failed";
+  | "descal_parse_failed"
+  | "descarte_block_missing";
 
 export interface ParserDebugRow {
   triggers: ParserDebugTrigger[];
@@ -79,6 +80,10 @@ export function buildParserDebug(input: {
   extractionMisses: string[];
   // F47: el prompt pidió DESCALIFICACION y el parser no leyó un array válido.
   descalParseFailed: boolean;
+  // F48b: descarte confirmado con catálogo lead_dependent, pero faltó el
+  // bloque EVALUACION DE DESCARTE o alguna fase pura → score_desempeno quedó
+  // NULL. Se captura el raw para poder reconstruir qué emitió el modelo.
+  descarteBlockMissing: boolean;
 }): ParserDebugRow | null {
   const phasesFound = input.phasesFoundIds.length;
   const phasesMismatch = phasesFound < input.phasesExpected;
@@ -92,7 +97,7 @@ export function buildParserDebug(input: {
   // F47: CUALQUIER causa produce fila completa con raw capturado — capturar,
   // no solo alertar (1592fe97 del 24-jul es el contraejemplo: sin fila, el
   // raw se perdió para siempre).
-  if (!phasesMismatch && !missingLead && !missingProspect && !input.descalParseFailed) {
+  if (!phasesMismatch && !missingLead && !missingProspect && !input.descalParseFailed && !input.descarteBlockMissing) {
     return null;
   }
 
@@ -102,12 +107,14 @@ export function buildParserDebug(input: {
   if (phasesMismatch) triggers.push("phases_mismatch");
   if (missingProspect) triggers.push("missing_prospect_extraction");
   if (input.descalParseFailed) triggers.push("descal_parse_failed");
+  if (input.descarteBlockMissing) triggers.push("descarte_block_missing");
 
   const missingFields: string[] = [];
   if (input.promptHasEstado && input.leadQuality === null) missingFields.push("lead_quality");
   if (input.promptHasEstado && input.leadOutcome === null) missingFields.push("lead_outcome");
   missingFields.push(...input.extractionMisses);
   if (input.descalParseFailed) missingFields.push("descalificacion");
+  if (input.descarteBlockMissing) missingFields.push("descarte");
 
   const { capture, truncated } = buildRawOutputCapture(input.rawOutput);
 

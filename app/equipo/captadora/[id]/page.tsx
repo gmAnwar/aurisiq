@@ -4,8 +4,10 @@ import { useState, useEffect, use } from "react";
 import { supabase } from "../../../../lib/supabase";
 import { requireAuth } from "../../../../lib/auth";
 import { stripJson } from "../../../../lib/text";
+import { clasificacionFromScore } from "../../../../lib/clasificacion-labels";
+import { mainScore } from "../../../../lib/score-display";
 
-interface AnalysisRow { id: string; score_general: number | null; clasificacion: string | null; unscorable_reason: string | null; created_at: string; categoria_descalificacion: string[] | null; patron_error: string | null; siguiente_accion: string | null; prospect_name: string | null; funnel_stage_id: string | null; property_type: string | null; business_type: string | null; }
+interface AnalysisRow { id: string; score_general: number | null; score_desempeno: number | null; clasificacion: string | null; unscorable_reason: string | null; created_at: string; categoria_descalificacion: string[] | null; patron_error: string | null; siguiente_accion: string | null; prospect_name: string | null; funnel_stage_id: string | null; property_type: string | null; business_type: string | null; }
 interface PhaseRow { phase_name: string; score: number; score_max: number; analysis_id: string; }
 interface DescalCat { code: string; label: string; }
 
@@ -39,7 +41,7 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
 
       const [analysesRes, phasesRes, descalRes, teamPhasesRes, objRes, todayRes, stagesRes] = await Promise.all([
-        supabase.from("analyses").select("id, score_general, clasificacion, unscorable_reason, created_at, categoria_descalificacion, lead_quality, patron_error, siguiente_accion, prospect_name, funnel_stage_id, property_type, business_type")
+        supabase.from("analyses").select("id, score_general, score_desempeno, clasificacion, unscorable_reason, created_at, categoria_descalificacion, lead_quality, patron_error, siguiente_accion, prospect_name, funnel_stage_id, property_type, business_type")
           .eq("user_id", id).eq("organization_id", me.organization_id).eq("status", "completado").order("created_at", { ascending: false }).limit(100),
         supabase.from("analysis_phases").select("phase_name, score, score_max, analysis_id")
           .eq("user_id", id).eq("organization_id", me.organization_id).order("created_at", { ascending: false }).limit(500),
@@ -200,8 +202,8 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
                       <div className="c4-item-right">
                         {a.unscorable_reason === "fragmento" ? (
                           <span className="frag-badge">Fragmento</span>
-                        ) : a.score_general !== null && (
-                          <span className={`c4-item-score c4-score-${a.clasificacion ?? ""}`}>{a.score_general}</span>
+                        ) : mainScore(a) !== null && (
+                          <span className={`c4-item-score c4-score-${clasificacionFromScore(mainScore(a)) ?? a.clasificacion ?? ""}`}>{mainScore(a)}</span>
                         )}
                       </div>
                     </a>
@@ -220,8 +222,8 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
                 <h2 className="g1-section-title">Evolución de score</h2>
                 <div className="g2-evolution">
                   {/* F48a: solo análisis con score — un fragmento no pinta barra fantasma */}
-                  {analyses.filter(a => a.score_general !== null).slice(0, 15).reverse().map(a => (
-                    <div key={a.id} className="g2-evo-bar-wrap"><div className="g2-evo-bar" style={{ height: `${a.score_general}%` }} /><span className="g2-evo-label">{a.score_general}</span></div>
+                  {analyses.filter(a => mainScore(a) !== null).slice(0, 15).reverse().map(a => (
+                    <div key={a.id} className="g2-evo-bar-wrap"><div className="g2-evo-bar" style={{ height: `${mainScore(a)}%` }} /><span className="g2-evo-label">{mainScore(a)}</span></div>
                   ))}
                 </div>
               </div>
@@ -261,7 +263,7 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
                         {!primaryDescal && a.patron_error && <span className="c4-item-source">{stripJson(a.patron_error).slice(0, 60)}</span>}
                       </div>
                       <div className="c4-item-right">
-                        {a.unscorable_reason === "fragmento" ? <span className="frag-badge">Fragmento</span> : a.score_general !== null && <span className={`c4-item-score c4-score-${a.clasificacion ?? ""}`}>{a.score_general}</span>}
+                        {a.unscorable_reason === "fragmento" ? <span className="frag-badge">Fragmento</span> : mainScore(a) !== null && <span className={`c4-item-score c4-score-${clasificacionFromScore(mainScore(a)) ?? a.clasificacion ?? ""}`}>{mainScore(a)}</span>}
                       </div>
                     </a>
                   );
@@ -307,7 +309,7 @@ export default function PerfilCaptadoraPage({ params }: { params: Promise<{ id: 
                   if (!error && !accion) return null;
                   return (
                     <div key={a.id} className="g2-coaching-card">
-                      <span className="g2-coaching-date">{d.toLocaleDateString("es-MX", { day: "numeric", month: "short" })} · Score: {a.score_general ?? "—"}</span>
+                      <span className="g2-coaching-date">{d.toLocaleDateString("es-MX", { day: "numeric", month: "short" })} · Score: {mainScore(a) ?? "—"}</span>
                       <div className="g2-coaching-row">
                         <span className="g2-coaching-label">Coachea a {name.split(" ")[0]}:</span>
                         <p>{error || "Sin patrón identificado en esta llamada"}</p>

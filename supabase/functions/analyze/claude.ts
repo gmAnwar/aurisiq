@@ -3,7 +3,7 @@ import type { Scorecard, ScorecardStructure, DescalCategory, FunnelStage } from 
 import { type RejectionReason, isRejectionReason } from "../_shared/rejection-reasons.ts";
 // F48a: bloques puros compartidos con buildFragmentPrompt (fragment.ts) — la
 // fuente única vive en prompt-blocks.ts (testeable sin env).
-import { REJECTION_INSTRUCTION_BLOCK, PROSPECT_BLOCK_LEGACY, buildDescalBlock } from "./prompt-blocks.ts";
+import { REJECTION_INSTRUCTION_BLOCK, PROSPECT_BLOCK_LEGACY, buildDescalBlock, DESCARTE_BLOCK, hasLeadDependentPhases } from "./prompt-blocks.ts";
 import { alertSlack, parseAnthropicError, type AlertContext } from "../_shared/alert.ts";
 import { ApiStatusError } from "../_shared/errors.ts";
 
@@ -138,6 +138,7 @@ const TONE_BLOCK = `\n\n---\nTONO Y FORMATO DEL PATRÓN DE ERROR\nEl bloque PATR
 
 // HIGHLIGHTS_BLOCK removed — highlights now generated in dedicated second call
 
+
 // ─── Full prompt assembly ──────────────────────────────────
 
 export function buildFullPrompt(
@@ -163,6 +164,12 @@ export function buildFullPrompt(
     prompt = scorecard.prompt_template;
   }
   prompt += TONE_BLOCK;
+
+  // F48b: condicional al catálogo — sin fases lead_dependent no hay separación
+  // que hacer, y pedir el bloque sería ruido en el prompt.
+  if (hasLeadDependentPhases(scorecard.phases)) {
+    prompt += DESCARTE_BLOCK;
+  }
 
   // Momento crítico — always included regardless of output_blocks in scorecard
   prompt += `\n\n---\nMOMENTO CRÍTICO\nIdentifica el momento más decisivo de la conversación: el punto donde se definió si la oportunidad avanza o se pierde. Puede ser una objeción no manejada, una revelación del prospecto, un error del vendedor, o un momento de conexión. Describe en 2-3 oraciones qué pasó y por qué fue decisivo. Empieza con "MOMENTO CRÍTICO" como encabezado.`;

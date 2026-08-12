@@ -15,6 +15,8 @@ import {
   type DateRange,
 } from "../../lib/date-presets";
 import DateRangeFilter from "../components/DateRangeFilter";
+import { clasificacionFromScore } from "../../lib/clasificacion-labels";
+import { mainScore } from "../../lib/score-display";
 
 interface CaptadoraCard {
   userId: string;
@@ -33,6 +35,7 @@ interface RecentCall {
   userName: string;
   prospect_name: string | null;
   score_general: number | null;
+  score_desempeno: number | null;
   clasificacion: string | null;
   unscorable_reason: string | null;
   categoria_descalificacion: string[] | null;
@@ -138,7 +141,7 @@ function EquipoDashboardInner() {
         supabase.from("alerts").select("id, description")
           .eq("organization_id", orgId).eq("status", "activa").order("created_at", { ascending: false }).limit(5),
         supabase.from("descalification_categories").select("code, label").eq("organization_id", orgId),
-        supabase.from("analyses").select("id, user_id, prospect_name, score_general, clasificacion, unscorable_reason, categoria_descalificacion, lead_quality, fuente_lead_id, created_at, funnel_stage_id, property_type, business_type")
+        supabase.from("analyses").select("id, user_id, prospect_name, score_general, score_desempeno, clasificacion, unscorable_reason, categoria_descalificacion, lead_quality, fuente_lead_id, created_at, funnel_stage_id, property_type, business_type")
           .eq("organization_id", orgId).eq("status", "completado").order("created_at", { ascending: false }).limit(10),
         supabase.from("lead_sources").select("id, name").eq("organization_id", orgId),
         supabase.from("funnel_stages").select("id, name").eq("organization_id", orgId).eq("active", true),
@@ -379,8 +382,8 @@ function EquipoDashboardInner() {
                     <div className="c4-item-right">
                       {a.unscorable_reason === "fragmento" ? (
                         <span className="frag-badge">Fragmento</span>
-                      ) : a.score_general !== null && (
-                        <span className={`c4-item-score c4-score-${a.clasificacion ?? ""}`}>{a.score_general}</span>
+                      ) : mainScore(a) !== null && (
+                        <span className={`c4-item-score c4-score-${clasificacionFromScore(mainScore(a)) ?? a.clasificacion ?? ""}`}>{mainScore(a)}</span>
                       )}
                     </div>
                   </a>

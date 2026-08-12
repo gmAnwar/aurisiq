@@ -38,3 +38,15 @@ export function clasificacionLabel(value: string | null | undefined): string | n
   if (!value) return null;
   return (CLASIFICACION_LABELS as Record<string, string>)[value] ?? value;
 }
+
+// F48b: clasificación DERIVADA del score que la UI pinta, no de la columna
+// almacenada. Sin esto, un descarte con desempeño 70 saldría etiquetado
+// "A reforzar" porque analyses.clasificacion guarda la del general (35) — el
+// número y su etiqueta dirían cosas opuestas en el mismo renglón.
+// La columna en DB NO se toca: sigue describiendo a score_general.
+// Data-driven sobre CLASIFICACION_RANGES, que el guard de la suite Deno ya
+// fija contra deriveClasificacion — un solo lugar donde viven los umbrales.
+export function clasificacionFromScore(score: number | null | undefined): ClasificacionValue | null {
+  if (typeof score !== "number") return null;
+  return CLASIFICACION_RANGES.find((r) => score >= r.min && score <= r.max)?.value ?? null;
+}

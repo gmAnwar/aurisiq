@@ -7,10 +7,13 @@ import { requireAuth } from "../../lib/auth";
 import { getOrgTimezone, weekStart as getWeekStart, prevWeekStart as getPrevWeekStart } from "../../lib/dates";
 import { stripJson } from "../../lib/text";
 import { qualifiedStats } from "../../lib/descal-metrics";
+import { clasificacionFromScore } from "../../lib/clasificacion-labels";
+import { mainScore } from "../../lib/score-display";
 
 interface Analysis {
   id: string;
   score_general: number | null;
+  score_desempeno: number | null;
   clasificacion: string | null;
   unscorable_reason: string | null;
   created_at: string;
@@ -40,7 +43,7 @@ export default function MiSemanaPage() {
 
       const [weekRes, prevRes, descalRes] = await Promise.all([
         supabase.from("analyses")
-          .select("id, score_general, clasificacion, unscorable_reason, created_at, objecion_principal, siguiente_accion, prospect_name, prospect_zone, property_type, categoria_descalificacion, checklist_results")
+          .select("id, score_general, score_desempeno, clasificacion, unscorable_reason, created_at, objecion_principal, siguiente_accion, prospect_name, prospect_zone, property_type, categoria_descalificacion, checklist_results")
           .eq("user_id", session.userId).eq("organization_id", session.organizationId).eq("status", "completado")
           .gte("created_at", ws)
           .order("created_at", { ascending: false }),
@@ -244,8 +247,8 @@ export default function MiSemanaPage() {
                   <div className="c4-item-right">
                     {a.unscorable_reason === "fragmento" ? (
                       <span className="frag-badge">Fragmento</span>
-                    ) : a.score_general !== null && (
-                      <span className={`c4-item-score c4-score-${a.clasificacion ?? ""}`}>{a.score_general}</span>
+                    ) : mainScore(a) !== null && (
+                      <span className={`c4-item-score c4-score-${clasificacionFromScore(mainScore(a)) ?? a.clasificacion ?? ""}`}>{mainScore(a)}</span>
                     )}
                   </div>
                 </a>

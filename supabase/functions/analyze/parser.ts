@@ -1,4 +1,4 @@
-import type { ParsedOutput, MatchedPhase, ScorecardPhase } from "./types.ts";
+import type { DescarteScores, ParsedOutput, MatchedPhase, ScorecardPhase } from "./types.ts";
 
 // Helper: builds regex fragment that tolerates markdown bold (**) around a keyword
 // e.g. h("SCORE GENERAL") matches: SCORE GENERAL, **SCORE GENERAL**, **SCORE GENERAL**:, etc.
@@ -71,6 +71,8 @@ export function parseClaudeOutput(
     // roto). [] solo si se parseó — el caller normaliza null→[] cuando el
     // prompt ni pidió el bloque (normalizeDescal).
     descalificacion: null,
+    // F48b: se llena abajo con parseDescarteBlock (bloque ausente → null).
+    descarte: null,
     prospect_name: null,
     prospect_zone: null,
     property_type: null,
@@ -287,6 +289,11 @@ export function parseClaudeOutput(
     console.warn(`[parser] DESCALIFICACION keyword found in output but regex failed to extract array`);
   }
 
+  // F48b: bloque EVALUACION DE DESCARTE. Se lee sobre `rawText`, que a esta
+  // altura YA pasó por el des-escape global F42d — por eso parseDescarteBlock
+  // no lleva tolerancia propia a "\_" ni "\-".
+  result.descarte = parseDescarteBlock(rawText);
+
   // Highlights: parsed in dedicated second Claude call, not from main output
 
   // Clean text fields
@@ -306,6 +313,51 @@ export function parseClaudeOutput(
   result.siguiente_accion = cleanField(result.siguiente_accion);
 
   return result;
+}
+
+// ─── F48b: bloque EVALUACION DE DESCARTE ───────────────────
+
+// Los 4 labels en el orden del prompt. La key es la del objeto DescarteScores;
+// el patrón tolera el acento que el modelo agrega por su cuenta (el prompt los
+// pide sin acento, pero "Orientación" es la forma natural en español).
+const DESCARTE_LABELS: [keyof DescarteScores, string][] = [
+  ["causal_confirmada", "Causal confirmada"],
+  ["resolubilidad_explorada", "Resolubilidad explorada"],
+  ["orientacion_correcta", "Orientaci[oó]n correcta"],
+  ["puerta_abierta", "Puerta abierta"],
+];
+
+/**
+ * Aísla el bloque EVALUACION DE DESCARTE y lee sus 4 criterios.
+ *
+ * Devuelve null si el bloque está ausente O si falta cualquiera de las 4
+ * líneas: un descarte parcial NO se rellena con ceros — un cero inventado se
+ * lee como "la captadora no lo hizo", que es justo la difamación que este
+ * score existe para evitar. El caller convierte ese null en el trigger
+ * descarte_block_missing y deja score_desempeno en NULL.
+ *
+ * Precondición: `rawText` ya pasó por el des-escape global F42d.
+ */
+export function parseDescarteBlock(rawText: string): DescarteScores | null {
+  // Word-boundary en ambos extremos del heading: "EVALUACION DE DESCARTES" o
+  // "PREEVALUACION DE DESCARTE" no cuentan como el bloque.
+  const heading = rawText.match(/\bEVALUACI[OÓ]N DE DESCARTE\b/i);
+  if (!heading) return null;
+
+  // Desde el heading hasta el siguiente separador de bloque (o el final).
+  const rest = rawText.slice(heading.index! + heading[0].length);
+  const block = rest.split(/\n---/)[0];
+
+  const out = {} as DescarteScores;
+  for (const [key, label] of DESCARTE_LABELS) {
+    // Label + N/5. hc() (no h()) porque el modelo pone el ":" DENTRO de la
+    // negrita: "**Causal confirmada:** 5/5". El "/5" es obligatorio: fija el
+    // formato y evita comerse un número suelto de otra línea.
+    const m = block.match(new RegExp(`${hc(label)}(\\d+)\\s*/\\s*5`, "i"));
+    if (!m) return null; // parcial = null, no inventar ceros
+    out[key] = Math.min(Math.max(parseInt(m[1], 10), 0), 5);
+  }
+  return out;
 }
 
 // ─── Match parsed phase names to scorecard phase IDs ───────

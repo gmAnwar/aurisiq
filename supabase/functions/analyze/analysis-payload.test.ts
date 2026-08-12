@@ -18,6 +18,7 @@ const payloadSample = buildAnalysisUpdatePayload({
   normalizedPhone: null,
   validDescal: [],
   unscorableReason: null,
+  scoreDesempeno: null,
 });
 
 Deno.test("guard: cada column del set existe en ParsedOutput (runtime, no espejo)", () => {
@@ -44,6 +45,7 @@ Deno.test("guard: el payload preserva los valores de las columns del set y los i
     normalizedPhone: "5215512141618",
     validDescal: null,
     unscorableReason: null,
+    scoreDesempeno: 72,
   });
   assertEquals(payload.vehicle_interest, "Sedán 2023");
   assertEquals(payload.financing_type, "Contado");
@@ -51,5 +53,28 @@ Deno.test("guard: el payload preserva los valores de las columns del set y los i
   assertEquals(payload.notes, "nota manual de la captadora");
   assertEquals(payload.categoria_descalificacion, null);
   assertEquals(payload.unscorable_reason, null);
+  assertEquals(payload.score_desempeno, 72);
   assertEquals(payload.status, "completado");
+});
+
+// F48b: score_desempeno no vive en ParsedOutput (se deriva en el caller con
+// computeScoreDesempeno), así que el guard de EXTRACTION_WRITABLE_COLUMNS no
+// lo cubre. Este es su equivalente: la key tiene que existir en el payload y
+// transportar el valor. Si alguien la quita de un lado, esto truena.
+Deno.test("guard F48b: score_desempeno viaja del input al payload y no se pierde", () => {
+  assert("score_desempeno" in payloadSample, "buildAnalysisUpdatePayload no escribe score_desempeno");
+  assertEquals(payloadSample.score_desempeno, null);
+  const conValor = buildAnalysisUpdatePayload({
+    parsed: parsedSample,
+    callNotes: null,
+    discrepancy: false,
+    relatedId: null,
+    normalizedPhone: null,
+    validDescal: [],
+    unscorableReason: null,
+    scoreDesempeno: 88,
+  });
+  assertEquals(conValor.score_desempeno, 88);
+  // El desempeño NO pisa al general: son columnas independientes.
+  assertEquals(conValor.score_general, 80);
 });

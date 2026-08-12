@@ -19,6 +19,9 @@ export function buildAnalysisUpdatePayload(input: {
   // F48a: 'fragmento' cuando el gate pre-LLM marcó el transcript como no
   // puntuable; null en análisis medibles (escribe NULL explícito, idempotente).
   unscorableReason: "fragmento" | null;
+  // F48b: desempeño de la captadora ya derivado (computeScoreDesempeno). null
+  // = no calculable — fragmento, descarte sin bloque, o histórico sin catálogo.
+  scoreDesempeno: number | null;
 }): Record<string, unknown> {
   const { parsed } = input;
   return {
@@ -29,6 +32,10 @@ export function buildAnalysisUpdatePayload(input: {
     // escribe 0 en silencio.
     score_general: parsed.score_general === null ? null : Math.min(parsed.score_general, 100),
     clasificacion: parsed.clasificacion,
+    // F48b: separado de score_general — este es el número que la UI muestra
+    // como principal. La columna clasificacion NO se re-deriva de aquí (la UI
+    // la calcula data-driven desde el score que pinta).
+    score_desempeno: input.scoreDesempeno,
     unscorable_reason: input.unscorableReason,
     momento_critico: parsed.momento_critico,
     patron_error: parsed.patron_error,

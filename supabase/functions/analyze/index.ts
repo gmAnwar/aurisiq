@@ -1,6 +1,10 @@
-// v25 — F48a: gate de fragmento pre-LLM (<1500 chars → prompt bifurcado,
+// v26 — F48b: score_desempeno separado de la calidad del prospecto. Bloque
+// EVALUACION DE DESCARTE condicional al catálogo lead_dependent de
+// scorecards.phases + computeScoreDesempeno (puro) + trigger
+// descarte_block_missing cuando el descarte no trae con qué calcular.
+// (v25: F48a — gate de fragmento pre-LLM (<1500 chars → prompt bifurcado,
 // score_general/clasificacion NULL POR DISEÑO, unscorable_reason='fragmento',
-// cero analysis_phases, sin highlights; precedencia rechazado > fragmento).
+// cero analysis_phases, sin highlights; precedencia rechazado > fragmento.)
 // (v24: EXTRACTION_WRITABLE_COLUMNS + vehicle_interest/financing_type + alerta
 // extraction_config_invalid deduplicada. v23: audio_storage_path + AssemblyAI.)
 // Regla: EDGE_VERSION se bumpea SIEMPRE que cambie comportamiento del parser —
@@ -34,6 +38,7 @@ import {
 import { buildFullPrompt, callClaude, callClaudeForHighlights } from "./claude.ts";
 import { isFragmentTranscript, buildFragmentPrompt, parseFragmentOutput } from "./fragment.ts";
 import { parseClaudeOutput, matchPhaseIds, deriveScoreFromPhases } from "./parser.ts";
+import { computeScoreDesempeno } from "./score-desempeno.ts";
 import type { MatchedPhase } from "./types.ts";
 import { buildParserDebug, filterExpectedMisses, normalizeDescal } from "./parser-debug.ts";
 import { ASSEMBLYAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from "../_shared/env.ts";
@@ -44,7 +49,7 @@ import { alertSlack, type AlertContext } from "../_shared/alert.ts";
 // F46: marcador interno de versión del código (fuente: header del archivo). NO
 // es el contador de deployment de Supabase (que va por su cuenta). Se persiste
 // en analysis_parser_debug.edge_version para correlacionar el diagnóstico.
-const EDGE_VERSION = "v25";
+const EDGE_VERSION = "v26";
 
 // Config inválida de extraction_patterns ya alertada por este isolate —
 // dedupe en memoria: primera aparición del scorecard → alerta F21; después
@@ -219,6 +224,26 @@ async function processJobAsync(jobId: string) {
       parsed.clasificacion = scoreDerivation.clasificacion;
     }
 
+    // F48b: desempeño de la captadora. Corre ANTES de buildParserDebug porque
+    // su gate alimenta el trigger descarte_block_missing (y con él la captura
+    // del raw, que es lo único que permite reconstruir qué emitió el modelo).
+    const desempeno = computeScoreDesempeno({
+      leadQuality: parsed.lead_quality,
+      scoreGeneral: parsed.score_general,
+      parsedPhases: phasesWithIds,
+      phasesCatalog: scorecard.phases,
+      descarte: parsed.descarte,
+      unscorableReason: isFragment ? "fragmento" : null,
+    });
+    console.log(`[F48b] desempeno ${JSON.stringify({
+      analysis_id: analysisId,
+      lead_quality: parsed.lead_quality,
+      score_general: parsed.score_general,
+      score_desempeno: desempeno.score,
+      descarte_presente: parsed.descarte !== null,
+      block_missing: desempeno.descarteBlockMissing,
+    })}`);
+
     // Persistencia: columns declaradas que el pipeline no puede escribir
     // (fuera de EXTRACTION_WRITABLE_COLUMNS) — warn siempre, alerta deduplicada.
     if (parsed.unsupported_extraction_columns.length > 0) {
@@ -267,6 +292,7 @@ async function processJobAsync(jobId: string) {
       edgeVersion: EDGE_VERSION,
       extractionMisses,
       descalParseFailed: parsed.descalificacion === null,
+      descarteBlockMissing: desempeno.descarteBlockMissing,
     });
     if (parserDebug) {
       const detail = `triggers=${parserDebug.triggers.join("+")} phases=${parserDebug.phases_found}/${parserDebug.phases_expected} lead_quality=${parsed.lead_quality} lead_outcome=${parsed.lead_outcome} missing=${parserDebug.missing_fields.join(",")} scorecard=${job.payload?.scorecard_id}`;
@@ -308,7 +334,7 @@ async function processJobAsync(jobId: string) {
     // fases. updateUserStats corre IGUAL: un fragmento SÍ cuenta para el streak
     // (la captadora trabajó y subió la llamada — criterio del chat, 7-ago) y no
     // toca current_focus_phase (sin filas de fase no entra a la ventana de 5).
-    await writeAnalysisResults(analysisId, parsed, job, descalCats, orgStages, isFragment ? "fragmento" : null);
+    await writeAnalysisResults(analysisId, parsed, job, descalCats, orgStages, isFragment ? "fragmento" : null, desempeno.score);
     await writeAnalysisPhases(analysisId, phasesWithIds, job.organization_id, job.user_id);
     await updateUserStats(job.user_id, job.organization_id);
     await completeAnalysisJob(analysisId);

@@ -9,10 +9,13 @@ import { getOrgTimezone, todayStart, monthStart as getMonthStart, todayDisplay }
 import { stripJson } from "../../lib/text";
 import { qualifiedStats } from "../../lib/descal-metrics";
 import { useRecording } from "../contexts/RecordingContext";
+import { clasificacionFromScore } from "../../lib/clasificacion-labels";
+import { mainScore } from "../../lib/score-display";
 
 interface Analysis {
   id: string;
   score_general: number | null;
+  score_desempeno: number | null;
   clasificacion: string | null;
   unscorable_reason: string | null;
   created_at: string;
@@ -55,7 +58,7 @@ export default function MiDiaPage() {
 
       const [analysesRes, sourcesRes, userRes, descalRes, objRes] = await Promise.all([
         supabase.from("analyses")
-          .select("id, score_general, clasificacion, unscorable_reason, created_at, fuente_lead_id, patron_error, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, manager_note, related_analysis_id")
+          .select("id, score_general, score_desempeno, clasificacion, unscorable_reason, created_at, fuente_lead_id, patron_error, siguiente_accion, categoria_descalificacion, prospect_name, prospect_zone, property_type, manager_note, related_analysis_id")
           .eq("user_id", session.userId).eq("organization_id", session.organizationId).eq("status", "completado")
           .order("created_at", { ascending: false }).limit(50),
         supabase.from("lead_sources").select("id, name").eq("organization_id", session.organizationId),
@@ -515,8 +518,8 @@ export default function MiDiaPage() {
                   <div className="c4-item-right">
                     {a.unscorable_reason === "fragmento" ? (
                       <span className="frag-badge">Fragmento</span>
-                    ) : a.score_general !== null && (
-                      <span className={`c4-item-score c4-score-${a.clasificacion ?? ""}`}>{a.score_general}</span>
+                    ) : mainScore(a) !== null && (
+                      <span className={`c4-item-score c4-score-${clasificacionFromScore(mainScore(a)) ?? a.clasificacion ?? ""}`}>{mainScore(a)}</span>
                     )}
                   </div>
                 </Link>
@@ -542,8 +545,8 @@ export default function MiDiaPage() {
           <div className="g2-evolution">
             {chartData.map((a) => (
               <div key={a.id} className="g2-evo-bar-wrap">
-                <div className="g2-evo-bar" style={{ height: `${a.score_general || 0}%` }} />
-                <span className="g2-evo-label">{a.score_general}</span>
+                <div className="g2-evo-bar" style={{ height: `${mainScore(a) || 0}%` }} />
+                <span className="g2-evo-label">{mainScore(a)}</span>
               </div>
             ))}
           </div>
@@ -575,8 +578,8 @@ export default function MiDiaPage() {
                   <div className="c4-item-right">
                     {a.unscorable_reason === "fragmento" ? (
                       <span className="frag-badge">Fragmento</span>
-                    ) : a.score_general !== null && (
-                      <span className={`c4-item-score c4-score-${a.clasificacion ?? ""}`}>{a.score_general}</span>
+                    ) : mainScore(a) !== null && (
+                      <span className={`c4-item-score c4-score-${clasificacionFromScore(mainScore(a)) ?? a.clasificacion ?? ""}`}>{mainScore(a)}</span>
                     )}
                   </div>
                 </Link>
