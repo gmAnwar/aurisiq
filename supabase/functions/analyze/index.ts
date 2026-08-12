@@ -1,7 +1,11 @@
-// v26 — F48b: score_desempeno separado de la calidad del prospecto. Bloque
+// v27 — F48b hotfix: los 4 criterios de EVALUACION DE DESCARTE ya no entran a
+// analysis_phases. Dos capas en parser.ts: excisión del bloque antes del
+// phaseRegex + filtro por nombre normalizado (cubre los criterios escritos
+// FUERA del bloque, donde la excisión no llega). Refuerzo en el prompt.
+// (v26: F48b — score_desempeno separado de la calidad del prospecto. Bloque
 // EVALUACION DE DESCARTE condicional al catálogo lead_dependent de
 // scorecards.phases + computeScoreDesempeno (puro) + trigger
-// descarte_block_missing cuando el descarte no trae con qué calcular.
+// descarte_block_missing cuando el descarte no trae con qué calcular.)
 // (v25: F48a — gate de fragmento pre-LLM (<1500 chars → prompt bifurcado,
 // score_general/clasificacion NULL POR DISEÑO, unscorable_reason='fragmento',
 // cero analysis_phases, sin highlights; precedencia rechazado > fragmento.)
@@ -49,7 +53,7 @@ import { alertSlack, type AlertContext } from "../_shared/alert.ts";
 // F46: marcador interno de versión del código (fuente: header del archivo). NO
 // es el contador de deployment de Supabase (que va por su cuenta). Se persiste
 // en analysis_parser_debug.edge_version para correlacionar el diagnóstico.
-const EDGE_VERSION = "v26";
+const EDGE_VERSION = "v27";
 
 // Config inválida de extraction_patterns ya alertada por este isolate —
 // dedupe en memoria: primera aparición del scorecard → alerta F21; después

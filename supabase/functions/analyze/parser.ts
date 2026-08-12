@@ -106,9 +106,14 @@ export function parseClaudeOutput(
   // F42: also tolerates spaces "(12 / 15)" and non-numeric scores like
   // "(No evaluado/15)" → score 0 (una fase no ejecutada ES un 0, no una fila ausente).
   // El max sigue siendo dígitos estrictos — es lo que ancla el patrón a una fase real.
+  // HOTFIX F48b, capa 1 de 2 — EXCISIÓN: el bloque EVALUACION DE DESCARTE se
+  // corta ANTES de buscar fases, porque sus criterios en formato "Nombre (5/5)"
+  // matchean el phaseRegex y terminaban como filas de analysis_phases. El resto
+  // de los regex de esta función siguen leyendo `rawText` sin cambio.
+  const phasesText = stripDescarteBlock(rawText);
   const phaseRegex = /\*{0,2}\s*([A-ZÁÉÍÓÚa-záéíóúñÑü][A-ZÁÉÍÓÚa-záéíóúñÑü ]{2,50}?)\s*\*{0,2}\s*\(\s*([^()\n]*?)\s*\/\s*(\d+)\s*\)\s*:?/gi;
   let match;
-  while ((match = phaseRegex.exec(rawText)) !== null) {
+  while ((match = phaseRegex.exec(phasesText)) !== null) {
     const scoreRaw = match[2].trim();
     const isNumericScore = /^\d+$/.test(scoreRaw);
     if (!isNumericScore) {
@@ -121,6 +126,18 @@ export function parseClaudeOutput(
       score: isNumericScore ? parseInt(scoreRaw, 10) : 0,
       score_max: parseInt(match[3], 10),
     });
+  }
+
+  // HOTFIX F48b, capa 2 de 2 — FILTRO POR NOMBRE: cubre el caso que la excisión
+  // no alcanza, cuando el modelo escribe los criterios FUERA del bloque (p. ej.
+  // dentro del DIAGNÓSTICO POR FASE). Se filtra la CLASE (los 4 criterios), no
+  // un carácter concreto — regla S52.
+  const nombresDescarte = new Set(DESCARTE_CRITERIO_NAMES.map(normalizePhaseName));
+  const antesDelFiltro = result.phases.length;
+  result.phases = result.phases.filter((p) => !nombresDescarte.has(normalizePhaseName(p.phase_name)));
+  if (result.phases.length !== antesDelFiltro) {
+    // Señal de que el modelo desobedeció el prompt: solo el conteo, cero PII.
+    console.warn(`[parser] F48b: ${antesDelFiltro - result.phases.length} criterios de descarte descartados como fase`);
   }
 
   // Patron error — tolerates **PATRÓN DE ERROR PRINCIPAL**\n or **PATRÓN DE ERROR PRINCIPAL:**\n
@@ -317,15 +334,66 @@ export function parseClaudeOutput(
 
 // ─── F48b: bloque EVALUACION DE DESCARTE ───────────────────
 
-// Los 4 labels en el orden del prompt. La key es la del objeto DescarteScores;
-// el patrón tolera el acento que el modelo agrega por su cuenta (el prompt los
-// pide sin acento, pero "Orientación" es la forma natural en español).
-const DESCARTE_LABELS: [keyof DescarteScores, string][] = [
-  ["causal_confirmada", "Causal confirmada"],
-  ["resolubilidad_explorada", "Resolubilidad explorada"],
-  ["orientacion_correcta", "Orientaci[oó]n correcta"],
-  ["puerta_abierta", "Puerta abierta"],
+// Los 4 criterios en el orden del prompt. FUENTE ÚNICA de sus nombres: de aquí
+// salen tanto el regex de lectura como la lista que filtra fases basura, así
+// que renombrar un criterio no puede dejar una de las dos desincronizada.
+export const DESCARTE_CRITERIOS: { key: keyof DescarteScores; name: string }[] = [
+  { key: "causal_confirmada", name: "Causal confirmada" },
+  { key: "resolubilidad_explorada", name: "Resolubilidad explorada" },
+  { key: "orientacion_correcta", name: "Orientación correcta" },
+  { key: "puerta_abierta", name: "Puerta abierta" },
 ];
+
+/** Nombres de los criterios — los que NUNCA pueden entrar a analysis_phases. */
+export const DESCARTE_CRITERIO_NAMES: string[] = DESCARTE_CRITERIOS.map((c) => c.name);
+
+// El prompt pide los labels SIN acento ("Orientacion") pero el modelo escribe
+// la forma natural ("Orientación"), así que cada vocal admite ambas. Derivado
+// del nombre canónico — no es una segunda copia del string.
+function accentTolerant(literal: string): string {
+  const PARES: Record<string, string> = { a: "á", e: "é", i: "í", o: "ó", u: "ú" };
+  return literal.replace(/[aeiouáéíóú]/gi, (c) => {
+    const base = c.toLowerCase().normalize("NFD")[0];
+    return PARES[base] ? `[${base}${PARES[base]}]` : c;
+  });
+}
+
+/** Normalización compartida de nombres de fase: minúsculas, sin acentos, espacios colapsados. */
+export function normalizePhaseName(s: string): string {
+  return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Ubica el segmento del bloque EVALUACION DE DESCARTE: del heading al siguiente
+ * separador de bloque (o al final). null si el bloque no está.
+ * Anclaje único — lo comparten la lectura del bloque y su excisión.
+ */
+function findDescarteSegment(rawText: string): { start: number; end: number } | null {
+  // Word-boundary en ambos extremos: "PREEVALUACION DE DESCARTE" o
+  // "EVALUACION DE DESCARTES" no cuentan como el bloque.
+  const heading = rawText.match(/\bEVALUACI[OÓ]N DE DESCARTE\b/i);
+  if (!heading) return null;
+  const start = heading.index!;
+  const afterHeading = start + heading[0].length;
+  const sep = rawText.slice(afterHeading).search(/\n---/);
+  return { start, end: sep === -1 ? rawText.length : afterHeading + sep };
+}
+
+/**
+ * El texto SIN el bloque de descarte. Solo alimenta al parsing de FASES.
+ *
+ * HOTFIX F48b: el modelo emite los criterios también en formato de fase
+ * ("Causal confirmada (5/5): ..."), y el phaseRegex los matchea → matchPhaseIds
+ * les inventa phase_id vía slugify → writeAnalysisPhases los persiste. En el
+ * smoke de Bodygreen (dbb5db83) eso metió 4 filas basura en analysis_phases,
+ * que contaminan fase-más-débil y current_focus_phase (misma familia que las 26
+ * huérfanas de F48a) y, de paso, inflaron el conteo a 7 y taparon el
+ * phases_mismatch que debían disparar las 2 fases reales ausentes.
+ */
+export function stripDescarteBlock(rawText: string): string {
+  const seg = findDescarteSegment(rawText);
+  return seg === null ? rawText : rawText.slice(0, seg.start) + rawText.slice(seg.end);
+}
 
 /**
  * Aísla el bloque EVALUACION DE DESCARTE y lee sus 4 criterios.
@@ -339,17 +407,15 @@ const DESCARTE_LABELS: [keyof DescarteScores, string][] = [
  * Precondición: `rawText` ya pasó por el des-escape global F42d.
  */
 export function parseDescarteBlock(rawText: string): DescarteScores | null {
-  // Word-boundary en ambos extremos del heading: "EVALUACION DE DESCARTES" o
-  // "PREEVALUACION DE DESCARTE" no cuentan como el bloque.
-  const heading = rawText.match(/\bEVALUACI[OÓ]N DE DESCARTE\b/i);
-  if (!heading) return null;
-
-  // Desde el heading hasta el siguiente separador de bloque (o el final).
-  const rest = rawText.slice(heading.index! + heading[0].length);
-  const block = rest.split(/\n---/)[0];
+  // Lee del texto COMPLETO: la excisión de stripDescarteBlock solo afecta al
+  // parsing de fases, nunca a la lectura del bloque.
+  const seg = findDescarteSegment(rawText);
+  if (!seg) return null;
+  const block = rawText.slice(seg.start, seg.end);
 
   const out = {} as DescarteScores;
-  for (const [key, label] of DESCARTE_LABELS) {
+  for (const { key, name } of DESCARTE_CRITERIOS) {
+    const label = accentTolerant(name);
     // Label + N/5. hc() (no h()) porque el modelo pone el ":" DENTRO de la
     // negrita: "**Causal confirmada:** 5/5". El "/5" es obligatorio: fija el
     // formato y evita comerse un número suelto de otra línea.
@@ -376,8 +442,9 @@ export function matchPhaseIds(
   parsedPhases: ParsedOutput["phases"],
   scorecardPhases: ScorecardPhase[],
 ): MatchedPhase[] {
-  const normalize = (s: string) =>
-    (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+  // F48b: normalizePhaseName es el MISMO normalize que filtra los criterios de
+  // descarte \u2014 una sola definici\u00f3n para las dos decisiones.
+  const normalize = normalizePhaseName;
 
   return parsedPhases.map((parsed, idx) => {
     const normalizedParsed = normalize(parsed.phase_name);

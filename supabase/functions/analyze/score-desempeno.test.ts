@@ -5,7 +5,7 @@
 // que el mutante correspondiente muera, no para acompañar al diff.
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { computeScoreDesempeno, DESCARTE_MAX, sumDescarte } from "./score-desempeno.ts";
-import { parseDescarteBlock } from "./parser.ts";
+import { DESCARTE_CRITERIO_NAMES, normalizePhaseName, parseClaudeOutput, parseDescarteBlock, stripDescarteBlock } from "./parser.ts";
 import { DESCARTE_BLOCK, hasLeadDependentPhases } from "./prompt-blocks.ts";
 import type { DescarteScores, ScorecardPhase } from "./types.ts";
 
@@ -342,4 +342,152 @@ Deno.test("F48b prompt: el bloque declara las 5 líneas completas y el parser la
     orientacion_correcta: 3,
     puerta_abierta: 3,
   });
+});
+
+// ── HOTFIX F48b: los criterios de descarte NO son fases ─────
+//
+// Incidente (smoke Bodygreen, dbb5db83): el modelo emitió los 4 criterios en
+// formato de fase ADEMÁS del bloque plano. El phaseRegex los matcheó,
+// matchPhaseIds les inventó phase_id vía slugify y writeAnalysisPhases los
+// persistió: 7 filas donde debían ir 3. Contaminan fase-más-débil y
+// current_focus_phase (familia de las 26 huérfanas de F48a) y el conteo
+// inflado (7>=5) tapó el phases_mismatch que debían disparar las 2 ausentes.
+
+/** Fases del scorecard de Bodygreen que el modelo SÍ emitió en el incidente. */
+const SMOKE_FASES = `DIAGNÓSTICO POR FASE
+
+Bienvenida y primer contacto (6/10): abrió bien.
+Diagnóstico corporal (18/25): exploró la molestia.
+Cierre y primera sesión (6/20): no cerró.`;
+
+const SMOKE_BLOQUE = `EVALUACION DE DESCARTE
+Causal confirmada: 5/5
+Resolubilidad explorada: 3/5
+Orientacion correcta: 5/5
+Puerta abierta: 2/5`;
+
+// Fixture A — el incidente: criterios en formato fase Y el bloque plano.
+const FIXTURE_A = `SCORE GENERAL: 30
+
+${SMOKE_FASES}
+
+Causal confirmada (5/5): confirmó con datos del propietario.
+Resolubilidad explorada (3/5): exploró a medias.
+Orientación correcta (5/5): la guía fue la adecuada.
+Puerta abierta (2/5): quedó tibio.
+
+---
+
+${SMOKE_BLOQUE}`;
+
+// Fixture B — el formato instruido: criterios SOLO en el bloque plano.
+const FIXTURE_B = `SCORE GENERAL: 30
+
+${SMOKE_FASES}
+
+---
+
+${SMOKE_BLOQUE}`;
+
+const FASES_REALES = ["Bienvenida y primer contacto", "Diagnóstico corporal", "Cierre y primera sesión"];
+
+Deno.test("F48b hotfix A: el incidente — solo las fases del scorecard entran a phases", () => {
+  const p = parseClaudeOutput(FIXTURE_A, null);
+  assertEquals(p.phases.map((f) => f.phase_name), FASES_REALES);
+  // Y el bloque se sigue leyendo completo: la excisión no lo rompió.
+  assertEquals(p.descarte, { causal_confirmada: 5, resolubilidad_explorada: 3, orientacion_correcta: 5, puerta_abierta: 2 });
+});
+
+Deno.test("F48b hotfix A: ningún nombre de criterio sobrevive en phases", () => {
+  const p = parseClaudeOutput(FIXTURE_A, null);
+  for (const nombre of DESCARTE_CRITERIO_NAMES) {
+    const n = normalizePhaseName(nombre);
+    assert(
+      !p.phases.some((f) => normalizePhaseName(f.phase_name) === n),
+      `"${nombre}" se coló como fase — volvería a escribirse en analysis_phases`,
+    );
+  }
+});
+
+Deno.test("F48b hotfix A: el conteo real destapa el phases_mismatch que estaba enmascarado", () => {
+  // El scorecard tiene 5 fases y el modelo emitió 3. Con las junk el conteo
+  // daba 7 (>=5) y el detector F42 se callaba; ahora da 3 y dispara.
+  const p = parseClaudeOutput(FIXTURE_A, null);
+  assertEquals(p.phases.length, 3);
+  assert(p.phases.length < 5, "phases_found debe quedar por debajo de las 5 esperadas");
+});
+
+Deno.test("F48b hotfix B: formato instruido — no-regresión, fases y descarte intactos", () => {
+  const p = parseClaudeOutput(FIXTURE_B, null);
+  assertEquals(p.phases.map((f) => f.phase_name), FASES_REALES);
+  assertEquals(p.phases.map((f) => f.score), [6, 18, 6]);
+  assertEquals(p.descarte, { causal_confirmada: 5, resolubilidad_explorada: 3, orientacion_correcta: 5, puerta_abierta: 2 });
+});
+
+Deno.test("F48b hotfix C: criterio con acento en formato fase también se filtra", () => {
+  // "Orientación correcta" (con acento) fue literalmente el phase_name que
+  // quedó en prod. Sin el normalize compartido, este se cuela.
+  const conAcento = `SCORE GENERAL: 30
+
+${SMOKE_FASES}
+
+Orientación correcta (5/5): la guía fue la adecuada.`;
+  const p = parseClaudeOutput(conAcento, null);
+  assertEquals(p.phases.map((f) => f.phase_name), FASES_REALES);
+});
+
+Deno.test("F48b hotfix: criterios FUERA del bloque, sin bloque plano — la excisión no aplica y el filtro sí", () => {
+  // Aquí no hay bloque que cortar: si el filtro no existiera, las 4 junk pasan.
+  const soloFormatoFase = `SCORE GENERAL: 30
+
+${SMOKE_FASES}
+
+Causal confirmada (5/5): x.
+Resolubilidad explorada (3/5): y.
+Orientacion correcta (5/5): z.
+Puerta abierta (2/5): w.`;
+  const p = parseClaudeOutput(soloFormatoFase, null);
+  assertEquals(p.phases.map((f) => f.phase_name), FASES_REALES);
+  assertEquals(p.descarte, null); // sin heading no hay bloque que leer
+});
+
+Deno.test("F48b hotfix: una fase real cuyo texto vive DENTRO del bloque no se pierde por la excisión", () => {
+  // Guard de sobre-excisión: el corte termina en el separador, no se come el
+  // resto del output.
+  const p = parseClaudeOutput(`SCORE GENERAL: 30
+
+${SMOKE_BLOQUE}
+
+---
+
+${SMOKE_FASES}`, null);
+  assertEquals(p.phases.map((f) => f.phase_name), FASES_REALES);
+  assertEquals(p.descarte!.puerta_abierta, 2);
+});
+
+Deno.test("F48b hotfix: stripDescarteBlock es no-op cuando no hay bloque", () => {
+  const sinBloque = `SCORE GENERAL: 30\n\n${SMOKE_FASES}`;
+  assertEquals(stripDescarteBlock(sinBloque), sinBloque);
+});
+
+Deno.test("F48b hotfix D: línea con forma de fase DENTRO del bloque — solo la excisión la caza", () => {
+  // El filtro por nombre solo conoce los 4 criterios. Si el modelo agrega su
+  // propio total dentro del bloque —comportamiento natural: acaba de sumar
+  // cuatro puntajes— ese renglón tiene forma de fase y ningún nombre conocido.
+  // Es la única capa que puede pararlo, y por eso el fix son dos y no una.
+  const conTotal = `SCORE GENERAL: 30
+
+${SMOKE_FASES}
+
+---
+
+EVALUACION DE DESCARTE
+Causal confirmada: 5/5
+Resolubilidad explorada: 3/5
+Orientacion correcta: 5/5
+Puerta abierta: 2/5
+Total del manejo (15/20): resumen del descarte.`;
+  const p = parseClaudeOutput(conTotal, null);
+  assertEquals(p.phases.map((f) => f.phase_name), FASES_REALES);
+  assertEquals(p.descarte!.causal_confirmada, 5);
 });
