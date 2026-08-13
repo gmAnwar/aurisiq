@@ -9,6 +9,7 @@ import {
   fechaLabel,
   isDemoUser,
   type OrgRow,
+  scoreLevelLine,
   type UserRow,
   windowForDate,
 } from "./digest.ts";
@@ -246,7 +247,7 @@ Deno.test("monthWindowFor + prevMonthDate: julio completo y cruce de año", () =
   assertStringIncludes(monthLabel("2026-07-01").toLowerCase(), "julio");
 });
 
-Deno.test("weekly: delta por usuario vs SU semana previa; sin previa → sin paréntesis", () => {
+Deno.test("weekly: delta por usuario vs SU semana previa; sin previa → sin corchete", () => {
   const text = buildWeeklyDigest(weeklyInput({
     analyses: [
       mkAnalysis({ created_at: IN_WEEK, score_general: 60 }),
@@ -255,11 +256,12 @@ Deno.test("weekly: delta por usuario vs SU semana previa; sin previa → sin par
       mkAnalysis({ user_id: "u-luis", created_at: IN_WEEK, score_general: 40 }),
     ],
   }));
-  // F51: 2 llamadas actuales < DELTA_MIN_N → el delta ya no se imprime
-  assertStringIncludes(text, "Ana: 2 · prom 55");
-  assertEquals(text.includes("Ana: 2 · prom 55 ("), false);
-  assertStringIncludes(text, "Luis: 1 · prom 40");
-  assertEquals(text.includes("Luis: 1 · prom 40 ("), false);
+  // F51: 2 llamadas actuales < DELTA_MIN_N → el delta ya no se imprime.
+  // F54: el nivel son los scores crudos; el delta, cuando existe, va en [].
+  assertStringIncludes(text, "Ana: 2 (60, 50)");
+  assertEquals(text.includes("Ana: 2 (60, 50) ["), false);
+  assertStringIncludes(text, "Luis: 1 (40)");
+  assertEquals(text.includes("Luis: 1 (40) ["), false);
   assertStringIncludes(text, "(vs 1, +200%)");
   assertStringIncludes(text, "Total: 3 análisis (vs 1 previa)");
 });
@@ -273,8 +275,8 @@ Deno.test("weekly: (nuevo) solo si la cuenta se creó dentro de la semana", () =
       mkAnalysis({ user_id: "u-luis", created_at: IN_WEEK, score_general: 40 }),
     ],
   }));
-  assertStringIncludes(text, "Luis: 1 · prom 40 (nuevo)");
-  assertEquals(text.includes("Ana: 1 · prom 60 (nuevo)"), false);
+  assertStringIncludes(text, "Luis: 1 (40) [nuevo]");
+  assertEquals(text.includes("Ana: 1 (60) ["), false);
 });
 
 Deno.test("weekly: % calificados excluye 'sin dato' del denominador (espejo F47)", () => {
@@ -487,7 +489,7 @@ Deno.test("deltaLegible: scores idénticos → delta 0, NO legible (piso de SE e
   assertEquals(deltaLegible([60, 60, 60], [60, 60, 60]), { delta: 0, legible: false });
 });
 
-Deno.test("weekly F51: 3+ llamadas ambas semanas con diferencia chica → (≈), sin delta numérico", () => {
+Deno.test("weekly F51: 3+ llamadas ambas semanas con diferencia chica → [≈], sin delta numérico", () => {
   const text = buildWeeklyDigest(weeklyInput({
     analyses: [
       mkAnalysis({ created_at: IN_WEEK, score_general: 60 }),
@@ -498,8 +500,8 @@ Deno.test("weekly F51: 3+ llamadas ambas semanas con diferencia chica → (≈),
       mkAnalysis({ created_at: IN_PREV_WEEK, score_general: 59 }),
     ],
   }));
-  assertStringIncludes(text, "Ana: 3 · prom 60 (≈)");
-  assertEquals(text.includes("Ana: 3 · prom 60 (+"), false);
+  assertStringIncludes(text, "Ana: 3 (60, 62, 58) [≈]");
+  assertEquals(text.includes("[+"), false);
 });
 
 Deno.test("weekly F51: delta legible SÍ se publica como número con signo (candado no sobre-suprime)", () => {
@@ -515,10 +517,10 @@ Deno.test("weekly F51: delta legible SÍ se publica como número con signo (cand
       mkAnalysis({ created_at: IN_WEEK, score_general: 90 }),
     ],
   }));
-  assertStringIncludes(text, "Ana: 3 · prom 85 (+60)");
+  assertStringIncludes(text, "Ana: 3 (80, 85, 90) [+60]");
 });
 
-Deno.test("weekly F51: menos de 3 llamadas en una semana → entrada sin paréntesis de delta", () => {
+Deno.test("weekly F51: menos de 3 llamadas en una semana → entrada sin corchete de delta", () => {
   const text = buildWeeklyDigest(weeklyInput({
     analyses: [
       mkAnalysis({ created_at: IN_WEEK, score_general: 60 }),
@@ -528,11 +530,11 @@ Deno.test("weekly F51: menos de 3 llamadas en una semana → entrada sin parént
       mkAnalysis({ created_at: IN_PREV_WEEK, score_general: 50 }),
     ],
   }));
-  assertStringIncludes(text, "Ana: 3 · prom 60");
-  assertEquals(text.includes("Ana: 3 · prom 60 ("), false);
+  assertStringIncludes(text, "Ana: 3 (60, 62, 58)");
+  assertEquals(text.includes("Ana: 3 (60, 62, 58) ["), false);
 });
 
-Deno.test("weekly F51: (nuevo) gana sobre cualquier delta, aunque fuera legible", () => {
+Deno.test("weekly F51: [nuevo] gana sobre cualquier delta, aunque fuera legible", () => {
   const users = USERS.map((u) =>
     u.id === "u-luis" ? { ...u, created_at: IN_WEEK } : { ...u, created_at: "2026-01-01T12:00:00Z" }
   );
@@ -547,8 +549,8 @@ Deno.test("weekly F51: (nuevo) gana sobre cualquier delta, aunque fuera legible"
       mkAnalysis({ user_id: "u-luis", created_at: IN_PREV_WEEK, score_general: 30 }),
     ],
   }));
-  assertStringIncludes(text, "Luis: 3 · prom 85 (nuevo)");
-  assertEquals(text.includes("(+60)"), false);
+  assertStringIncludes(text, "Luis: 3 (80, 85, 90) [nuevo]");
+  assertEquals(text.includes("+60"), false);
 });
 
 Deno.test("monthly F51: cohorte con diferencia no distinguible → la línea termina en (≈)", () => {
@@ -839,8 +841,12 @@ function itemsDe(token: string): number {
  * mal. scores mostrados + conteos == el número que sigue al nombre.
  */
 function assertInvariante(entrada: string, scored: number): void {
-  const head = entrada.match(/^[^:]+: (\d+)/);
-  assertEquals(head !== null, true, `entrada sin "Nombre: N": ${entrada}`);
+  // Dos anclas posibles, mismo contrato: "Wenceslao: 3" en las líneas por
+  // usuario y "3 completados" en la rama de org (F54 — antes el harness solo
+  // sabía leer la primera, así que la rama de org quedaba fijada nada más por
+  // strings literales).
+  const head = entrada.match(/^[^:]+: (\d+)/) ?? entrada.match(/^(\d+) \D/);
+  assertEquals(head !== null, true, `entrada sin ancla de conteo: ${entrada}`);
   const declarado = Number(head![1]);
 
   let representados: number;
@@ -988,21 +994,25 @@ Deno.test("F53: 'en proceso' es invariable en plural y convive con los otros tip
   assertInvariante(entradas(text)[0], 1);
 });
 
-// ---- 5. NO-FUGA: el cambio del daily no toca weekly ni monthly ----
+// ---- 5. El artefacto de las OTRAS dos superficies ----
 //
-// El semanal tiene el MISMO defecto de promedio (79% de usuario-semana con
-// n<=3). Este test NO lo aprueba: solo impide que el cambio del daily se fugue.
-// Se arregla en F54.
+// Este par nació en F53 como test de NO-FUGA: fijaba byte a byte lo que weekly y
+// monthly imprimían en HEAD, para que el cambio del daily no se les fugara. Los
+// dos strings se capturaron EJECUTANDO el código de entonces (git show HEAD:…),
+// no se escribieron a mano. El del semanal documentaba el defecto sin aprobarlo:
+// con el mismo insumo del GOLDEN imprimía "Wenceslao: 2 · prom 47" — literalmente
+// el artefacto del 6-ago que F53 sacó del diario.
 //
-// Los dos strings se capturaron EJECUTANDO el código en HEAD antes de editar
-// (git show HEAD:…/digest.ts), no se escribieron a mano. Con el mismo insumo del
-// GOLDEN, el semanal de HEAD imprime "Wenceslao: 2 · prom 47" — literalmente el
-// artefacto del 6-ago que F53 elimina del diario y que F54 debe eliminar de aquí.
+// F54 INVIERTE el del semanal: ahora que consume el helper compartido, el mismo
+// golden pasa de fijar el defecto a fijar la corrección — las 4 filas que producían
+// "prom 47" listan 65 y 28. El del MENSUAL sigue clavado a HEAD y sigue siendo
+// candado de no-fuga: el mensual no tiene línea de nivel por usuario (su "Score
+// prom" es de org y sobre un mes entero), así que queda fuera del alcance de F54.
 
-const WEEKLY_HEAD = "📈 *AurisIQ* — semana 3–9 ago\n\n*ACME INMUEBLES* — 4 análisis (vs 0 previa) · 3 usuarios\n• Wenceslao: 2 · prom 47  ·  Bernarda: 1 · prom 28  ·  Ignacia: 1\n• Leads: 3 calificados (100%) · 1 sin dato\n• Outcomes: 3 cerrado_parcial\n\nTotal: 4 análisis (vs 0 previa)";
+const WEEKLY_F54 = "📈 *AurisIQ* — semana 3–9 ago\n\n*ACME INMUEBLES* — 4 análisis (vs 0 previa) · 3 usuarios\n• Wenceslao: 2 (65, 28)  ·  Bernarda: 1 (28)  ·  Ignacia: 1 (fragmento)\n• Leads: 3 calificados (100%) · 1 sin dato\n• Outcomes: 3 cerrado_parcial\n\nTotal: 4 análisis (vs 0 previa)";
 const MONTHLY_HEAD = "🗓️ *AurisIQ* — resumen mensual · agosto 2026\n\n*ACME INMUEBLES* — 4 análisis (jul: 0) · 3 usuarios\n• Uso del plan: 4/50 (8%)\n• Score prom: 40 · Mejor: Wenceslao 65\n• Leads: 3 calificados (100%) · 1 sin dato\n\nTotal: 4 análisis (jul: 0) · orgs con actividad: 1";
 
-Deno.test("F53 no-fuga: weekly con el insumo del GOLDEN sale byte-idéntico a HEAD", () => {
+Deno.test("F54 golden: el weekly con el insumo del GOLDEN muestra 65 y 28, no 'prom 47'", () => {
   const text = buildWeeklyDigest({
     targetDate: "2026-08-05",
     orgs: [ORG_A],
@@ -1012,7 +1022,235 @@ Deno.test("F53 no-fuga: weekly con el insumo del GOLDEN sale byte-idéntico a HE
     alerts: [],
     lastRealAnalysisByOrg: {},
   });
-  assertEquals(text, WEEKLY_HEAD);
+  assertEquals(text, WEEKLY_F54);
+  // El artefacto exacto que F54 elimina de esta superficie.
+  assertEquals(text.includes("prom"), false);
+});
+
+// ================= F54: la regla también en weekly y en la rama de org =======
+//
+// El helper es compartido, pero compartirlo NO garantiza que cada superficie lo
+// llame bien: puede recibir el periodo equivocado, o el llamador puede volver a
+// armar la línea a mano. Por eso los mutantes del helper se matan aquí con
+// tests que ejercitan el SEMANAL, no reciclando los del daily.
+
+/** i-ésima llamada de la semana REPORTADA (mar 4 ago), en orden cronológico. */
+function atWeek(i: number): string {
+  return `2026-08-04T${String(12 + i).padStart(2, "0")}:00:00Z`;
+}
+/** i-ésima llamada de la semana PREVIA (mié 29 jul). */
+function atPrev(i: number): string {
+  return `2026-07-29T${String(12 + i).padStart(2, "0")}:00:00Z`;
+}
+
+/** Items de UN usuario en un periodo; el orden dado = orden cronológico. */
+function semana(
+  userId: string,
+  items: Array<Partial<AnalysisRow>>,
+  when: (i: number) => string = atWeek,
+): AnalysisRow[] {
+  return items.map((o, i) => mkAnalysis({ user_id: userId, created_at: when(i), ...o }));
+}
+
+function f54Weekly(analyses: AnalysisRow[]): string {
+  return buildWeeklyDigest({
+    targetDate: WD,
+    orgs: [ORG_A],
+    users: F53_USERS, // sin created_at → nunca son "nuevo": los badges los pone el delta
+    analyses,
+    phases: [],
+    alerts: [],
+    lastRealAnalysisByOrg: {},
+  });
+}
+
+// ---- Frontera 3 vs 4 SOBRE EL SEMANAL (mutante: umbral 3→4) ----
+
+Deno.test("F54 weekly frontera: con 3 con score se listan crudos y NO aparece 'prom'", () => {
+  const text = f54Weekly(semana("u-wen", [sc(72), sc(65), sc(41)]));
+  assertEquals(entradas(text)[0], "Wenceslao: 3 (72, 65, 41)");
+  assertEquals(text.includes("prom"), false);
+});
+
+Deno.test("F54 weekly frontera: el 4º con score cambia la rama a prom + rango", () => {
+  const text = f54Weekly(semana("u-wen", [sc(72), sc(65), sc(41), sc(70)]));
+  assertEquals(entradas(text)[0], "Wenceslao: 4 · prom 62 (41–72)");
+  assertInvariante(entradas(text)[0], 4);
+});
+
+// ---- Rango obligatorio y orden cronológico, en el semanal ----
+
+Deno.test("F54 weekly: el rango del prom es obligatorio — dos semanas con el mismo prom y distinta dispersión no se ven igual", () => {
+  // Sin el rango, "prom 58" describe igual de mal a un equipo parejo que a uno
+  // con 30 puntos de spread: es exactamente lo que F53 vino a impedir.
+  const apretado = f54Weekly(semana("u-ber", [sc(57), sc(58), sc(58), sc(59)]));
+  const disperso = f54Weekly(semana("u-ber", [sc(43), sc(58), sc(58), sc(73)]));
+  assertEquals(entradas(apretado)[0], "Bernarda: 4 · prom 58 (57–59)");
+  assertEquals(entradas(disperso)[0], "Bernarda: 4 · prom 58 (43–73)");
+});
+
+Deno.test("F54 weekly: el orden es cronológico — dos fixtures espejo dan líneas distintas", () => {
+  const sube = f54Weekly(semana("u-cas", [sc(41), sc(65), sc(72)]));
+  const baja = f54Weekly(semana("u-cas", [sc(72), sc(65), sc(41)]));
+  assertEquals(entradas(sube)[0], "Casimiro: 3 (41, 65, 72)");
+  assertEquals(entradas(baja)[0], "Casimiro: 3 (72, 65, 41)");
+});
+
+// El espejo de arriba (heredado de F53) mata al mutante que ORDENA MAL —por
+// score— pero no al que BORRA el sort: todos los fixtures insertan las filas ya
+// en orden de reloj, así que sin sort salen igual y el mutante sobrevivía.
+// Medido: "comparador cronológico -> no-op" pasaba la suite entera en verde.
+// Estos dos cierran el hueco en las dos superficies insertando al revés.
+
+Deno.test("F54 weekly: el orden lo fija created_at, no el orden en que llegan las filas", () => {
+  const filas = semana("u-cas", [sc(41), sc(65), sc(72)]); // 12:00 · 13:00 · 14:00
+  const text = f54Weekly([filas[2], filas[0], filas[1]]); // llegan 14:00, 12:00, 13:00
+  assertEquals(entradas(text)[0], "Casimiro: 3 (41, 65, 72)");
+});
+
+Deno.test("F53/F54 daily: el orden lo fija created_at, no el orden en que llegan las filas", () => {
+  const filas = dia("u-cas", [sc(41), sc(65), sc(72)]);
+  const text = buildDigest(f53Input([filas[2], filas[0], filas[1]]));
+  assertEquals(entradas(text)[0], "Casimiro: 3 (41, 65, 72)");
+});
+
+// ---- Nada se evapora (mutante: item que desaparece de la línea) ----
+
+Deno.test("F54 weekly: los no-scored entran al paréntesis — la semana no evapora items", () => {
+  const text = f54Weekly(semana("u-ber", [sc(72), sc(65), FRAGMENTO, RECHAZADO]));
+  assertEquals(entradas(text)[0], "Bernarda: 4 (72, 65, fragmento, rechazado)");
+  assertInvariante(entradas(text)[0], 2);
+});
+
+Deno.test("F54 weekly: un score huérfano ni cuenta como score ni decide la rama", () => {
+  // Espejo del test de F53, que era el ÚNICO en toda la suite que mataba la
+  // guardia de status de hasScore. Aquí el huérfano además decide la rama: sin
+  // la guardia serían 4 "scores" y la línea saldría como prom + rango.
+  const text = f54Weekly(semana("u-cas", [
+    sc(72),
+    sc(65),
+    sc(41),
+    { status: "error", score_general: 20, lead_quality: null, lead_outcome: null },
+  ]));
+  assertEquals(entradas(text)[0], "Casimiro: 4 (72, 65, 41, en proceso)");
+  assertEquals(text.includes("prom"), false);
+  assertEquals(/\b20\b/.test(userLine(text)), false);
+  assertInvariante(entradas(text)[0], 3);
+});
+
+Deno.test("F54 weekly: con >=4 con score los no-scored pasan a sufijo, detrás del rango", () => {
+  const text = f54Weekly(semana("u-wen", [...SEIS_SCORES.map(sc), FRAGMENTO, FRAGMENTO]));
+  assertEquals(entradas(text)[0], "Wenceslao: 8 · prom 58 (28–72) · 2 fragmentos");
+  assertInvariante(entradas(text)[0], 6);
+});
+
+// ---- Integración: el nivel es de la semana REPORTADA, el delta mira la previa ----
+
+Deno.test("F54 weekly integración: el nivel usa la semana reportada, no la previa que alimenta el delta", () => {
+  // El mutante que este test caza: pasarle al helper los items de prevUsers.
+  // Con esa mutación la línea saldría "Wenceslao: 3 · prom 28 (20–35)" —
+  // conteo de una semana y scores de la otra, indetectable a ojo en Slack.
+  const text = f54Weekly([
+    ...semana("u-wen", [sc(20), sc(25), sc(30), sc(35)], atPrev),
+    ...semana("u-wen", [sc(80), sc(85), sc(90)]),
+  ]);
+  assertEquals(entradas(text)[0], "Wenceslao: 3 (80, 85, 90) [+57]");
+  assertInvariante(entradas(text)[0], 3);
+});
+
+Deno.test("F54 weekly: el delta se calcula contra la previa aunque el nivel ya no la muestre (F51 intacto)", () => {
+  // Mismo insumo actual que el test de arriba, cambiando SOLO la semana previa:
+  // si el delta se calculara con los items del nivel, el badge no se movería.
+  const text = f54Weekly([
+    ...semana("u-wen", [sc(78), sc(85), sc(92)], atPrev),
+    ...semana("u-wen", [sc(80), sc(85), sc(90)]),
+  ]);
+  assertEquals(entradas(text)[0], "Wenceslao: 3 (80, 85, 90) [≈]");
+});
+
+// ---- TAREA 3: la rama colapsada de >4 orgs ----
+
+/** 5 orgs con actividad (dispara collapse); `filas` son las de Org 0. */
+function colapsado(filas: Array<Partial<AnalysisRow>>): string {
+  const orgs: OrgRow[] = [];
+  const users: UserRow[] = [];
+  const analyses: AnalysisRow[] = [];
+  for (let i = 0; i < 5; i++) {
+    orgs.push({ id: `o${i}`, name: `Org ${i}`, slug: `o${i}`, access_status: "active" });
+    users.push({ id: `v${i}`, organization_id: `o${i}`, name: `Vendedor ${i}`, email: `v${i}@x.mx`, training_mode: false, active: true });
+    if (i > 0) analyses.push(mkAnalysis({ organization_id: `o${i}`, user_id: `v${i}` }));
+  }
+  analyses.push(...filas.map((o, k) => mkAnalysis({ organization_id: "o0", user_id: "v0", created_at: at(k), ...o })));
+  return buildDigest(baseInput({ orgs, users, analyses }));
+}
+
+/**
+ * El NIVEL de un bloque de org colapsado: la línea "• …" que sigue al head, sin
+ * el sufijo de leads — los calificados no son items del nivel. Lo que queda
+ * cumple el mismo contrato que una entrada de usuario y pasa por assertInvariante.
+ */
+function nivelOrg(text: string, orgName: string): string {
+  const lineas = text.split("\n");
+  const i = lineas.findIndex((l) => l.startsWith(`*${orgName}*`));
+  assertEquals(i >= 0, true, `no encontré el bloque de ${orgName}`);
+  return (lineas[i + 1] ?? "")
+    .replace(/^• /, "")
+    .split(" · ")
+    .filter((s) => !/calificados?$/.test(s))
+    .join(" · ");
+}
+
+Deno.test("F54 >4 orgs: una org con UNA llamada ya no la disfraza de 'prom'", () => {
+  const text = colapsado([sc(47)]);
+  assertStringIncludes(text, "• 1 completado (47) · 1 calificado");
+  assertEquals(text.includes("prom"), false);
+  assertEquals(text.includes("Vendedor"), false); // el colapso sigue colapsando
+  assertInvariante(nivelOrg(text, "ORG 0"), 1);
+});
+
+Deno.test("F54 >4 orgs: con 4+ scores la org sí promedia, y con rango", () => {
+  const text = colapsado([sc(72), sc(65), sc(41), sc(70)]);
+  assertStringIncludes(text, "*ORG 0* — 4 análisis · 1 usuario");
+  assertStringIncludes(text, "• 4 completados · prom 62 (41–72) · 4 calificados");
+  assertInvariante(nivelOrg(text, "ORG 0"), 4);
+});
+
+Deno.test("F54 >4 orgs: el fragmento no se evapora del nivel de la org", () => {
+  const text = colapsado([sc(72), sc(65), FRAGMENTO]);
+  assertStringIncludes(text, "• 3 completados (72, 65, fragmento) · 2 calificados");
+  assertInvariante(nivelOrg(text, "ORG 0"), 2);
+});
+
+Deno.test("F54 >4 orgs: con 4+ scores el fragmento pasa a sufijo, igual que en la línea por usuario", () => {
+  const text = colapsado([sc(72), sc(65), sc(41), sc(70), FRAGMENTO]);
+  assertStringIncludes(text, "• 5 completados · prom 62 (41–72) · 1 fragmento · 4 calificados");
+  assertInvariante(nivelOrg(text, "ORG 0"), 4);
+});
+
+Deno.test("F54 >4 orgs: el ancla del paréntesis son los completados — los rechazados ya los enumera el head", () => {
+  const text = colapsado([sc(80), RECHAZADO]);
+  assertStringIncludes(text, "*ORG 0* — 2 análisis (1 completado · 1 rechazado) · 1 usuario");
+  assertStringIncludes(text, "• 1 completado (80) · 1 calificado");
+});
+
+Deno.test("F54 >4 orgs: el rechazado tampoco se cuela al nivel cuando la org sí promedia", () => {
+  const text = colapsado([sc(72), sc(65), sc(41), sc(70), RECHAZADO]);
+  assertStringIncludes(text, "*ORG 0* — 5 análisis (4 completados · 1 rechazado) · 1 usuario");
+  assertStringIncludes(text, "• 4 completados · prom 62 (41–72) · 4 calificados");
+  assertInvariante(nivelOrg(text, "ORG 0"), 4);
+});
+
+Deno.test("F54 >4 orgs: org sin un solo score no inventa nivel", () => {
+  const text = colapsado([RECHAZADO, RECHAZADO]);
+  assertStringIncludes(text, "*ORG 0* — 2 análisis (0 completados · 2 rechazados) · 1 usuario");
+  assertEquals(text.includes("• 0 completados"), false);
+});
+
+// ---- El helper, directo ----
+
+Deno.test("F54 helper: sin items devuelve solo el head (guardia para llamadores futuros)", () => {
+  assertEquals(scoreLevelLine("Sin datos", []), "Sin datos");
+  assertEquals(scoreLevelLine("Sin datos", [], "≈"), "Sin datos [≈]");
 });
 
 Deno.test("F53 no-fuga: monthly con el insumo del GOLDEN sale byte-idéntico a HEAD", () => {

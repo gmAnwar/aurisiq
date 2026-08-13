@@ -12,7 +12,7 @@
 //   desde 2022 → offset fijo -06:00. NO usar "now() - 24h".
 
 export const MX_OFFSET = "-06:00";
-export const DIGEST_VERSION = "digest-v5";
+export const DIGEST_VERSION = "digest-v6";
 
 export interface OrgRow {
   id: string;
@@ -281,7 +281,7 @@ function daysBetween(fromIso: string, toDate: string): number {
   return Math.max(1, Math.floor((to - from) / (24 * 3600 * 1000)));
 }
 
-// ---------- F53: línea por usuario del daily ----------
+// ---------- F53/F54: cómo se imprime el NIVEL de un conjunto de análisis ----------
 //
 // El daily imprimía "prom" sobre muestras donde el promedio no describe
 // ninguna llamada. Medido contra la DB viva (60 días, usuario-día en CDMX,
@@ -300,6 +300,12 @@ function daysBetween(fromIso: string, toDate: string): number {
 // INVARIANTE: el número que sigue al nombre es items.length y todo item está
 // representado — como score o dentro de un conteo. Nada se evapora: es lo que
 // hace la línea auditable contra la DB.
+//
+// F54: el defecto vivía en dos superficies más — la línea por usuario del
+// SEMANAL (el mismo "prom" sobre n<=3) y la rama colapsada de >4 orgs, que
+// imprime "prom" para una org aunque tenga una sola llamada. La regla NO se
+// copió a cada superficie: vive una sola vez en scoreLevelLine y las tres la
+// consumen, así que mover el umbral o el formato es un solo cambio.
 
 const SCORES_INLINE_MAX = 3; // <=3 → scores crudos · >=4 → prom + rango
 
@@ -342,15 +348,32 @@ function otrosCounts(rows: AnalysisRow[]): Array<[OtroTipo, number]> {
 }
 
 /**
- * Línea de un usuario para el daily. `items` = TODOS sus análisis del día.
- * Ver INVARIANTE arriba: cada item sale como score o dentro de un conteo.
+ * FUENTE ÚNICA de la regla — daily, weekly y la rama colapsada de org la
+ * consumen (F54). No copiar esta lógica a una superficie nueva: pásale otro
+ * `head`.
+ *
+ * @param head  Sujeto YA renderizado con su conteo: "Wenceslao: 3" en las
+ *              líneas por usuario, "5 completados" en la rama de org. El número
+ *              que trae es el que la INVARIANTE audita contra lo representado.
+ * @param items TODOS los análisis del sujeto en el periodo — el periodo lo
+ *              elige el llamador (el weekly manda la semana REPORTADA, no la
+ *              previa: la previa solo alimenta el delta).
+ * @param badge Etiqueta de cierre — lo único que difiere entre superficies. El
+ *              weekly manda ahí su delta ("+12", "≈", "nuevo"); daily y org no
+ *              mandan nada. Va en CORCHETES, no en paréntesis, a propósito: en
+ *              la rama de crudos el nivel ya cierra con ")" y dos paréntesis
+ *              seguidos con significados distintos —los items y la tendencia—
+ *              no se distinguen al leer.
  */
-export function userDayLine(name: string, items: AnalysisRow[]): string {
+export function scoreLevelLine(head: string, items: AnalysisRow[], badge = ""): string {
   const cron = items
     .slice()
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   const scored = cron.filter(hasScore);
   const otros = otrosCounts(cron.filter((a) => !hasScore(a)));
+  const cierre = badge ? ` [${badge}]` : "";
+
+  if (!items.length) return `${head}${cierre}`;
 
   if (scored.length <= SCORES_INLINE_MAX) {
     // Todo dentro del paréntesis. Un solo item de un tipo va como palabra;
@@ -359,15 +382,23 @@ export function userDayLine(name: string, items: AnalysisRow[]): string {
       ...scored.map((a) => String(a.score_general)),
       ...otros.map(([t, n]) => (n === 1 ? t : `${n} ${OTRO_PLURAL[t]}`)),
     ];
-    return `${name}: ${items.length} (${dentro.join(", ")})`;
+    return `${head} (${dentro.join(", ")})${cierre}`;
   }
 
   const nums = scored.map((a) => a.score_general as number);
   const prom = Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
   // "–" es U+2013 (guion largo), no un guion normal.
-  let out = `${name}: ${items.length} · prom ${prom} (${Math.min(...nums)}–${Math.max(...nums)})`;
+  let out = `${head} · prom ${prom} (${Math.min(...nums)}–${Math.max(...nums)})`;
   for (const [t, n] of otros) out += ` · ${n} ${n === 1 ? t : OTRO_PLURAL[t]}`;
-  return out;
+  return out + cierre;
+}
+
+/**
+ * Línea de un usuario para el daily. `items` = TODOS sus análisis del día.
+ * Ver INVARIANTE arriba: cada item sale como score o dentro de un conteo.
+ */
+export function userDayLine(name: string, items: AnalysisRow[]): string {
+  return scoreLevelLine(`${name}: ${items.length}`, items);
 }
 
 // ---------- digest ----------
@@ -436,10 +467,18 @@ export function buildDigest(input: DigestInput): string {
     lines.push(head);
 
     if (collapse) {
-      const prom = avgScore(completados);
+      // F54: esta rama tenía el mismo defecto que la línea por usuario —imprimía
+      // "prom" para una org aunque tuviera una sola llamada— y se corrige con el
+      // MISMO helper. El ancla del paréntesis es el conteo de COMPLETADOS, no el
+      // total de la org: los rechazados y los en proceso ya los enumera el head,
+      // y así el número del ancla sigue siendo auditable contra lo representado.
       const calif = completados.filter((a) => a.lead_quality === "calificado").length;
-      const extra = [prom !== null ? `prom ${prom}` : null, calif > 0 ? nLabel(calif, "calificado", "calificados") : null]
-        .filter(Boolean).join(" · ");
+      const extra = [
+        completados.length
+          ? scoreLevelLine(nLabel(completados.length, "completado", "completados"), completados)
+          : null,
+        calif > 0 ? nLabel(calif, "calificado", "calificados") : null,
+      ].filter(Boolean).join(" · ");
       if (extra) lines.push(`• ${extra}`);
       lines.push("");
       continue;
@@ -819,28 +858,32 @@ export function buildWeeklyDigest(input: WeeklyInput): string {
     if (rechazados > 0) head += ` · ${nLabel(rechazados, "rechazado", "rechazados")}`;
     lines.push(head);
 
-    // Por usuario con delta vs SU semana previa. F51: el delta numérico solo
-    // se imprime si es estadísticamente legible; diferencia dentro del ruido
-    // → "(≈)"; menos de DELTA_MIN_N llamadas en algún periodo → sin etiqueta.
+    // Por usuario: NIVEL con el mismo helper que el daily (F54 — antes esta
+    // línea imprimía "prom" sobre 1 o 2 llamadas) + delta vs SU semana previa.
+    // F51 queda intacto: el delta numérico solo se imprime si es
+    // estadísticamente legible; diferencia dentro del ruido → "≈"; menos de
+    // DELTA_MIN_N llamadas en algún periodo → sin etiqueta. Lo que cambió es
+    // dónde vive el delta: en CORCHETES, porque el nivel ya puede cerrar con
+    // paréntesis y dos paréntesis seguidos no se distinguen (ver scoreLevelLine).
     const entries = [...curUsers.entries()]
       .map(([uid, rs]) => {
         const u = usersById.get(uid);
-        const prom = avgScore(rs.filter((a) => a.status === "completado"));
-        let tag = "";
+        let badge = "";
         if (createdInWindow(u, w.startUtc, w.endUtc)) {
-          tag = " (nuevo)";
+          badge = "nuevo";
         } else {
           const dl = deltaLegible(completedScores(prevUsers.get(uid) ?? []), completedScores(rs));
-          if (dl) tag = dl.legible ? ` (${signedDelta(dl.delta)})` : " (≈)";
+          if (dl) badge = dl.legible ? signedDelta(dl.delta) : "≈";
         }
-        return { name: firstName(u), count: rs.length, prom, tag };
+        const name = firstName(u);
+        // `rs` = semana REPORTADA. La previa solo alimenta el delta de arriba;
+        // pasarla al nivel publicaría los scores de la semana equivocada.
+        return { name, count: rs.length, line: scoreLevelLine(`${name}: ${rs.length}`, rs, badge) };
       })
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
     const listed = entries.slice(0, MAX_USERS_LISTED);
     const extra = entries.length - listed.length;
-    lines.push(
-      `• ${listed.map((e) => `${e.name}: ${e.count}${e.prom !== null ? ` · prom ${e.prom}` : ""}${e.tag}`).join("  ·  ")}${extra > 0 ? `  ·  +${extra} más` : ""}`,
-    );
+    lines.push(`• ${listed.map((e) => e.line).join("  ·  ")}${extra > 0 ? `  ·  +${extra} más` : ""}`);
 
     const leads = leadsLine(completados);
     if (leads) lines.push(leads);
