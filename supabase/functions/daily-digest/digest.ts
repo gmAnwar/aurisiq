@@ -12,7 +12,7 @@
 //   desde 2022 → offset fijo -06:00. NO usar "now() - 24h".
 
 export const MX_OFFSET = "-06:00";
-export const DIGEST_VERSION = "digest-v6";
+export const DIGEST_VERSION = "digest-v7";
 
 export interface OrgRow {
   id: string;
@@ -35,6 +35,15 @@ export const PLAN_LIMITS: Record<string, number | null> = {
   enterprise: null,
   founder: 50,
 };
+
+// Umbrales de las líneas de salud del daily. Calibrados con los dos incidentes
+// del 2026-08-18: Inmobili agotó su cuota mensual sin aviso previo y la DB
+// llegó a 3.7 GB de logs (net._http_response + cron.job_run_details) sin que
+// nadie lo viera. El daily avisa antes, no después.
+export const QUOTA_WARN_PCT = 80;
+export const QUOTA_CRIT_PCT = 95;
+export const DB_SIZE_WARN_MB = 300;
+export const LOG_TABLE_WARN_MB = 50;
 
 export interface UserRow {
   id: string;
@@ -75,6 +84,24 @@ export interface AlertCount {
   count: number;
 }
 
+/** Una entrada de `month_usage`: consumo del mes en curso de una org. */
+export interface HealthOrgUsage {
+  org_id: string;
+  slug: string;
+  plan: string;
+  /** Análisis con status='completado' desde el inicio del mes UTC. */
+  completed: number;
+}
+
+/** Forma del jsonb de public.get_daily_health() (migración 20260818223655). */
+export interface DailyHealth {
+  db_size_mb: number;
+  http_response_mb: number;
+  cron_history_mb: number;
+  stuck_pending: number;
+  month_usage: HealthOrgUsage[];
+}
+
 export interface DigestInput {
   targetDate: string; // YYYY-MM-DD (día ya cerrado en CDMX)
   orgs: OrgRow[];
@@ -84,6 +111,12 @@ export interface DigestInput {
   alerts: AlertCount[];
   /** Para orgs en silencio: último análisis REAL por org (ISO) o null si nunca. */
   lastRealAnalysisByOrg: Record<string, string | null>;
+  /**
+   * Salud de cuota/infra del momento en que corre el digest — NO del día
+   * reportado. Ausente cuando el RPC falló: el digest sale sin líneas de salud
+   * (un health check caído nunca tumba el reporte de actividad).
+   */
+  health?: DailyHealth | null;
 }
 
 // ---------- ventana temporal ----------
@@ -401,6 +434,57 @@ export function userDayLine(name: string, items: AnalysisRow[]): string {
   return scoreLevelLine(`${name}: ${items.length}`, items);
 }
 
+// ---------- salud (cuota / infra / jobs) ----------
+
+/**
+ * Líneas de salud del daily. INVARIANTE: silencio = salud — solo se emite lo
+ * que cruzó su umbral, así que el día que aparezca una línea es señal, no ruido.
+ * `health` ausente (RPC caído) devuelve [] y el digest queda idéntico al previo.
+ *
+ * Los números son del instante en que corre el digest, no del día reportado:
+ * la cuota y el tamaño de la DB son estados, no eventos del periodo.
+ */
+export function healthLines(health: DailyHealth | null | undefined): string[] {
+  if (!health) return [];
+  const out: string[] = [];
+
+  // Cuota por org. enterprise (límite null) y planes fuera de PLAN_LIMITS se
+  // saltan: sin límite numérico no hay porcentaje que reportar.
+  const usage = Array.isArray(health.month_usage) ? health.month_usage : [];
+  const overQuota: Array<{ slug: string; completed: number; limit: number; pct: number }> = [];
+  for (const u of usage) {
+    const limit = PLAN_LIMITS[u.plan ?? ""] ?? null;
+    if (typeof limit !== "number" || limit <= 0) continue;
+    const pct = Math.round((u.completed / limit) * 100);
+    if (pct < QUOTA_WARN_PCT) continue;
+    overQuota.push({ slug: String(u.slug ?? "?").toUpperCase(), completed: u.completed, limit, pct });
+  }
+  overQuota.sort((a, b) => b.pct - a.pct || a.slug.localeCompare(b.slug));
+  for (const u of overQuota) {
+    const icon = u.pct >= QUOTA_CRIT_PCT ? "🔴" : "⚠️";
+    out.push(`${icon} Cuota: ${u.slug} ${u.completed}/${u.limit} (${u.pct}%)`);
+  }
+
+  // Tamaño de DB. Las tablas de logs se nombran solo si son parte del problema
+  // — son las dos que causaron el incidente y las dos que se pueden purgar.
+  if (health.db_size_mb > DB_SIZE_WARN_MB) {
+    let line = `⚠️ Infra DB: ${health.db_size_mb} MB`;
+    if (health.http_response_mb > LOG_TABLE_WARN_MB) {
+      line += ` · net._http_response ${health.http_response_mb} MB`;
+    }
+    if (health.cron_history_mb > LOG_TABLE_WARN_MB) {
+      line += ` · cron.job_run_details ${health.cron_history_mb} MB`;
+    }
+    out.push(line);
+  }
+
+  if (health.stuck_pending > 0) {
+    out.push(`⚠️ Jobs atorados: ${health.stuck_pending} pending >30 min`);
+  }
+
+  return out;
+}
+
 // ---------- digest ----------
 
 const MAX_ORG_DETAIL = 4; // >4 orgs con actividad → colapsar detalle por-usuario
@@ -528,6 +612,10 @@ export function buildDigest(input: DigestInput): string {
     lines.push(`⚠️ Infra: ${nLabel(totalAlerts, "alerta", "alertas")} (${detail})`);
   }
 
+  // --- salud: cuota, tamaño de DB y jobs atorados (vacío si todo está sano) ---
+  const salud = healthLines(input.health);
+  lines.push(...salud);
+
   // --- orgs en silencio ---
   const silentOrgs = eligibleOrgs.filter((o) => !byOrg.has(o.id));
   for (const org of silentOrgs.sort((a, b) => a.name.localeCompare(b.name))) {
@@ -537,7 +625,7 @@ export function buildDigest(input: DigestInput): string {
       : "sin análisis desde su alta";
     lines.push(`🔇 ${org.name} — ${suffix}`);
   }
-  if (totalAlerts > 0 || silentOrgs.length) lines.push("");
+  if (totalAlerts > 0 || salud.length || silentOrgs.length) lines.push("");
 
   // --- semana ---
   lines.push(`Semana: ${nLabel(weekReal.length, "análisis", "análisis")} (vs ${prevWeekReal.length} previa)`);

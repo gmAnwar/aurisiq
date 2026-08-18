@@ -4,6 +4,7 @@ import {
   type AnalysisRow,
   bearerRole,
   buildDigest,
+  type DailyHealth,
   defaultTargetDate,
   type DigestInput,
   fechaLabel,
@@ -147,6 +148,90 @@ Deno.test("alertas de infra agregadas por tipo", () => {
     ],
   }));
   assertStringIncludes(text, "⚠️ Infra: 3 alertas (parser:partial_extraction ×2 · anthropic:overloaded)");
+});
+
+// ---------- líneas de salud (incidentes 2026-08-18) ----------
+// Regla: silencio = salud. Cada test fija que solo lo que cruzó umbral se ve.
+
+function mkHealth(over: Partial<DailyHealth>): DailyHealth {
+  return {
+    db_size_mb: 120,
+    http_response_mb: 8,
+    cron_history_mb: 5,
+    stuck_pending: 0,
+    month_usage: [],
+    ...over,
+  };
+}
+
+Deno.test("salud: sin health (RPC caído) el digest queda idéntico al de siempre", () => {
+  const analyses = [mkAnalysis({})];
+  const base = buildDigest(baseInput({ analyses }));
+  assertEquals(buildDigest(baseInput({ analyses, health: undefined })), base);
+  assertEquals(buildDigest(baseInput({ analyses, health: null })), base);
+  assertEquals(/Cuota:|Infra DB|Jobs atorados/.test(base), false);
+});
+
+Deno.test("salud: org al 82% de su plan → ⚠️ con slug en mayúsculas; enterprise no se reporta", () => {
+  const text = buildDigest(baseInput({
+    analyses: [mkAnalysis({})],
+    health: mkHealth({
+      month_usage: [
+        { org_id: "org-a", slug: "acme", plan: "growth", completed: 164 }, // 164/200 = 82%
+        { org_id: "org-b", slug: "beta", plan: "enterprise", completed: 9000 }, // sin límite → se salta
+      ],
+    }),
+  }));
+  assertStringIncludes(text, "⚠️ Cuota: ACME 164/200 (82%)");
+  assertEquals(text.includes("Cuota: BETA"), false);
+});
+
+Deno.test("salud: org al 100% escala a 🔴 y la de 82% sigue en ⚠️ (ordenadas por pct)", () => {
+  const text = buildDigest(baseInput({
+    analyses: [mkAnalysis({})],
+    health: mkHealth({
+      month_usage: [
+        { org_id: "org-a", slug: "acme", plan: "growth", completed: 164 }, // 82%
+        { org_id: "org-b", slug: "beta", plan: "pro", completed: 500 }, // 100%
+      ],
+    }),
+  }));
+  assertStringIncludes(text, "🔴 Cuota: BETA 500/500 (100%)");
+  assertStringIncludes(text, "⚠️ Cuota: ACME 164/200 (82%)");
+  // Ancladas a "Cuota: " — "ACME" suelto también aparece en el header de la org.
+  assertEquals(text.indexOf("Cuota: BETA") < text.indexOf("Cuota: ACME"), true);
+});
+
+Deno.test("salud: DB pasada de umbral nombra la tabla de logs culpable, no la sana", () => {
+  const text = buildDigest(baseInput({
+    analyses: [mkAnalysis({})],
+    health: mkHealth({ db_size_mb: 800, http_response_mb: 600, cron_history_mb: 12 }),
+  }));
+  assertStringIncludes(text, "⚠️ Infra DB: 800 MB · net._http_response 600 MB");
+  assertEquals(text.includes("cron.job_run_details"), false);
+});
+
+Deno.test("salud: jobs atorados se reportan con el conteo", () => {
+  const text = buildDigest(baseInput({
+    analyses: [mkAnalysis({})],
+    health: mkHealth({ stuck_pending: 4 }),
+  }));
+  assertStringIncludes(text, "⚠️ Jobs atorados: 4 pending >30 min");
+});
+
+Deno.test("salud: todo bajo umbral → cero líneas nuevas (silencio = salud)", () => {
+  const analyses = [mkAnalysis({})];
+  const text = buildDigest(baseInput({
+    analyses,
+    health: mkHealth({
+      db_size_mb: 290,
+      http_response_mb: 49,
+      cron_history_mb: 49,
+      stuck_pending: 0,
+      month_usage: [{ org_id: "org-a", slug: "acme", plan: "growth", completed: 158 }], // 79%
+    }),
+  }));
+  assertEquals(text, buildDigest(baseInput({ analyses })));
 });
 
 Deno.test(">4 orgs con actividad → detalle por usuario colapsado", () => {

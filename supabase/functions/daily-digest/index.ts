@@ -11,6 +11,8 @@
 // Re-emisión: body {"date":"YYYY-MM-DD"} = cualquier día DENTRO del periodo
 // (se normaliza a su semana/mes). Testing sin postear: {"dry":true} → devuelve text.
 // Sin PII de prospectos: no se selecciona ningún campo prospect_*.
+// Salud (solo daily): RPC get_daily_health — cuota por org, tamaño de DB y jobs
+// atorados. Best-effort: si el RPC falla se loguea y el digest sale sin ellas.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
@@ -21,6 +23,7 @@ import {
   buildDigest,
   buildMonthlyDigest,
   buildWeeklyDigest,
+  type DailyHealth,
   defaultTargetDate,
   DIGEST_VERSION,
   isDemoUser,
@@ -122,7 +125,17 @@ Deno.serve(async (req) => {
         .limit(PHASE_ROW_LIMIT)
       : Promise.resolve({ data: [], error: null });
 
-    const [orgsRes, usersRes, analysesRes, alertsRes, phasesRes] = await Promise.all([
+    // Salud: solo daily. Envuelto en Promise.resolve().catch() porque el builder
+    // de postgrest no expone .catch — y un rechazo aquí tumbaría el Promise.all
+    // entero, que es justo lo que este health check no puede permitirse.
+    const healthPromise: Promise<{ data: unknown; error: { message: string } | null }> = mode === "daily"
+      ? Promise.resolve(db.rpc("get_daily_health")).catch((e: unknown) => ({
+        data: null,
+        error: { message: (e as Error)?.message ?? String(e) },
+      }))
+      : Promise.resolve({ data: null, error: null });
+
+    const [orgsRes, usersRes, analysesRes, alertsRes, phasesRes, healthRes] = await Promise.all([
       db.from("organizations").select("id,name,slug,access_status,plan"),
       db.from("users").select("id,organization_id,name,email,training_mode,active,created_at"),
       db
@@ -141,6 +154,7 @@ Deno.serve(async (req) => {
         .gte("sent_at_utc", periodStartUtc.toISOString().slice(0, 19))
         .lt("sent_at_utc", periodEndUtc.toISOString().slice(0, 19)),
       phasesPromise,
+      healthPromise,
     ]);
 
     for (const [label, res] of [
@@ -154,6 +168,15 @@ Deno.serve(async (req) => {
         console.error(`[digest] query_failed ${label}: ${res.error.message}`);
         return json(500, { sent: false, reason: `query_failed:${label}` });
       }
+    }
+
+    // health queda FUERA del fail-loud de arriba a propósito: es una señal
+    // secundaria y su caída no justifica perder el reporte de actividad.
+    let health: DailyHealth | null = null;
+    if (healthRes.error) {
+      console.error(`[digest] health_rpc_failed ${healthRes.error.message}`);
+    } else if (healthRes.data && typeof healthRes.data === "object") {
+      health = healthRes.data as DailyHealth;
     }
 
     const orgs = (orgsRes.data ?? []) as OrgRow[];
@@ -212,7 +235,7 @@ Deno.serve(async (req) => {
     } else if (mode === "monthly") {
       text = buildMonthlyDigest({ targetDate: refDate, orgs, users, analyses, alerts, lastRealAnalysisByOrg });
     } else {
-      text = buildDigest({ targetDate: refDate, orgs, users, analyses, alerts, lastRealAnalysisByOrg });
+      text = buildDigest({ targetDate: refDate, orgs, users, analyses, alerts, lastRealAnalysisByOrg, health });
     }
 
     if (dry) {
