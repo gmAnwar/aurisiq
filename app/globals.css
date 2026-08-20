@@ -5519,6 +5519,55 @@ body.has-recording-bar.has-nav {
   color: var(--ink-light);
 }
 
+/* Aviso de captura — persiste hasta que la captadora grabe de nuevo o cierre */
+.c2-capture-notice {
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.c2-capture-notice--error {
+  background: var(--red-dim);
+  border: 1px solid rgba(239,68,68,0.25);
+}
+
+.c2-capture-notice--info {
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.25);
+}
+
+.c2-capture-notice-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  flex: 1;
+  min-width: 180px;
+}
+
+.c2-capture-notice--error .c2-capture-notice-text { color: var(--red); }
+.c2-capture-notice--info .c2-capture-notice-text { color: var(--amber); }
+
+.c2-capture-notice-close {
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.c2-capture-notice--error .c2-capture-notice-close { color: var(--red); }
+.c2-capture-notice--info .c2-capture-notice-close { color: var(--amber); }
+.c2-capture-notice-close:hover { opacity: 1; }
+
 /* Draft banner */
 .c2-draft-banner {
   background: rgba(200,120,64,0.08);

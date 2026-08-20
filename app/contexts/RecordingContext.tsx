@@ -2,6 +2,14 @@
 
 import { createContext, useContext, useState, useRef, useCallback, useEffect } from "react";
 import { WORKER_URL } from "../../lib/config";
+import {
+  checkBlobSize,
+  isTranscribeFailure,
+  outcomeForWorkerError,
+  outcomeForWorkerText,
+  TRANSCRIBE_MESSAGES,
+  type TranscribeOutcome,
+} from "../../lib/transcription-outcome";
 
 type RecMode = "off" | "recording" | "paused" | "transcribing";
 
@@ -9,6 +17,14 @@ interface TranscriptionResult {
   text: string;
   original: string;
   message: string;
+}
+
+// Aviso persistente para el formulario de /analisis/nueva. `transcribePhase`
+// no sirve para esto: solo se pinta mientras recMode === "transcribing" y ese
+// modo se apaga en el mismo tick, así que el mensaje nunca se alcanzaba a ver.
+export interface CaptureNotice {
+  kind: "error" | "info";
+  text: string;
 }
 
 interface RecordingContextType {
@@ -23,6 +39,9 @@ interface RecordingContextType {
   transcribePhase: string;
   transcriptionResult: TranscriptionResult | null;
   clearTranscriptionResult: () => void;
+
+  captureNotice: CaptureNotice | null;
+  clearCaptureNotice: () => void;
 
   hasDraft: boolean;
   useDraft: (orgId: string) => Promise<void>;
@@ -125,6 +144,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   const [transcribePct, setTranscribePct] = useState(0);
   const [transcribePhase, setTranscribePhase] = useState("");
   const [transcriptionResult, setTranscriptionResult] = useState<TranscriptionResult | null>(null);
+  const [captureNotice, setCaptureNotice] = useState<CaptureNotice | null>(null);
 
   const [hasDraft, setHasDraft] = useState(false);
   const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
@@ -220,9 +240,11 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         await putOffline(entry);
 
         const result = await transcribeAudioBlob(entry.blob, entry.elapsed, entry.orgId);
-        if (result) {
+        // Adaptación al outcome tipado — la semántica de reintentos de la cola
+        // queda idéntica (3 intentos y luego 'error').
+        if (result.ok) {
           await deleteOffline(entry.id);
-          setTranscriptionResult(result);
+          setTranscriptionResult({ text: result.text, original: result.original, message: result.message });
           sessionStorage.setItem("c2_transcription", result.text);
           sessionStorage.setItem("c2_original", result.original);
           sessionStorage.setItem("c2_source_type", "audio");
@@ -264,9 +286,12 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   }, [processOfflineQueue]);
 
   // ─── Transcription ────────────────────────────────────────
-  const transcribeAudioBlob = async (blob: Blob, elapsed: number, orgId: string): Promise<TranscriptionResult | null> => {
-    if (blob.size < 1024) return null;
-    if (blob.size > 25 * 1024 * 1024) return null;
+  // Devuelve un outcome tipado, nunca `null`. Cada rama de fallo trae su
+  // userMessage en es-MX; la decisión de qué mensaje corresponde vive en
+  // lib/transcription-outcome.ts (probado en Deno).
+  const transcribeAudioBlob = async (blob: Blob, elapsed: number, orgId: string): Promise<TranscribeOutcome> => {
+    const sizeFailure = checkBlobSize(blob.size);
+    if (sizeFailure) return sizeFailure;
 
     try {
       const base64 = await new Promise<string>((resolve, reject) => {
@@ -281,36 +306,16 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "transcribe", audio_base64: base64, organization_id: orgId }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({} as Record<string, unknown>));
       if (!res.ok) {
-        const raw = (data.error as string) || "";
-        if (/audio exceeds/i.test(raw)) {
-          throw new Error("El audio excede 25MB. Intenta con un archivo más corto.");
-        }
-        throw new Error(raw || "No pudimos transcribir el audio.");
+        return outcomeForWorkerError(res.status, (data as { error?: string }).error || "");
       }
 
-      let text = data.text || "";
-      const textWords = text.trim().split(/\s+/).filter(Boolean).length;
-      let message = "";
-
-      if (textWords < 50 && elapsed > 120) {
-        message = "La calidad del audio parece baja. Revisa que el micrófono esté captando la conversación.";
-      } else if (textWords === 0) {
-        message = "No pudimos transcribir el audio. Intenta grabar de nuevo en un lugar con menos ruido.";
-        return null;
-      } else {
-        message = "Transcripción automática lista — revisa antes de analizar.";
-      }
-
-      if (text.length > 15000) {
-        text = text.slice(0, 15000);
-        message = "La transcripción es muy larga. Se mostrarán los primeros 15,000 caracteres.";
-      }
-
-      return { text, original: text, message };
-    } catch (err) {
-      return null;
+      return outcomeForWorkerText((data as { text?: string }).text, elapsed);
+    } catch {
+      // Red caída, DNS, CORS, FileReader reventado. Antes esto era el
+      // `return null` que se comía el fallo entero.
+      return { ok: false, userMessage: TRANSCRIBE_MESSAGES.network };
     }
   };
 
@@ -376,6 +381,8 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   // ─── Start Recording ──────────────────────────────────────
   const startRecording = useCallback(async (orgId: string) => {
     setRecError("");
+    // Grabar de nuevo es la forma de "cerrar" el aviso del intento anterior.
+    setCaptureNotice(null);
     cancelledRef.current = false;
     orgIdRef.current = orgId;
     allStreamsRef.current = [];
@@ -498,7 +505,10 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
           putOffline(entry).then(() => {
             getAllOffline().then(all => setPendingOfflineCount(all.length));
           });
-          setTranscribePhase("Sin conexión — se enviará automáticamente cuando haya internet");
+          // Va al banner del formulario, no a transcribePhase: ese texto solo
+          // se pinta con recMode === "transcribing" y la línea de abajo apaga
+          // ese modo en el mismo tick, así que nunca se veía.
+          setCaptureNotice({ kind: "info", text: TRANSCRIBE_MESSAGES.offlineQueued });
           setRecMode("off");
           setRecElapsed(0);
           return;
@@ -525,17 +535,26 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
           setTranscribePct(p);
         }, 500);
 
-        transcribeAudioBlob(blob, elapsed, currentOrgId).then((result) => {
+        transcribeAudioBlob(blob, elapsed, currentOrgId).then((outcome) => {
           if (transcribeProgressRef.current) clearInterval(transcribeProgressRef.current);
+
+          // Incidente 2026-08-20: pct=100 y "Transcripción lista" se seteaban
+          // ANTES de mirar el resultado. Un fallo terminaba con la barra llena,
+          // el textarea vacío y cero explicación. Ahora el estado de éxito solo
+          // se pinta cuando hay texto.
+          if (isTranscribeFailure(outcome)) {
+            setCaptureNotice({ kind: "error", text: outcome.userMessage });
+            setRecMode("off");
+            return;
+          }
+
           setTranscribePct(100);
           setTranscribePhase("Transcripción lista");
-
-          if (result) {
-            setTranscriptionResult(result);
-            sessionStorage.setItem("c2_transcription", result.text);
-            sessionStorage.setItem("c2_original", result.original);
-            sessionStorage.setItem("c2_source_type", "audio");
-          }
+          setCaptureNotice(null);
+          setTranscriptionResult({ text: outcome.text, original: outcome.original, message: outcome.message });
+          sessionStorage.setItem("c2_transcription", outcome.text);
+          sessionStorage.setItem("c2_original", outcome.original);
+          sessionStorage.setItem("c2_source_type", "audio");
 
           setTimeout(() => setRecMode("off"), 400);
         });
@@ -591,6 +610,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     const draft = await loadDraft();
     if (draft) {
       await deleteDraft();
+      setCaptureNotice(null);
       setRecMode("transcribing");
       setTranscribePct(0);
       setTranscribePhase("Transcribiendo grabación pendiente...");
@@ -602,17 +622,22 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         setTranscribePct(p);
       }, 500);
 
-      const result = await transcribeAudioBlob(draft, 0, orgId);
+      const outcome = await transcribeAudioBlob(draft, 0, orgId);
       if (transcribeProgressRef.current) clearInterval(transcribeProgressRef.current);
+
+      // Mismo trato que el camino de grabación: sin texto no se anuncia "lista".
+      if (isTranscribeFailure(outcome)) {
+        setCaptureNotice({ kind: "error", text: outcome.userMessage });
+        setRecMode("off");
+        return;
+      }
+
       setTranscribePct(100);
       setTranscribePhase("Transcripción lista");
-
-      if (result) {
-        setTranscriptionResult(result);
-        sessionStorage.setItem("c2_transcription", result.text);
-        sessionStorage.setItem("c2_original", result.original);
-        sessionStorage.setItem("c2_source_type", "audio");
-      }
+      setTranscriptionResult({ text: outcome.text, original: outcome.original, message: outcome.message });
+      sessionStorage.setItem("c2_transcription", outcome.text);
+      sessionStorage.setItem("c2_original", outcome.original);
+      sessionStorage.setItem("c2_source_type", "audio");
 
       setTimeout(() => setRecMode("off"), 400);
     }
@@ -622,10 +647,15 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     setTranscriptionResult(null);
   }, []);
 
+  const clearCaptureNotice = useCallback(() => {
+    setCaptureNotice(null);
+  }, []);
+
   return (
     <RecordingContext.Provider value={{
       recMode, recElapsed, pauseCount, totalPausedSecs, recError, recLabel,
       transcribePct, transcribePhase, transcriptionResult, clearTranscriptionResult,
+      captureNotice, clearCaptureNotice,
       hasDraft, useDraft: useDraftFn, deleteDraft,
       pendingOfflineCount, retryOffline,
       startRecording, stopRecording, cancelRecording, pauseRecording, resumeRecording,

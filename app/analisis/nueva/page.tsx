@@ -22,8 +22,16 @@ interface LeadSource {
 }
 
 type Status = "idle" | "analyzing" | "error" | "rechazado";
-type ErrorKind = null | "polling_timeout" | "backend_error" | "rejected" | "submit_error";
+type ErrorKind = null | "polling_timeout" | "backend_error" | "rejected" | "submit_error" | "submit_timeout";
 type PollPhase = "normal" | "long" | "exceeded";
+
+// Techo para "enviar el job", NO para "analizar". El hard timeout del polling
+// (180s) solo se arma DESPUÉS de que el insert resuelve; si el insert se
+// cuelga —stall de red móvil, típico en celular con señal mala— nunca se
+// armaba nada y la barra quedaba al 94% para siempre. Este watchdog cubre esa
+// ventana: resolveScorecard + insert a background_jobs deberían tardar
+// segundos, así que 45s es holgado y queda muy por debajo del soft de 90s.
+const SUBMIT_WATCHDOG_MS = 45000;
 
 // Status terminales que invalidan resume del polling.
 // Comparación case-insensitive porque vocabulario difiere entre
@@ -90,6 +98,7 @@ export default function NuevaLlamadaPage() {
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const submitWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [lastSeenStatus, setLastSeenStatus] = useState<string | null>(null);
@@ -728,8 +737,33 @@ export default function NuevaLlamadaPage() {
     }, 500);
   };
 
+  // ─── Shared: submit watchdog (cubre hasta que el polling toma el control) ─
+  const clearSubmitWatchdog = () => {
+    if (submitWatchdogRef.current) {
+      clearTimeout(submitWatchdogRef.current);
+      submitWatchdogRef.current = null;
+    }
+  };
+
+  const armSubmitWatchdog = () => {
+    clearSubmitWatchdog();
+    submitWatchdogRef.current = setTimeout(() => {
+      submitWatchdogRef.current = null;
+      setStatus((current) => {
+        if (current !== "analyzing") return current;
+        if (progressRef.current) clearInterval(progressRef.current);
+        setErrorKind("submit_timeout");
+        setErrorMsg(`El envío está tardando demasiado. Revisa tu conexión e intenta de nuevo — si tu ${sessionNoun(isPresencialSession)} sí se envió, aparecerá en Mis análisis.`);
+        console.log("[F56] submit_watchdog_fired", { ms: SUBMIT_WATCHDOG_MS });
+        return "error";
+      });
+    }, SUBMIT_WATCHDOG_MS);
+  };
+
   // ─── Shared: arm Edge Function polling (background_jobs) ──
   const armEdgePolling = (jobId: string, opts: { softMs?: number; hardMs: number }) => {
+    // El job existe: de aquí en adelante manda el hard timeout del polling.
+    clearSubmitWatchdog();
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(async () => {
       try {
@@ -802,6 +836,8 @@ export default function NuevaLlamadaPage() {
 
   // ─── Shared: arm Worker polling (analyses status endpoint) ─
   const armWorkerPolling = (analysisId: string, submitOrgId: string, opts: { softMs?: number; hardMs: number }) => {
+    // El análisis existe: de aquí en adelante manda el hard timeout del polling.
+    clearSubmitWatchdog();
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(async () => {
       try {
@@ -950,6 +986,8 @@ export default function NuevaLlamadaPage() {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
       if (progressRef.current) clearInterval(progressRef.current);
+      if (submitWatchdogRef.current) clearTimeout(submitWatchdogRef.current);
+      submitWatchdogRef.current = null;
       timeoutRefs.current.forEach(clearTimeout);
       timeoutRefs.current = [];
     };
@@ -974,6 +1012,9 @@ export default function NuevaLlamadaPage() {
     setAnalysisPhase("Enviando transcripción...");
 
     startProgressTicker();
+    // ANTES del insert, no después: resolveScorecard y el insert a
+    // background_jobs son las dos llamadas que pueden colgarse sin rechazar.
+    armSubmitWatchdog();
 
     try {
       const submitOrgId = orgId;
@@ -986,6 +1027,8 @@ export default function NuevaLlamadaPage() {
         await submitViaWorker(submitOrgId, scorecardId);
       }
     } catch (err: unknown) {
+      // El fallo ya tiene mensaje propio — el watchdog sobra.
+      clearSubmitWatchdog();
       if (progressRef.current) clearInterval(progressRef.current);
       setStatus("error");
       setErrorKind("submit_error");
@@ -1028,6 +1071,7 @@ export default function NuevaLlamadaPage() {
       }
     } else {
       console.log("[F34] new_submit", { activeJobId, lastSeenStatus });
+      clearSubmitWatchdog();
       setStatus("idle");
       setErrorMsg("");
       setErrorKind(null);
@@ -1065,6 +1109,7 @@ export default function NuevaLlamadaPage() {
   const handleNewAudio = () => {
     if (pollRef.current) clearInterval(pollRef.current);
     if (progressRef.current) clearInterval(progressRef.current);
+    clearSubmitWatchdog();
     setStatus("idle");
     setErrorMsg("");
     setErrorKind(null);
@@ -1242,6 +1287,26 @@ export default function NuevaLlamadaPage() {
 
   return (
     <div className="container c2-container">
+      {/* Aviso de captura — sobrevive al fin de la grabación.
+          Es el único canal que le queda a la captadora cuando la
+          transcripción falla: transcribePhase se desmonta con recMode. */}
+      {rec.captureNotice && (
+        <div
+          className={`c2-capture-notice ${rec.captureNotice.kind === "error" ? "c2-capture-notice--error" : "c2-capture-notice--info"}`}
+          role={rec.captureNotice.kind === "error" ? "alert" : "status"}
+        >
+          <p className="c2-capture-notice-text">{rec.captureNotice.text}</p>
+          <button
+            type="button"
+            className="c2-capture-notice-close"
+            onClick={rec.clearCaptureNotice}
+            aria-label="Cerrar aviso"
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
+
       {/* Draft banner */}
       {rec.hasDraft && (
         <div className="c2-draft-banner">
@@ -1670,6 +1735,18 @@ export default function NuevaLlamadaPage() {
                 <button className="c2-retry-btn" onClick={handleRetry}>
                   Reintentar
                 </button>
+              )}
+              {/* El watchdog no sabe si el insert llegó o no: se ofrecen las
+                  dos salidas para no empujar a un reenvío que duplique cuota. */}
+              {errorKind === "submit_timeout" && status === "error" && (
+                <>
+                  <button className="c2-retry-btn" onClick={handleRetry}>
+                    Reintentar
+                  </button>
+                  <button className="c2-retry-btn c2-retry-btn-secondary" onClick={handleViewHistorial}>
+                    Ver Mis análisis
+                  </button>
+                </>
               )}
               {errorKind === "rejected" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>
