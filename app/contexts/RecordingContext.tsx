@@ -346,6 +346,18 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     const sizeFailure = checkBlobSize(blob.size);
     if (sizeFailure) return sizeFailure;
 
+    // ⚠️ QA TEMPORAL — ESTE COMMIT SE REVIERTE ANTES DEL MERGE A MAIN ⚠️
+    // Safari Web Inspector no sabe bloquear requests y chrome://inspect solo
+    // sirve en Android, así que no hay forma de cortar el fetch al Worker
+    // desde un iPhone. Esto lo simula sin cable y sin DevTools: basta entrar
+    // a /analisis/nueva?qa_fail_transcribe=1 desde el teléfono.
+    // Va después de checkBlobSize para que el blob real se ejercite igual.
+    if (typeof window !== "undefined"
+        && new URLSearchParams(window.location.search).get("qa_fail_transcribe") === "1") {
+      console.warn("[QA] fallo de transcripción forzado por qa_fail_transcribe=1");
+      return { ok: false, userMessage: TRANSCRIBE_MESSAGES.network };
+    }
+
     try {
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
