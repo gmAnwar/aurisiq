@@ -614,12 +614,22 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
               const all = await getAllOffline();
               setPendingOfflineCount(all.length);
               setCaptureNotice({ kind: "info", text: TRANSCRIBE_MESSAGES.offlineQueued });
-            } else {
-              // La cola falló: el draft es la única copia y se queda.
-              if (backedUp) setHasDraft(true);
+            } else if (backedUp) {
+              // La cola falló pero el respaldo existe: es la única copia y se
+              // queda. Se ofrece desde el aviso de grabación pendiente.
+              setHasDraft(true);
               setCaptureNotice({
                 kind: "error",
                 text: "No pudimos poner la grabación en la cola de envío. Quedó guardada en este teléfono — vuelve a intentarlo desde el aviso de grabación pendiente.",
+              });
+            } else {
+              // Falló el respaldo Y falló la cola: no hay ninguna copia. Es el
+              // único caso en que el audio se pierde, y hay que decirlo tal
+              // cual. Afirmar "quedó guardada" aquí sería exactamente la
+              // enfermedad que vino a curar este fix.
+              setCaptureNotice({
+                kind: "error",
+                text: "No pudimos guardar la grabación: tu teléfono no tiene espacio libre. Libera espacio e intenta de nuevo — esta grabación se perdió.",
               });
             }
             setRecMode("off");
