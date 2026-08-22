@@ -115,13 +115,25 @@ async function getAllOffline(): Promise<OfflineEntry[]> {
   } catch { return []; }
 }
 
-async function putOffline(entry: OfflineEntry) {
+// Devuelve si la escritura quedó CONFIRMADA. Antes hacía db.close()
+// inmediatamente después del put(), o sea resolvía sin saber si había
+// escrito: un QuotaExceededError dispara tx.onerror, que no existía.
+// Patrón tomado de lib/recordings-queue.ts:55-56.
+async function putOffline(entry: OfflineEntry): Promise<boolean> {
   try {
     const db = await openDB();
-    const tx = db.transaction(OFFLINE_STORE, "readwrite");
-    tx.objectStore(OFFLINE_STORE).put(entry);
-    db.close();
-  } catch { /* ignore */ }
+    return await new Promise<boolean>((resolve) => {
+      const tx = db.transaction(OFFLINE_STORE, "readwrite");
+      tx.objectStore(OFFLINE_STORE).put(entry);
+      tx.oncomplete = () => { db.close(); resolve(true); };
+      tx.onerror = () => {
+        console.error("[F57] offline_put_failed", tx.error?.name || "unknown");
+        db.close();
+        resolve(false);
+      };
+      tx.onabort = () => { db.close(); resolve(false); };
+    });
+  } catch { return false; }
 }
 
 async function deleteOffline(id: string) {
@@ -184,13 +196,38 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   };
 
   // ─── IndexedDB Draft ──────────────────────────────────────
-  const saveDraft = async (blob: Blob) => {
+  // Devuelve si el respaldo quedó CONFIRMADO en disco. Esta función es la red
+  // de seguridad de toda la captura, y hasta hoy tenía la misma enfermedad que
+  // venía persiguiendo el incidente: db.close() antes de que la transacción
+  // confirmara, así que resolvía sin saber si había escrito. Un
+  // QuotaExceededError dispara tx.onerror, que no existía: fallo mudo.
+  const saveDraft = async (blob: Blob): Promise<boolean> => {
+    const t0 = performance.now();
     try {
       const db = await openDB();
-      const tx = db.transaction(STORE_NAME, "readwrite");
-      tx.objectStore(STORE_NAME).put(blob, "draft");
-      db.close();
-    } catch { /* ignore */ }
+      return await new Promise<boolean>((resolve) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        tx.objectStore(STORE_NAME).put(blob, "draft");
+        tx.oncomplete = () => {
+          db.close();
+          // A0.3: no teníamos el número de cuánto tarda escribir un blob
+          // grande en un celular de gama media. Sale de la prueba real.
+          console.log("[F57] draft_saved", {
+            bytes: blob.size,
+            ms: Math.round(performance.now() - t0),
+          });
+          resolve(true);
+        };
+        tx.onerror = () => {
+          console.error("[F57] draft_save_failed", tx.error?.name || "unknown");
+          db.close();
+          resolve(false);
+        };
+        tx.onabort = () => { db.close(); resolve(false); };
+      });
+    } catch {
+      return false;
+    }
   };
 
   const loadDraft = async (): Promise<Blob | null> => {
@@ -205,14 +242,30 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     } catch { return null; }
   };
 
-  const deleteDraft = async () => {
+  // Borrado CONFIRMADO. Importa para el camino feliz: si el borrado no se
+  // confirma y creemos que sí, la captadora ve "tienes una grabación
+  // pendiente" después de cada llamada exitosa — peor que el bug original.
+  const deleteDraftConfirmed = async (): Promise<boolean> => {
     try {
       const db = await openDB();
-      const tx = db.transaction(STORE_NAME, "readwrite");
-      tx.objectStore(STORE_NAME).delete("draft");
-      db.close();
-      setHasDraft(false);
-    } catch { /* ignore */ }
+      const ok = await new Promise<boolean>((resolve) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        tx.objectStore(STORE_NAME).delete("draft");
+        tx.oncomplete = () => { db.close(); resolve(true); };
+        tx.onerror = () => {
+          console.error("[F57] draft_delete_failed", tx.error?.name || "unknown");
+          db.close();
+          resolve(false);
+        };
+        tx.onabort = () => { db.close(); resolve(false); };
+      });
+      if (ok) setHasDraft(false);
+      return ok;
+    } catch { return false; }
+  };
+
+  const deleteDraft = async () => {
+    await deleteDraftConfirmed();
   };
 
   // Check for drafts + offline queue on mount
@@ -469,18 +522,11 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         releaseWakeLock();
 
         const blob = new Blob(chunksRef.current, { type: mimeType });
-
-        // If not intentional stop (e.g. display share ended), save as draft
-        if (!intentionalStopRef.current && blob.size > 1024) {
-          saveDraft(blob);
-          setHasDraft(true);
-          setRecMode("off");
-          setRecElapsed(0);
-          return;
-        }
+        const wasIntentional = intentionalStopRef.current;
         intentionalStopRef.current = false;
 
-        // If cancelled, discard audio — don't transcribe
+        // Cancelar es un descarte deliberado: no se respalda. Se evalúa
+        // ANTES del respaldo para no resucitar audio que la captadora tiró.
         if (cancelledRef.current) {
           cancelledRef.current = false;
           setRecMode("off");
@@ -488,54 +534,97 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        const elapsed = recElapsedRef.current;
-        const currentOrgId = orgIdRef.current;
+        // El resto del handler es async porque el respaldo tiene que quedar
+        // CONFIRMADO antes de seguir. onstop no puede ser async, así que va
+        // en una IIFE.
+        void (async () => {
+          // ─── Respaldo durable, SIEMPRE ───────────────────────────
+          // Incidente 2026-08-21: saveDraft vivía detrás de
+          // `if (!intentionalStopRef.current)`, o sea corría solo cuando la
+          // grabación se cortaba sola. Al tocar "Terminar" el audio quedaba
+          // únicamente como variable de closure: 16 minutos sin una sola
+          // copia durable hasta que la transcripción devolviera texto.
+          // Ahora se escribe apenas se ensambla el blob y se borra solo tras
+          // éxito confirmado.
+          const worthSaving = blob.size > 1024;
+          const backedUp = worthSaving ? await saveDraft(blob) : false;
 
-        // If offline, save to IndexedDB queue and exit early
-        if (!navigator.onLine) {
-          const entry: OfflineEntry = {
-            id: `rec_${Date.now()}`,
-            blob,
-            orgId: currentOrgId,
-            elapsed,
-            timestamp: Date.now(),
-            status: "pending",
-            attempts: 0,
-          };
-          putOffline(entry).then(() => {
-            getAllOffline().then(all => setPendingOfflineCount(all.length));
-          });
-          // Va al banner del formulario, no a transcribePhase: ese texto solo
-          // se pinta con recMode === "transcribing" y la línea de abajo apaga
-          // ese modo en el mismo tick, así que nunca se veía.
-          setCaptureNotice({ kind: "info", text: TRANSCRIBE_MESSAGES.offlineQueued });
-          setRecMode("off");
-          setRecElapsed(0);
-          return;
-        }
+          if (worthSaving && !backedUp) {
+            // No se pudo respaldar (cuota llena, IndexedDB caído). La
+            // captadora se entera ANTES de seguir, pero igual intentamos
+            // transcribir: fallar el respaldo no debe cancelar la captura.
+            setCaptureNotice({
+              kind: "error",
+              text: "No pudimos guardar una copia de seguridad de la grabación. Si algo falla, tendrás que grabar de nuevo. Libera espacio en tu teléfono.",
+            });
+          }
 
-        // Start transcription (online)
-        setRecMode("transcribing");
-        setTranscribePct(0);
-        setTranscribePhase("Procesando audio...");
+          // Corte no intencional (se acabó el compartir pantalla): el
+          // respaldo ya quedó escrito arriba, solo hay que ofrecerlo.
+          if (!wasIntentional) {
+            if (backedUp) setHasDraft(true);
+            setRecMode("off");
+            setRecElapsed(0);
+            return;
+          }
 
-        const tPhases = [
-          { at: 0, text: "Procesando audio..." },
-          { at: 20, text: "Transcribiendo conversación..." },
-          { at: 50, text: "Identificando participantes..." },
-          { at: 80, text: "Finalizando texto..." },
-          { at: 95, text: "Transcripción lista" },
-        ];
-        const tStart = Date.now();
-        transcribeProgressRef.current = setInterval(() => {
-          const el = (Date.now() - tStart) / 1000;
-          const p = Math.min(94, Math.floor(el * 0.8));
-          const cur = [...tPhases].reverse().find(ph => p >= ph.at);
-          if (cur) setTranscribePhase(cur.text);
-          setTranscribePct(p);
-        }, 500);
+          const elapsed = recElapsedRef.current;
+          const currentOrgId = orgIdRef.current;
 
-        transcribeAudioBlob(blob, elapsed, currentOrgId).then((outcome) => {
+          // ─── Offline: traspaso draft → cola, sin dejar cero copias ──
+          if (!navigator.onLine) {
+            const entry: OfflineEntry = {
+              id: `rec_${Date.now()}`,
+              blob,
+              orgId: currentOrgId,
+              elapsed,
+              timestamp: Date.now(),
+              status: "pending",
+              attempts: 0,
+            };
+            const queued = await putOffline(entry);
+            if (queued) {
+              // La cola ya tiene el audio: recién ahora se suelta el draft.
+              // Hay dos copias solo durante este traspaso, nunca cero.
+              await deleteDraftConfirmed();
+              const all = await getAllOffline();
+              setPendingOfflineCount(all.length);
+              setCaptureNotice({ kind: "info", text: TRANSCRIBE_MESSAGES.offlineQueued });
+            } else {
+              // La cola falló: el draft es la única copia y se queda.
+              if (backedUp) setHasDraft(true);
+              setCaptureNotice({
+                kind: "error",
+                text: "No pudimos poner la grabación en la cola de envío. Quedó guardada en este teléfono — vuelve a intentarlo desde el aviso de grabación pendiente.",
+              });
+            }
+            setRecMode("off");
+            setRecElapsed(0);
+            return;
+          }
+
+          // Start transcription (online)
+          setRecMode("transcribing");
+          setTranscribePct(0);
+          setTranscribePhase("Procesando audio...");
+
+          const tPhases = [
+            { at: 0, text: "Procesando audio..." },
+            { at: 20, text: "Transcribiendo conversación..." },
+            { at: 50, text: "Identificando participantes..." },
+            { at: 80, text: "Finalizando texto..." },
+            { at: 95, text: "Transcripción lista" },
+          ];
+          const tStart = Date.now();
+          transcribeProgressRef.current = setInterval(() => {
+            const el = (Date.now() - tStart) / 1000;
+            const p = Math.min(94, Math.floor(el * 0.8));
+            const cur = [...tPhases].reverse().find(ph => p >= ph.at);
+            if (cur) setTranscribePhase(cur.text);
+            setTranscribePct(p);
+          }, 500);
+
+          const outcome = await transcribeAudioBlob(blob, elapsed, currentOrgId);
           if (transcribeProgressRef.current) clearInterval(transcribeProgressRef.current);
 
           // Incidente 2026-08-20: pct=100 y "Transcripción lista" se seteaban
@@ -543,10 +632,22 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
           // el textarea vacío y cero explicación. Ahora el estado de éxito solo
           // se pinta cuando hay texto.
           if (isTranscribeFailure(outcome)) {
-            setCaptureNotice({ kind: "error", text: outcome.userMessage });
+            // El respaldo NO se borra: es justo el caso para el que existe.
+            setCaptureNotice({
+              kind: "error",
+              text: backedUp
+                ? `${outcome.userMessage} Tu grabación quedó guardada en este teléfono — puedes reintentar sin volver a grabar.`
+                : outcome.userMessage,
+            });
+            if (backedUp) setHasDraft(true);
             setRecMode("off");
             return;
           }
+
+          // Éxito confirmado: hay texto. Recién aquí se suelta el respaldo.
+          // Si no se borrara, la captadora vería "tienes una grabación
+          // pendiente" después de CADA llamada exitosa.
+          if (backedUp) await deleteDraftConfirmed();
 
           setTranscribePct(100);
           setTranscribePhase("Transcripción lista");
@@ -557,7 +658,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
           sessionStorage.setItem("c2_source_type", "audio");
 
           setTimeout(() => setRecMode("off"), 400);
-        });
+        })();
       };
 
       recorder.start(1000);
@@ -609,8 +710,11 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   const useDraftFn = useCallback(async (orgId: string) => {
     const draft = await loadDraft();
     if (draft) {
-      await deleteDraft();
+      // El borrado ocurría AQUÍ, antes de pintar la pantalla y antes de tocar
+      // la red: se destruía la única copia durable para después intentar algo
+      // que podía fallar. Ahora se borra solo tras éxito confirmado, al final.
       setCaptureNotice(null);
+      setHasDraft(false); // oculta el aviso mientras corre; el dato sigue en disco
       setRecMode("transcribing");
       setTranscribePct(0);
       setTranscribePhase("Transcribiendo grabación pendiente...");
@@ -627,10 +731,18 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
 
       // Mismo trato que el camino de grabación: sin texto no se anuncia "lista".
       if (isTranscribeFailure(outcome)) {
-        setCaptureNotice({ kind: "error", text: outcome.userMessage });
+        // El draft sigue en disco: se vuelve a ofrecer para reintentar.
+        setCaptureNotice({
+          kind: "error",
+          text: `${outcome.userMessage} Tu grabación sigue guardada en este teléfono — puedes reintentar sin volver a grabar.`,
+        });
+        setHasDraft(true);
         setRecMode("off");
         return;
       }
+
+      // Éxito confirmado: recién aquí se suelta el respaldo.
+      await deleteDraftConfirmed();
 
       setTranscribePct(100);
       setTranscribePhase("Transcripción lista");
