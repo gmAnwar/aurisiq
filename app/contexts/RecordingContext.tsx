@@ -346,7 +346,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     const sizeFailure = checkBlobSize(blob.size);
     if (sizeFailure) return sizeFailure;
 
-    // ⚠️ QA TEMPORAL — ESTE COMMIT SE REVIERTE ANTES DEL MERGE A MAIN ⚠️
+    // ⚠️ QA TEMPORAL — ESTE COMMIT NUNCA SE CHERRY-PICKEA A MAIN ⚠️
     // Safari Web Inspector no sabe bloquear requests y chrome://inspect solo
     // sirve en Android, así que no hay forma de cortar el fetch al Worker
     // desde un iPhone. Esto lo simula sin cable y sin DevTools: basta entrar
@@ -559,7 +559,19 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
           // Ahora se escribe apenas se ensambla el blob y se borra solo tras
           // éxito confirmado.
           const worthSaving = blob.size > 1024;
+          // ⚠️ QA TEMPORAL — mide el respaldo para verlo SIN cable ni consola.
+          const qaTiming = typeof window !== "undefined"
+            && new URLSearchParams(window.location.search).get("qa_show_timing") === "1";
+          const tSave = performance.now();
           const backedUp = worthSaving ? await saveDraft(blob) : false;
+          if (qaTiming) {
+            const ms = Math.round(performance.now() - tSave);
+            const mb = (blob.size / 1048576).toFixed(1);
+            setCaptureNotice({
+              kind: "info",
+              text: `[QA] Respaldo ${backedUp ? "OK" : "FALLÓ"} — ${mb} MB en ${ms} ms`,
+            });
+          }
 
           if (worthSaving && !backedUp) {
             // No se pudo respaldar (cuota llena, IndexedDB caído). La
@@ -663,7 +675,9 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
 
           setTranscribePct(100);
           setTranscribePhase("Transcripción lista");
-          setCaptureNotice(null);
+          // ⚠️ QA TEMPORAL: si estamos midiendo, el número tiene que sobrevivir
+          // al camino feliz — si no, aparece y se borra en el mismo instante.
+          if (!qaTiming) setCaptureNotice(null);
           setTranscriptionResult({ text: outcome.text, original: outcome.original, message: outcome.message });
           sessionStorage.setItem("c2_transcription", outcome.text);
           sessionStorage.setItem("c2_original", outcome.original);
